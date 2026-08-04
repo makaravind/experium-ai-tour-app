@@ -16,11 +16,7 @@ interface Exhibit {
 
 // Skeleton: code maps directly to exhibit UUID.
 // TODO: resolve via qr_codes table once that's created.
-export default async function ExhibitPage({
-  params,
-}: {
-  params: Promise<{ code: string }>
-}) {
+export default async function ExhibitPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
 
   const { data: exhibit, error } = await supabase
@@ -34,7 +30,6 @@ export default async function ExhibitPage({
   return (
     <main className="min-h-screen bg-stone-950 text-white flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-md space-y-6">
-
         {/* Photo placeholder */}
         <div className="w-full aspect-video rounded-2xl bg-stone-800 flex items-center justify-center text-stone-500">
           {exhibit.photo_url ? (
@@ -81,7 +76,6 @@ export default async function ExhibitPage({
         {exhibit.description && (
           <p className="text-stone-300 text-sm leading-relaxed">{exhibit.description}</p>
         )}
-
       </div>
     </main>
   )
