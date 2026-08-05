@@ -47,3 +47,10 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# PWA generated files (serwist)
+public/sw.js
+public/workbox-*.js
+public/sw.js.map
+public/workbox-*.js.map
+public/swe-worker-*.js
