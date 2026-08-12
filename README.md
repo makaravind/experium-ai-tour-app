@@ -29,6 +29,21 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Debug Mode
+
+A debug overlay is available for field testing on preview deployments.
+
+**Enable on Vercel preview:**
+
+```bash
+vercel env add NEXT_PUBLIC_DEBUG_ENABLED preview
+# enter: true
+```
+
+**Activate in browser:** append `?debug=1` to any URL. Persists for the session.
+
+The overlay shows Zustand store state, GPS coords, and API response log. It is never rendered in production (env var absent).
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
