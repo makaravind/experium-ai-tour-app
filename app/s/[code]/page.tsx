@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import ExhibitPageClient from '@/components/ExhibitPageClient'
+import type { Fact } from '@/lib/types'
 
 interface ExhibitAudio {
   language: string
@@ -15,7 +16,7 @@ interface Exhibit {
   type: string | null
   tier: string
   description: string | null
-  facts: Record<string, string> | null
+  facts: Fact[] | null
   exhibit_audio: ExhibitAudio[]
 }
 
@@ -54,7 +55,7 @@ export default async function ExhibitPage({ params }: { params: Promise<{ code: 
         name: exhibit.name,
         type: exhibit.type,
         tier: exhibit.tier,
-        scientificName: exhibit.facts?.scientific_name ?? null,
+        facts: exhibit.facts ?? [],
       }}
       audioByLang={audioByLang}
     />

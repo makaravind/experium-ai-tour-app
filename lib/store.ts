@@ -2,8 +2,8 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { Language } from '@/lib/types'
 
-type Language = 'en' | 'hi' | 'te'
 type OnboardingStep = 'loading' | 'info' | 'exhibit' | null
 
 interface Store {
