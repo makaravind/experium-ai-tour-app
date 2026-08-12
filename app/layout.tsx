@@ -39,7 +39,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
         <Analytics />
-        {process.env.NODE_ENV !== 'production' && <DebugPanel />}
+        {process.env.NEXT_PUBLIC_DEBUG_ENABLED === 'true' && <DebugPanel />}
       </body>
     </html>
   )
