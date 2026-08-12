@@ -47,7 +47,7 @@ export default async function ExhibitPage({ params }: { params: Promise<{ code: 
   )
 
   return (
-    <ExhibitPageClient exhibitId={exhibit.id}>
+    <ExhibitPageClient exhibitId={exhibit.id} rawApiResponse={{ data: qr, error }}>
       <main className="min-h-screen bg-stone-950 text-white flex flex-col items-center px-4 py-8">
         <div className="w-full max-w-md space-y-6">
           {/* Photo placeholder */}
