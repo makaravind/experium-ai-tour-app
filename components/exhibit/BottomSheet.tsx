@@ -7,7 +7,7 @@ import LanguageSelector from '@/components/common/LanguageSelector'
 import { CloseIcon, LeafOutlineIcon, PauseIcon, PlayIcon, StarIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
-import type { ExhibitData } from '@/lib/types'
+import type { ExhibitAudio, ExhibitData } from '@/lib/types'
 
 const SPRING = { type: 'spring', stiffness: 320, damping: 34 } as const
 
@@ -29,11 +29,11 @@ const CONTROL_ID = 'audio-control'
  */
 export default function BottomSheet({
   exhibit,
-  audioByLang,
+  audio,
   onEnded,
 }: {
   exhibit: ExhibitData
-  audioByLang: Record<string, string | null>
+  audio: ExhibitAudio[]
   onEnded: (listenDurationSec: number) => void
 }) {
   const language = useStore((s) => s.language)
@@ -50,7 +50,7 @@ export default function BottomSheet({
   const morphTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dragControls = useDragControls()
 
-  const currentSrc = audioByLang[language] ?? null
+  const currentSrc = audio.find((a) => a.language === language)?.audio_url ?? null
 
   useEffect(() => {
     expandedRef.current = expanded
@@ -122,7 +122,7 @@ export default function BottomSheet({
     }
   }
 
-  const availableLangs = getAvailableLangs(audioByLang)
+  const availableLangs = getAvailableLangs(audio)
   const facts = parseFacts(exhibit.facts)
   const durationLabel = duration > 0 ? ` · ${formatTime(duration)}` : ''
   const typeLabel = exhibit.type?.replace(/_/g, ' ')

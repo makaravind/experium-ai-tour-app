@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { Fact, Language } from '@/lib/types'
+import type { ExhibitAudio, Fact, Language } from '@/lib/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -26,9 +26,9 @@ export const LANGUAGES: LanguageOption[] = [
   { code: 'te', label: 'తె', nativeLabel: 'తెలుగు' },
 ]
 
-/** Languages that actually have published audio for this exhibit. */
-export function getAvailableLangs(audioByLang: Record<string, string | null>): LanguageOption[] {
-  return LANGUAGES.filter(({ code }) => !!audioByLang[code])
+/** Languages that actually have audio among the given rows. */
+export function getAvailableLangs(audio: ExhibitAudio[]): LanguageOption[] {
+  return LANGUAGES.filter(({ code }) => audio.some((a) => a.language === code && a.audio_url))
 }
 
 /** Flattens `exhibits.facts` jsonb into display strings, tolerating null/malformed rows. */

@@ -42,7 +42,9 @@ test.describe('Visitor flow — golden path', () => {
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
   })
 
-  test('full golden path: listen → toast → milestone → dismiss', async ({ page }) => {
+  test('full golden path: listen → audio ends → scan recorded → sheet collapses', async ({
+    page,
+  }) => {
     // Fast-forward through loading + info modal
     await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 6000 })
     await page.getByRole('button', { name: 'Skip for now' }).click()
@@ -53,27 +55,24 @@ test.describe('Visitor flow — golden path', () => {
     await expect(page.getByRole('button', { name: 'Close' })).toBeVisible()
     await expect(page.getByRole('button', { name: /listen/i })).toBeHidden()
 
+    // Reaching the end records the scan — arm the listener before dispatching
+    const scanRequest = page.waitForRequest(
+      (req) => req.url().includes('/api/scan') && req.method() === 'POST'
+    )
+
     // Simulate audio ending — the sheet owns the only <audio> element
     await page.evaluate(() => {
       document.querySelector('audio')?.dispatchEvent(new Event('ended'))
     })
 
+    const body = (await scanRequest).postDataJSON()
+    expect(body.exhibitId).toBeTruthy()
+    expect(body.qrCodeId).toBeTruthy()
+    expect(typeof body.listenDurationSec).toBe('number')
+
     // Sheet collapses back to peek, so Listen returns
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Close' })).toBeHidden()
-
-    // Toast appears
-    await expect(page.getByRole('status')).toBeVisible()
-    await expect(page.getByRole('status')).toContainText('3/50 discovered')
-
-    // Milestone modal (total_discovered: 3 is a milestone)
-    await expect(page.getByText('Milestone reached')).toBeVisible({ timeout: 2000 })
-    await expect(page.getByText('Explorer — 3 Discovered!')).toBeVisible()
-    await expect(page.getByText('Warming up nicely!')).toBeVisible()
-
-    // Dismiss milestone
-    await page.getByRole('button', { name: 'Keep exploring →' }).click()
-    await expect(page.getByText('Milestone reached')).not.toBeVisible()
   })
 
   test('info modal — Continue saves user info and proceeds', async ({ page }) => {

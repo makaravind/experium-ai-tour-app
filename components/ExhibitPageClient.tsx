@@ -5,16 +5,16 @@ import ExhibitView from '@/components/exhibit/ExhibitView'
 import InfoModal from '@/components/exhibit/InfoModal'
 import LoadingScreen from '@/components/exhibit/LoadingScreen'
 import { useStore } from '@/lib/store'
-import type { ExhibitData } from '@/lib/types'
+import type { ExhibitAudio, ExhibitData } from '@/lib/types'
 
 interface Props {
   exhibitId: string
   qrCodeId: string
   exhibit: ExhibitData
-  audioByLang: Record<string, string | null>
+  audio: ExhibitAudio[]
 }
 
-export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audioByLang }: Props) {
+export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audio }: Props) {
   const onboardingStep = useStore((s) => s.onboardingStep)
   const setOnboardingStep = useStore((s) => s.setOnboardingStep)
   const setVisitorId = useStore((s) => s.setVisitorId)
@@ -42,12 +42,5 @@ export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audioB
     return <InfoModal onDone={() => setOnboardingStep('exhibit')} />
   }
 
-  return (
-    <ExhibitView
-      exhibit={exhibit}
-      audioByLang={audioByLang}
-      qrCodeId={qrCodeId}
-      exhibitId={exhibitId}
-    />
-  )
+  return <ExhibitView exhibit={exhibit} audio={audio} qrCodeId={qrCodeId} exhibitId={exhibitId} />
 }

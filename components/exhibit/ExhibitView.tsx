@@ -1,35 +1,28 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
 import BottomSheet from '@/components/exhibit/BottomSheet'
 import MapStub from '@/components/exhibit/MapStub'
-import MilestoneCelebration from '@/components/exhibit/MilestoneCelebration'
 import TabBar from '@/components/exhibit/TabBar'
-import Toast from '@/components/exhibit/Toast'
 import { CompassIcon, SearchIcon } from '@/components/icons'
-import { MILESTONE_NUMBERS } from '@/lib/constants'
 import { useStore } from '@/lib/store'
-import type { ExhibitData } from '@/lib/types'
+import type { ExhibitAudio, ExhibitData } from '@/lib/types'
 
 export default function ExhibitView({
   exhibit,
-  audioByLang,
+  audio,
   qrCodeId,
   exhibitId,
 }: {
   exhibit: ExhibitData
-  audioByLang: Record<string, string | null>
+  audio: ExhibitAudio[]
   qrCodeId: string
   exhibitId: string
 }) {
   const visitorId = useStore((s) => s.visitorId)
-  const totalDiscovered = useStore((s) => s.totalDiscovered)
   const setTotalDiscovered = useStore((s) => s.setTotalDiscovered)
   const markVisited = useStore((s) => s.markVisited)
   const [discovered, setDiscovered] = useState(false)
-  const [showToast, setShowToast] = useState(false)
-  const [showMilestone, setShowMilestone] = useState(false)
 
   const handleAudioEnd = useCallback(
     async (listenDurationSec: number) => {
@@ -45,21 +38,12 @@ export default function ExhibitView({
           }),
         })
         const data = await res.json()
-        const total: number = data.total_discovered ?? 0
-        setTotalDiscovered(total)
+        setTotalDiscovered(data.total_discovered ?? 0)
         markVisited(exhibitId)
-        setDiscovered(true)
-        setShowToast(true)
-        setTimeout(() => setShowToast(false), 3000)
-        if (MILESTONE_NUMBERS.includes(total)) {
-          setTimeout(() => setShowMilestone(true), 400)
-        }
       } catch {
-        // non-fatal — show toast anyway
-        setDiscovered(true)
-        setShowToast(true)
-        setTimeout(() => setShowToast(false), 3000)
+        // Non-fatal. The pin still flips, so the visitor sees the scan landed.
       }
+      setDiscovered(true)
     },
     [qrCodeId, exhibitId, visitorId, setTotalDiscovered, markVisited]
   )
@@ -98,23 +82,10 @@ export default function ExhibitView({
         </div>
       </div>
 
-      {/* Toast */}
-      <AnimatePresence>{showToast && <Toast totalDiscovered={totalDiscovered} />}</AnimatePresence>
-
       {/* Bottom sheet — expands to fullscreen and doubles as the audio player */}
-      <BottomSheet exhibit={exhibit} audioByLang={audioByLang} onEnded={handleAudioEnd} />
+      <BottomSheet exhibit={exhibit} audio={audio} onEnded={handleAudioEnd} />
 
       <TabBar />
-
-      {/* Milestone celebration */}
-      <AnimatePresence>
-        {showMilestone && (
-          <MilestoneCelebration
-            totalDiscovered={totalDiscovered}
-            onDismiss={() => setShowMilestone(false)}
-          />
-        )}
-      </AnimatePresence>
     </div>
   )
 }

@@ -1,13 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import ExhibitPageClient from '@/components/ExhibitPageClient'
-import type { Fact } from '@/lib/types'
-
-interface ExhibitAudio {
-  language: string
-  audio_url: string | null
-  status: string
-}
+import type { ExhibitAudio, Fact } from '@/lib/types'
 
 interface Exhibit {
   id: string
@@ -41,11 +35,7 @@ export default async function ExhibitPage({ params }: { params: Promise<{ code: 
 
   const exhibit = qr.exhibits as unknown as Exhibit
 
-  const audioByLang: Record<string, string | null> = Object.fromEntries(
-    exhibit.exhibit_audio
-      .filter((a) => a.status === 'published' && a.audio_url)
-      .map((a) => [a.language, a.audio_url])
-  )
+  const audio = exhibit.exhibit_audio.filter((a) => a.status === 'published' && a.audio_url)
 
   return (
     <ExhibitPageClient
@@ -57,7 +47,7 @@ export default async function ExhibitPage({ params }: { params: Promise<{ code: 
         tier: exhibit.tier,
         facts: exhibit.facts ?? [],
       }}
-      audioByLang={audioByLang}
+      audio={audio}
     />
   )
 }

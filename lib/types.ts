@@ -11,3 +11,10 @@ export interface ExhibitData {
   tier: string
   facts: Fact[]
 }
+
+/** A row of the `exhibit_audio` relation, as selected on the visitor page. */
+export interface ExhibitAudio {
+  language: string
+  audio_url: string | null
+  status: string
+}
