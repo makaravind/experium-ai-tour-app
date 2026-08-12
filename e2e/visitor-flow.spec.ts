@@ -48,17 +48,19 @@ test.describe('Visitor flow — golden path', () => {
     await page.getByRole('button', { name: 'Skip for now' }).click()
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
 
-    // Open audio player
+    // Listen takes the sheet fullscreen and morphs the button into the ring player
     await page.getByRole('button', { name: /listen/i }).click()
+    await expect(page.getByRole('button', { name: 'Close' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /listen/i })).toBeHidden()
 
-    // Audio player overlay is open — the player uses preload="auto"
-    // (ExhibitView also has a preload="metadata" stub, so we target the player's element)
-    await expect(page.locator('audio[preload="auto"]')).toBeAttached()
-
-    // Simulate audio ending on the player element
+    // Simulate audio ending — the sheet owns the only <audio> element
     await page.evaluate(() => {
-      document.querySelector('audio[preload="auto"]')?.dispatchEvent(new Event('ended'))
+      document.querySelector('audio')?.dispatchEvent(new Event('ended'))
     })
+
+    // Sheet collapses back to peek, so Listen returns
+    await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Close' })).toBeHidden()
 
     // Toast appears
     await expect(page.getByRole('status')).toBeVisible()

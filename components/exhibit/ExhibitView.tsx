@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import AudioPlayer from '@/components/exhibit/AudioPlayer'
 import BottomSheet from '@/components/exhibit/BottomSheet'
 import MapStub from '@/components/exhibit/MapStub'
 import MilestoneCelebration from '@/components/exhibit/MilestoneCelebration'
@@ -24,23 +23,16 @@ export default function ExhibitView({
   qrCodeId: string
   exhibitId: string
 }) {
-  const language = useStore((s) => s.language)
   const visitorId = useStore((s) => s.visitorId)
   const totalDiscovered = useStore((s) => s.totalDiscovered)
   const setTotalDiscovered = useStore((s) => s.setTotalDiscovered)
   const markVisited = useStore((s) => s.markVisited)
-  const [showPlayer, setShowPlayer] = useState(false)
   const [discovered, setDiscovered] = useState(false)
   const [showToast, setShowToast] = useState(false)
   const [showMilestone, setShowMilestone] = useState(false)
-  const [audioDuration, setAudioDuration] = useState(0)
-
-  const currentAudioUrl = audioByLang[language] ?? null
 
   const handleAudioEnd = useCallback(
     async (listenDurationSec: number) => {
-      setShowPlayer(false)
-
       try {
         const res = await fetch('/api/scan', {
           method: 'POST',
@@ -109,35 +101,10 @@ export default function ExhibitView({
       {/* Toast */}
       <AnimatePresence>{showToast && <Toast totalDiscovered={totalDiscovered} />}</AnimatePresence>
 
-      {/* Bottom sheet */}
-      <BottomSheet
-        exhibit={exhibit}
-        audioByLang={audioByLang}
-        audioDuration={audioDuration}
-        onListen={() => setShowPlayer(true)}
-      />
+      {/* Bottom sheet — expands to fullscreen and doubles as the audio player */}
+      <BottomSheet exhibit={exhibit} audioByLang={audioByLang} onEnded={handleAudioEnd} />
 
       <TabBar />
-
-      {/* Hidden audio for duration metadata */}
-      {currentAudioUrl && (
-        <audio
-          src={currentAudioUrl}
-          preload="metadata"
-          onLoadedMetadata={(e) => setAudioDuration((e.target as HTMLAudioElement).duration)}
-          style={{ display: 'none' }}
-        />
-      )}
-
-      {/* Audio player (full-screen) */}
-      {showPlayer && (
-        <AudioPlayer
-          exhibit={exhibit}
-          audioByLang={audioByLang}
-          onClose={() => setShowPlayer(false)}
-          onEnded={handleAudioEnd}
-        />
-      )}
 
       {/* Milestone celebration */}
       <AnimatePresence>
