@@ -5,7 +5,9 @@ beforeEach(() => {
   useStore.setState({
     language: 'en',
     visitedExhibits: [],
-    audioState: { isPlaying: false, currentExhibitId: null, positionSec: 0 },
+    onboardingStep: null,
+    visitorId: null,
+    totalDiscovered: 0,
   })
 })
 
@@ -33,16 +35,24 @@ describe('visitedExhibits', () => {
   })
 })
 
-describe('audioState', () => {
-  it('defaults to not playing', () => {
-    expect(useStore.getState().audioState.isPlaying).toBe(false)
+describe('onboardingStep', () => {
+  it('defaults to null (uninitialized)', () => {
+    expect(useStore.getState().onboardingStep).toBe(null)
   })
 
-  it('updates partially', () => {
-    useStore.getState().setAudioState({ isPlaying: true, currentExhibitId: 'abc' })
-    const { audioState } = useStore.getState()
-    expect(audioState.isPlaying).toBe(true)
-    expect(audioState.currentExhibitId).toBe('abc')
-    expect(audioState.positionSec).toBe(0)
+  it('advances to exhibit', () => {
+    useStore.getState().setOnboardingStep('exhibit')
+    expect(useStore.getState().onboardingStep).toBe('exhibit')
+  })
+})
+
+describe('totalDiscovered', () => {
+  it('defaults to 0', () => {
+    expect(useStore.getState().totalDiscovered).toBe(0)
+  })
+
+  it('updates', () => {
+    useStore.getState().setTotalDiscovered(5)
+    expect(useStore.getState().totalDiscovered).toBe(5)
   })
 })

@@ -4,12 +4,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 type Language = 'en' | 'hi' | 'te'
-
-interface AudioState {
-  isPlaying: boolean
-  currentExhibitId: string | null
-  positionSec: number
-}
+type OnboardingStep = 'loading' | 'info' | 'exhibit' | null
 
 interface Store {
   // persisted
@@ -20,14 +15,14 @@ interface Store {
   markVisited: (exhibitId: string) => void
 
   // session only
-  audioState: AudioState
-  setAudioState: (s: Partial<AudioState>) => void
-}
+  onboardingStep: OnboardingStep
+  setOnboardingStep: (s: OnboardingStep) => void
 
-const defaultAudioState: AudioState = {
-  isPlaying: false,
-  currentExhibitId: null,
-  positionSec: 0,
+  visitorId: string | null
+  setVisitorId: (id: string) => void
+
+  totalDiscovered: number
+  setTotalDiscovered: (n: number) => void
 }
 
 export const useStore = create<Store>()(
@@ -44,13 +39,22 @@ export const useStore = create<Store>()(
             : [...s.visitedExhibits, exhibitId],
         })),
 
-      audioState: defaultAudioState,
-      setAudioState: (partial) => set((s) => ({ audioState: { ...s.audioState, ...partial } })),
+      onboardingStep: null,
+      setOnboardingStep: (onboardingStep) => set({ onboardingStep }),
+
+      visitorId: null,
+      setVisitorId: (visitorId) => set({ visitorId }),
+
+      totalDiscovered: 0,
+      setTotalDiscovered: (totalDiscovered) => set({ totalDiscovered }),
     }),
     {
       name: 'experium-store',
-      // audioState is excluded — session only
-      partialize: (s) => ({ language: s.language, visitedExhibits: s.visitedExhibits }),
+      partialize: (s) => ({
+        language: s.language,
+        visitedExhibits: s.visitedExhibits,
+        totalDiscovered: s.totalDiscovered,
+      }),
     }
   )
 )

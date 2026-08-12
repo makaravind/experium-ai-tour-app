@@ -7,7 +7,7 @@ import { useDebugStore } from '@/lib/debug-store'
 export default function DebugPanel() {
   const [open, setOpen] = useState(false)
   const { isActive, setActive, gps, setGps, apiLog, clearApiLog } = useDebugStore()
-  const { language, visitedExhibits, audioState } = useStore()
+  const { language, visitedExhibits, onboardingStep, totalDiscovered } = useStore()
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -35,7 +35,11 @@ export default function DebugPanel() {
   }
 
   const copyAll = () => {
-    const data = { store: { language, visitedExhibits, audioState }, gps, apiLog }
+    const data = {
+      store: { language, visitedExhibits, onboardingStep, totalDiscovered },
+      gps,
+      apiLog,
+    }
     navigator.clipboard.writeText(JSON.stringify(data, null, 2))
   }
 
@@ -61,7 +65,11 @@ export default function DebugPanel() {
             <section>
               <p className="text-stone-500 text-xs mb-1">STORE</p>
               <pre className="text-xs text-stone-300 bg-stone-950 rounded p-2 overflow-x-auto whitespace-pre-wrap">
-                {JSON.stringify({ language, visitedExhibits, audioState }, null, 2)}
+                {JSON.stringify(
+                  { language, visitedExhibits, onboardingStep, totalDiscovered },
+                  null,
+                  2
+                )}
               </pre>
             </section>
 
