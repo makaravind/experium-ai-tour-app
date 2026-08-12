@@ -36,36 +36,37 @@ export default function Gallery({ count = 4 }: { count?: number }) {
 
   return (
     <div className="w-full">
-      <div
-        ref={trackRef}
-        onScroll={onScroll}
-        className="flex w-full overflow-x-auto snap-x snap-mandatory no-scrollbar"
-        style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
-        role="group"
-        aria-label="Exhibit photos"
-      >
-        {Array.from({ length: count }, (_, i) => (
-          <div key={i} className="w-full flex-shrink-0 snap-center">
-            <div
-              className="w-full relative flex items-center justify-center"
-              style={{
-                aspectRatio: '1/1',
-                background: i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
-              }}
-              aria-label={`Photo ${i + 1} of ${count} — coming soon`}
-            >
-              {i > 0 && (
-                <LeafOutlineIcon size={30} color={PLACEHOLDER.blankIcon} strokeWidth={1.6} />
-              )}
-              <span
-                className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold"
-                style={{ background: 'rgba(0,0,0,0.5)', color: '#fff' }}
+      {/* The counter is a sibling of the track, not of the slides, so one pill
+          stays put instead of every slide carrying its own copy. */}
+      <div className="relative">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex w-full overflow-x-auto snap-x snap-mandatory no-scrollbar"
+          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+          role="group"
+          aria-label="Exhibit photos"
+        >
+          {Array.from({ length: count }, (_, i) => (
+            <div key={i} className="w-full flex-shrink-0 snap-center">
+              <div
+                className="w-full flex items-center justify-center"
+                style={{
+                  aspectRatio: '1/1',
+                  background: i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
+                }}
+                aria-label={`Photo ${i + 1} of ${count} — coming soon`}
               >
-                {active + 1} / {count}
-              </span>
+                {i > 0 && (
+                  <LeafOutlineIcon size={30} color={PLACEHOLDER.blankIcon} strokeWidth={1.6} />
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+        <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold bg-black/50 text-white">
+          {active + 1} / {count}
+        </span>
       </div>
 
       {/* Thumbnail strip */}
