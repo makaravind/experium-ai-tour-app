@@ -47,6 +47,9 @@
   /* Experium colors */
   --color-ex-forest: #588157;
   --color-ex-forest-shadow: #3f6b3a;
+  /* Gradient stops for the logo tile and exhibit thumbnails */
+  --color-ex-forest-light: #7fa06a;
+  --color-ex-forest-deep: #4d6b46;
   --color-ex-orange: #dda15e;
   --color-ex-orange-shadow: #b8834a;
   --color-ex-sage: #a3b18a;
@@ -170,6 +173,9 @@
   --ex-shadow-press-orange-active: 0 2px 0 #b8834a;
   --ex-shadow-sheet: 0 -8px 32px rgba(43, 43, 43, 0.12);
   --ex-shadow-soft: 0 2px 10px rgba(43, 43, 43, 0.08);
+  --ex-shadow-nav: 0 8px 26px rgba(43, 43, 43, 0.14);
+  --ex-shadow-modal: 0 12px 34px rgba(43, 43, 43, 0.14);
+  --ex-shadow-float: 0 2px 8px rgba(43, 43, 43, 0.18);
 }
 
 @layer base {

@@ -5,6 +5,16 @@ import { motion } from 'framer-motion'
 import { LeafOutlineIcon } from '@/components/icons'
 
 /**
+ * Placeholder art only — these disappear once `exhibit_photos` has rows, so they
+ * stay local rather than entering the theme palette.
+ */
+const PLACEHOLDER = {
+  hero: 'linear-gradient(160deg, #6f9557, #456a3f)',
+  blank: 'linear-gradient(160deg, #e8e5df, #d8d4cb)',
+  blankIcon: '#b9b4a8',
+} as const
+
+/**
  * Photo gallery. `exhibit_photos` has no rows yet, so cards render as blank
  * placeholders — but the swipe, snapping and dots are fully functional.
  */
@@ -41,14 +51,13 @@ export default function Gallery({ count = 4 }: { count?: number }) {
               className="w-full rounded-2xl overflow-hidden relative flex items-center justify-center"
               style={{
                 aspectRatio: '16/9',
-                background:
-                  i === 0
-                    ? 'linear-gradient(160deg, #6f9557, #456a3f)'
-                    : 'linear-gradient(160deg, #e8e5df, #d8d4cb)',
+                background: i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
               }}
               aria-label={`Photo ${i + 1} of ${count} — coming soon`}
             >
-              {i > 0 && <LeafOutlineIcon size={30} color="#b9b4a8" strokeWidth={1.6} />}
+              {i > 0 && (
+                <LeafOutlineIcon size={30} color={PLACEHOLDER.blankIcon} strokeWidth={1.6} />
+              )}
             </div>
           </div>
         ))}
@@ -60,12 +69,11 @@ export default function Gallery({ count = 4 }: { count?: number }) {
           <motion.button
             key={i}
             onClick={() => goTo(i)}
-            className="rounded-full"
+            className={`rounded-full transition-colors ${
+              i === active ? 'bg-ex-forest' : 'bg-ex-border'
+            }`}
             style={{ border: 'none', padding: 0, height: 6 }}
-            animate={{
-              width: i === active ? 16 : 6,
-              background: i === active ? '#588157' : '#e8e5df',
-            }}
+            animate={{ width: i === active ? 16 : 6 }}
             transition={{ type: 'spring', stiffness: 420, damping: 32 }}
             aria-label={`Go to photo ${i + 1}`}
             aria-current={i === active}

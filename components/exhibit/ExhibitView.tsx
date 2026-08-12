@@ -58,27 +58,17 @@ export default function ExhibitView({
         style={{ top: 60, zIndex: 20 }}
       >
         <div
-          className="flex-1 h-11 flex items-center gap-2 px-4 rounded-full font-semibold text-sm"
-          style={{
-            background: '#fff',
-            border: '1px solid #e8e5df',
-            boxShadow: '0 2px 10px rgba(43,43,43,.08)',
-            color: '#8a8a8a',
-          }}
+          className="flex-1 h-11 flex items-center gap-2 px-4 rounded-full font-semibold text-sm bg-ex-paper border border-ex-border text-ex-muted"
+          style={{ boxShadow: 'var(--ex-shadow-soft)' }}
         >
-          <SearchIcon size={17} color="#8a8a8a" strokeWidth={2.2} />
+          <SearchIcon size={17} strokeWidth={2.2} />
           Search
         </div>
         <div
-          className="w-11 h-11 rounded-full flex items-center justify-center"
-          style={{
-            background: '#fff',
-            border: '1px solid #e8e5df',
-            boxShadow: '0 2px 10px rgba(43,43,43,.08)',
-            color: '#588157',
-          }}
+          className="w-11 h-11 rounded-full flex items-center justify-center bg-ex-paper border border-ex-border text-ex-forest"
+          style={{ boxShadow: 'var(--ex-shadow-soft)' }}
         >
-          <CompassIcon size={20} color="currentColor" strokeWidth={2.2} />
+          <CompassIcon size={20} strokeWidth={2.2} />
         </div>
       </div>
 

@@ -55,12 +55,11 @@ export default function LanguageSelector({
             onClick={() => setLanguage(code)}
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            className={`${button} transition-colors`}
-            style={
+            className={`${button} transition-colors ${
               selected
-                ? { background: '#588157', borderColor: '#588157', color: '#fff' }
-                : { background: 'transparent', borderColor: '#a3b18a', color: '#2b2b2b' }
-            }
+                ? 'bg-ex-forest border-ex-forest text-white'
+                : 'bg-transparent border-ex-sage text-ex-ink'
+            }`}
             aria-pressed={selected}
           >
             {useNativeLabel ? nativeLabel : label}

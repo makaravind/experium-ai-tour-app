@@ -130,10 +130,9 @@ export default function BottomSheet({
 
   return (
     <motion.div
-      className="absolute left-0 right-0 bottom-0 rounded-t-3xl overflow-y-auto"
+      className="absolute left-0 right-0 bottom-0 rounded-t-3xl overflow-y-auto bg-ex-paper"
       style={{
-        background: '#fff',
-        boxShadow: '0 -8px 32px rgba(43,43,43,.12)',
+        boxShadow: 'var(--ex-shadow-sheet)',
         zIndex: 30,
         fontFamily: 'var(--font-body)',
       }}
@@ -172,7 +171,7 @@ export default function BottomSheet({
           aria-label={expanded ? 'Collapse details' : 'Expand to full view'}
           aria-expanded={expanded}
         >
-          <span className="rounded-full" style={{ width: 36, height: 4, background: '#e8e5df' }} />
+          <span className="rounded-full bg-ex-border" style={{ width: 36, height: 4 }} />
         </button>
 
         <div className="px-4">
@@ -191,22 +190,19 @@ export default function BottomSheet({
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2, delay: 0.12 }}
                     onClick={collapse}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{
-                      background: 'rgba(255,255,255,.92)',
-                      border: 'none',
-                      boxShadow: '0 2px 8px rgba(43,43,43,.18)',
-                    }}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center bg-white/92 text-ex-ink"
+                    style={{ border: 'none', boxShadow: 'var(--ex-shadow-float)' }}
                     aria-label="Close"
                   >
-                    <CloseIcon size={16} color="#2b2b2b" strokeWidth={2.4} />
+                    <CloseIcon size={16} strokeWidth={2.4} />
                   </motion.button>
                 </div>
               ) : (
                 <div
                   className="w-14 h-14 rounded-xl"
                   style={{
-                    background: 'linear-gradient(135deg, #7fa06a, #4d6b46)',
+                    background:
+                      'linear-gradient(135deg, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
                     overflow: 'hidden',
                   }}
                 />
@@ -216,31 +212,21 @@ export default function BottomSheet({
             <motion.div layout="position" transition={SPRING}>
               <div className="flex items-center gap-2 flex-wrap">
                 <span
-                  className="text-lg font-bold leading-tight"
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    color: '#2b2b2b',
-                    letterSpacing: '-0.3px',
-                  }}
+                  className="text-lg font-bold leading-tight text-ex-ink"
+                  style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.3px' }}
                 >
                   {exhibit.name}
                 </span>
                 {exhibit.tier === 'a' && (
-                  <span
-                    className="inline-flex items-center gap-1 text-[10.5px] font-extrabold px-2 py-0.5 rounded-full"
-                    style={{ color: '#b8834a', background: 'rgba(221,161,94,.22)' }}
-                  >
-                    <StarIcon size={11} color="#dda15e" />
+                  <span className="inline-flex items-center gap-1 text-[10.5px] font-extrabold px-2 py-0.5 rounded-full text-ex-orange-shadow bg-ex-orange/22">
+                    <StarIcon size={11} className="text-ex-orange" />
                     Featured
                   </span>
                 )}
               </div>
               {typeLabel && (
-                <span
-                  className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                  style={{ background: '#f8f7f4', border: '1px solid #e8e5df', color: '#2b2b2b' }}
-                >
-                  <LeafOutlineIcon size={13} color="#588157" strokeWidth={2} />
+                <span className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-ex-bg border border-ex-border text-ex-ink">
+                  <LeafOutlineIcon size={13} className="text-ex-forest" strokeWidth={2} />
                   {typeLabel}
                 </span>
               )}
@@ -268,13 +254,20 @@ export default function BottomSheet({
                   style={{ transform: 'rotate(-90deg)' }}
                   aria-hidden="true"
                 >
-                  <circle cx="48" cy="48" r={RING_R} fill="none" stroke="#e8e5df" strokeWidth="5" />
                   <circle
                     cx="48"
                     cy="48"
                     r={RING_R}
                     fill="none"
-                    stroke="#588157"
+                    className="stroke-ex-border"
+                    strokeWidth="5"
+                  />
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r={RING_R}
+                    fill="none"
+                    className="stroke-ex-forest"
                     strokeWidth="5"
                     strokeLinecap="round"
                     strokeDasharray={RING_C}
@@ -286,7 +279,7 @@ export default function BottomSheet({
                   onClick={togglePlay}
                   whileTap={{ scale: 0.93 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  className="btn-3d-green absolute rounded-full flex items-center justify-center"
+                  className="btn-3d-green absolute rounded-full flex items-center justify-center bg-ex-forest text-white"
                   style={{
                     width: 64,
                     height: 64,
@@ -294,21 +287,16 @@ export default function BottomSheet({
                     left: '50%',
                     x: '-50%',
                     y: '-50%',
-                    background: '#588157',
                     border: 'none',
                   }}
                   aria-label={isPlaying ? 'Pause' : 'Play'}
                 >
-                  {isPlaying ? (
-                    <PauseIcon size={26} color="#fff" />
-                  ) : (
-                    <PlayIcon size={26} color="#fff" />
-                  )}
+                  {isPlaying ? <PauseIcon size={26} /> : <PlayIcon size={26} />}
                 </motion.button>
               </motion.div>
 
-              <p className="mt-4 font-bold text-sm tabular-nums" style={{ color: '#8a8a8a' }}>
-                <strong style={{ color: '#2b2b2b' }}>{formatTime(elapsed)}</strong>
+              <p className="mt-4 font-bold text-sm tabular-nums text-ex-muted">
+                <strong className="text-ex-ink">{formatTime(elapsed)}</strong>
                 {duration > 0 && ` / ${formatTime(duration)}`}
               </p>
             </div>
@@ -319,10 +307,10 @@ export default function BottomSheet({
               disabled={!currentSrc}
               whileTap={{ scale: 0.98 }}
               transition={SPRING}
-              className="btn-3d-green w-full h-14 rounded-2xl font-extrabold text-base flex items-center justify-center gap-2"
-              style={{ background: '#588157', color: '#fff', border: 'none' }}
+              className="btn-3d-green w-full h-14 rounded-2xl font-extrabold text-base flex items-center justify-center gap-2 bg-ex-forest text-white"
+              style={{ border: 'none' }}
             >
-              <PlayIcon size={20} color="#fff" />
+              <PlayIcon size={20} />
               Listen{durationLabel}
             </motion.button>
           )}
@@ -339,19 +327,14 @@ export default function BottomSheet({
                 className="mt-6"
               >
                 <h3
-                  className="text-xs font-extrabold uppercase tracking-wider"
-                  style={{ color: '#8a8a8a', letterSpacing: '0.05em' }}
+                  className="text-xs font-extrabold uppercase tracking-wider text-ex-muted"
+                  style={{ letterSpacing: '0.05em' }}
                 >
                   About
                 </h3>
                 <ol
-                  className="mt-2.5 rounded-2xl px-5 py-4 space-y-2.5 list-decimal list-outside text-sm font-semibold"
-                  style={{
-                    background: '#f8f7f4',
-                    border: '1px solid #e8e5df',
-                    color: '#2b2b2b',
-                    paddingLeft: 34,
-                  }}
+                  className="mt-2.5 rounded-2xl px-5 py-4 space-y-2.5 list-decimal list-outside text-sm font-semibold bg-ex-bg border border-ex-border text-ex-ink"
+                  style={{ paddingLeft: 34 }}
                 >
                   {facts.map((fact, i) => (
                     <li key={i} className="leading-relaxed" style={{ paddingLeft: 2 }}>
