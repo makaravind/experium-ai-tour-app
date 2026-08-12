@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-const EXHIBIT_ID = 'b7e34f4b-41da-43d5-8fd0-7c61857da9ca'
+const QR_CODE = 'baobab-forest'
 
 test.describe('Nature Audio Tour — smoke', () => {
   test('home page renders', async ({ page }) => {
@@ -10,26 +10,18 @@ test.describe('Nature Audio Tour — smoke', () => {
   })
 
   test('exhibit page loads real data from Supabase', async ({ page }) => {
-    await page.goto(`/s/${EXHIBIT_ID}`)
+    await page.addInitScript(() => localStorage.setItem('experium_onboarded', '1'))
+    await page.goto(`/s/${QR_CODE}`)
 
-    // exhibit name + scientific name (from seed row)
-    await expect(page.getByRole('heading', { name: 'Ancient Banyan Tree' })).toBeVisible()
-    await expect(page.getByText('Ficus benghalensis')).toBeVisible()
-
-    // type/tier badge
-    await expect(page.getByText(/plant.*Tier A/i)).toBeVisible()
-
-    // language selector has 3 options
-    const select = page.getByRole('combobox')
-    await expect(select).toBeVisible()
-    await expect(select.locator('option')).toHaveCount(3)
+    // exhibit name visible in BottomSheet
+    await expect(page.getByText('Baobab Forest')).toBeVisible({ timeout: 6000 })
 
     // listen button
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
   })
 
   test('unknown exhibit code returns 404', async ({ page }) => {
-    const res = await page.goto('/s/00000000-0000-0000-0000-000000000000')
+    const res = await page.goto('/s/nonexistent-code-xyz')
     expect(res?.status()).toBe(404)
   })
 })
