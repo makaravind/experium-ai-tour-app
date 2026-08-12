@@ -17,11 +17,11 @@ const TAB_BAR_CLEARANCE = 108
 const RING_R = 43
 const RING_C = 2 * Math.PI * RING_R // ≈ 270
 
-/** Beat after the sheet lands fullscreen before the button becomes the ring. */
+/**
+ * Doubles as the beat after the sheet lands fullscreen and the length of the
+ * button's pop, so the button has collapsed to nothing before the ring arrives.
+ */
 const MORPH_DELAY = 280
-
-/** Shared id that morphs the Listen button into the progress ring and back. */
-const CONTROL_ID = 'audio-control'
 
 /**
  * The sheet *is* the audio player. Peek height shows the exhibit summary;
@@ -40,6 +40,8 @@ export default function BottomSheet({
   const [expanded, setExpanded] = useState(false)
   /** True once Listen is pressed — this is what shows the ring over the button. */
   const [started, setStarted] = useState(false)
+  /** Drives the button's grow-flash-vanish while it waits to be replaced. */
+  const [popping, setPopping] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -89,17 +91,16 @@ export default function BottomSheet({
   const listen = () => {
     const el = audioRef.current
     if (!el) return
-    const alreadyOpen = expanded
     setExpanded(true)
     setIsPlaying(true)
+    setPopping(true)
     el.currentTime = 0
     setElapsed(0)
     // Must stay inside the click's gesture context or iOS blocks playback.
     el.play()
-    // Let the sheet finish opening before the button becomes the ring. Already
-    // open means there's no height animation to wait on, so morph at once.
-    if (alreadyOpen) setStarted(true)
-    else morphTimer.current = setTimeout(() => setStarted(true), MORPH_DELAY)
+    // The pop runs for exactly this long, so the ring takes over the instant
+    // the button hits zero — whether or not the sheet had to open first.
+    morphTimer.current = setTimeout(() => setStarted(true), MORPH_DELAY)
   }
 
   /** Back to peek. Pauses rather than stops; the next Listen restarts from 0. */
@@ -107,6 +108,8 @@ export default function BottomSheet({
     if (morphTimer.current) clearTimeout(morphTimer.current)
     audioRef.current?.pause()
     setStarted(false)
+    // Without this the Listen button would come back still collapsed to zero.
+    setPopping(false)
     setExpanded(false)
   }
 
@@ -130,7 +133,7 @@ export default function BottomSheet({
 
   return (
     <motion.div
-      className="absolute left-0 right-0 bottom-0 rounded-t-3xl overflow-y-auto bg-ex-paper"
+      className="absolute left-0 right-0 bottom-0 rounded-t-3xl overflow-y-auto overflow-x-clip bg-ex-paper"
       style={{
         boxShadow: 'var(--ex-shadow-sheet)',
         zIndex: 30,
@@ -238,11 +241,12 @@ export default function BottomSheet({
             <LanguageSelector options={availableLangs} variant="chip" className="mt-4 mb-4" />
           )}
 
-          {/* Listen button ⇄ progress ring — one element, shared layoutId */}
+          {/* Listen button pops out of existence, then the ring springs in */}
           {started ? (
             <div className="flex flex-col items-center">
               <motion.div
-                layoutId={CONTROL_ID}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
                 transition={SPRING}
                 className="relative"
                 style={{ width: 96, height: 96 }}
@@ -302,11 +306,27 @@ export default function BottomSheet({
             </div>
           ) : (
             <motion.button
-              layoutId={CONTROL_ID}
               onClick={listen}
               disabled={!currentSrc}
               whileTap={{ scale: 0.98 }}
-              transition={SPRING}
+              animate={
+                popping
+                  ? {
+                      scale: [1, 1.18, 0],
+                      opacity: [1, 1, 0],
+                      filter: ['brightness(1)', 'brightness(1.35)', 'brightness(1)'],
+                    }
+                  : { scale: 1, opacity: 1, filter: 'brightness(1)' }
+              }
+              transition={
+                popping
+                  ? {
+                      duration: MORPH_DELAY / 1000,
+                      times: [0, 0.4, 1],
+                      ease: ['easeOut', 'easeIn'],
+                    }
+                  : SPRING
+              }
               className="btn-3d-green w-full h-14 rounded-2xl font-extrabold text-base flex items-center justify-center gap-2 bg-ex-forest text-white"
               style={{ border: 'none' }}
             >
