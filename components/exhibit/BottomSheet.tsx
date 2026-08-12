@@ -49,6 +49,7 @@ export default function BottomSheet({
   const audioRef = useRef<HTMLAudioElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const expandedRef = useRef(false)
+  const factsRef = useRef<HTMLElement>(null)
   const morphTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dragControls = useDragControls()
 
@@ -186,7 +187,7 @@ export default function BottomSheet({
           >
             <motion.div layout transition={SPRING} className={expanded ? 'w-full' : ''}>
               {expanded ? (
-                <div className="relative">
+                <div className="-mx-4 relative">
                   <Gallery />
                   <motion.button
                     initial={{ opacity: 0 }}
@@ -303,6 +304,16 @@ export default function BottomSheet({
                 <strong className="text-ex-ink">{formatTime(elapsed)}</strong>
                 {duration > 0 && ` / ${formatTime(duration)}`}
               </p>
+              {/* Only offer this when there is actually a facts section to reach. */}
+              {facts.length > 0 && (
+                <button
+                  onClick={() => factsRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                  className="mt-2 text-xs font-bold text-ex-forest"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  Learn more ↓
+                </button>
+              )}
             </div>
           ) : (
             <motion.button
@@ -339,6 +350,7 @@ export default function BottomSheet({
           <AnimatePresence initial={false}>
             {expanded && facts.length > 0 && (
               <motion.section
+                ref={factsRef}
                 key="about"
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}

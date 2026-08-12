@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
 import { LeafOutlineIcon } from '@/components/icons'
 
 /**
@@ -16,7 +15,7 @@ const PLACEHOLDER = {
 
 /**
  * Photo gallery. `exhibit_photos` has no rows yet, so cards render as blank
- * placeholders — but the swipe, snapping and dots are fully functional.
+ * placeholders — but the swipe, snapping and thumbnails are fully functional.
  */
 export default function Gallery({ count = 4 }: { count?: number }) {
   const trackRef = useRef<HTMLDivElement>(null)
@@ -48,9 +47,9 @@ export default function Gallery({ count = 4 }: { count?: number }) {
         {Array.from({ length: count }, (_, i) => (
           <div key={i} className="w-full flex-shrink-0 snap-center">
             <div
-              className="w-full rounded-2xl overflow-hidden relative flex items-center justify-center"
+              className="w-full relative flex items-center justify-center"
               style={{
-                aspectRatio: '16/9',
+                aspectRatio: '1/1',
                 background: i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
               }}
               aria-label={`Photo ${i + 1} of ${count} — coming soon`}
@@ -58,26 +57,41 @@ export default function Gallery({ count = 4 }: { count?: number }) {
               {i > 0 && (
                 <LeafOutlineIcon size={30} color={PLACEHOLDER.blankIcon} strokeWidth={1.6} />
               )}
+              <span
+                className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold"
+                style={{ background: 'rgba(0,0,0,0.5)', color: '#fff' }}
+              >
+                {active + 1} / {count}
+              </span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Dots */}
-      <div className="flex gap-1.5 justify-center mt-3.5 mb-1">
+      {/* Thumbnail strip */}
+      <div className="flex gap-2 mt-3 justify-center">
         {Array.from({ length: count }, (_, i) => (
-          <motion.button
+          <button
             key={i}
             onClick={() => goTo(i)}
-            className={`rounded-full transition-colors ${
-              i === active ? 'bg-ex-forest' : 'bg-ex-border'
+            className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+              i === active ? 'border-ex-forest' : 'border-transparent'
             }`}
-            style={{ border: 'none', padding: 0, height: 6 }}
-            animate={{ width: i === active ? 16 : 6 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+            style={{
+              width: 60,
+              height: 48,
+              background: i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
+              padding: 0,
+            }}
             aria-label={`Go to photo ${i + 1}`}
             aria-current={i === active}
-          />
+          >
+            {i > 0 && (
+              <div className="w-full h-full flex items-center justify-center">
+                <LeafOutlineIcon size={16} color={PLACEHOLDER.blankIcon} strokeWidth={1.6} />
+              </div>
+            )}
+          </button>
         ))}
       </div>
     </div>
