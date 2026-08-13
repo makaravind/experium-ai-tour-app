@@ -251,7 +251,7 @@ export default function BottomSheet({
               <motion.div
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={SPRING}
+                transition={{ type: 'spring', stiffness: 320, damping: 34 }}
                 className="relative"
                 style={{ width: 96, height: 96 }}
               >
