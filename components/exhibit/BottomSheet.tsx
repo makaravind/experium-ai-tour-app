@@ -46,6 +46,7 @@ export default function BottomSheet({
   const [elapsed, setElapsed] = useState(0)
   const [duration, setDuration] = useState(0)
   const [peekH, setPeekH] = useState<number | undefined>(undefined)
+  const [fullH, setFullH] = useState<number | undefined>(undefined)
   const audioRef = useRef<HTMLAudioElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const expandedRef = useRef(false)
@@ -60,6 +61,13 @@ export default function BottomSheet({
   }, [expanded])
 
   useEffect(() => () => clearTimeout(morphTimer.current ?? undefined), [])
+
+  useEffect(() => {
+    const update = () => setFullH(window.visualViewport?.height ?? window.innerHeight)
+    update()
+    window.visualViewport?.addEventListener('resize', update)
+    return () => window.visualViewport?.removeEventListener('resize', update)
+  }, [])
 
   // Sample the collapsed height so we tween between px values (not auto ↔ 100%).
   // Skipped while expanded — the same node then holds the hero gallery.
@@ -140,7 +148,7 @@ export default function BottomSheet({
         zIndex: 30,
         fontFamily: 'var(--font-body)',
       }}
-      animate={{ height: expanded ? '100%' : peekH }}
+      animate={{ height: expanded ? fullH : peekH }}
       transition={SPRING}
       drag="y"
       dragListener={false}
