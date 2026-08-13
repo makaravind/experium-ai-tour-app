@@ -46,40 +46,27 @@ export default function BottomSheet({
   const [elapsed, setElapsed] = useState(0)
   const [duration, setDuration] = useState(0)
   const [peekH, setPeekH] = useState<number | undefined>(undefined)
-  const [fullH] = useState<number>(() =>
-    typeof window !== 'undefined' ? (window.visualViewport?.height ?? window.innerHeight) : 900
-  )
+  // innerHeight is the layout viewport — stable even as the address bar shows/hides.
+  // visualViewport.height shrinks when the address bar is visible, which would
+  // change this value across renders and cause a height flash on Chrome.
+  const [fullH] = useState<number>(() => (typeof window !== 'undefined' ? window.innerHeight : 900))
   const yOffset = peekH !== undefined ? fullH - peekH : fullH
   const audioRef = useRef<HTMLAudioElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const expandedRef = useRef(false)
   const factsRef = useRef<HTMLElement>(null)
   const morphTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dragControls = useDragControls()
 
   const currentSrc = audio.find((a) => a.language === language)?.audio_url ?? null
 
-  useEffect(() => {
-    expandedRef.current = expanded
-  }, [expanded])
-
   useEffect(() => () => clearTimeout(morphTimer.current ?? undefined), [])
 
-  // Sync measure before first paint so the sheet starts at the correct y offset.
+  // Measure peek height once before first paint. Peek content is stable
+  // (server-rendered exhibit data, constant chips and button), so no ResizeObserver needed.
   useLayoutEffect(() => {
     const el = contentRef.current
     if (el) setPeekH(el.offsetHeight)
-  }, [])
-
-  useEffect(() => {
-    const el = contentRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => {
-      if (!expandedRef.current) setPeekH(el.offsetHeight)
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
   }, [])
 
   // Re-point the element whenever the language changes. Playback only carries
@@ -146,7 +133,7 @@ export default function BottomSheet({
         boxShadow: 'var(--ex-shadow-sheet)',
         zIndex: 30,
         fontFamily: 'var(--font-body)',
-        height: '100%',
+        height: fullH,
       }}
       initial={false}
       animate={{ y: expanded ? 0 : yOffset }}
@@ -157,8 +144,11 @@ export default function BottomSheet({
       dragConstraints={{ top: 0, bottom: 0 }}
       dragElastic={0.16}
       onDragEnd={(_, info) => {
-        if (info.offset.y < -40 || info.velocity.y < -400) setExpanded(true)
-        else if (info.offset.y > 40 || info.velocity.y > 400) collapse()
+        if (info.offset.y < -40 || info.velocity.y < -400) {
+          setExpanded(true)
+        } else if (info.offset.y > 40 || info.velocity.y > 400) {
+          collapse()
+        }
       }}
     >
       <audio
@@ -178,7 +168,13 @@ export default function BottomSheet({
         {/* Grab handle — drag or tap to toggle full view */}
         <button
           onPointerDown={(e) => dragControls.start(e)}
-          onClick={() => (expanded ? collapse() : setExpanded(true))}
+          onClick={() => {
+            if (expanded) {
+              collapse()
+            } else {
+              setExpanded(true)
+            }
+          }}
           className="w-full pt-2.5 pb-4 flex justify-center"
           style={{ background: 'none', border: 'none', touchAction: 'none', cursor: 'grab' }}
           aria-label={expanded ? 'Collapse details' : 'Expand to full view'}
