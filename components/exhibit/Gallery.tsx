@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { LeafOutlineIcon } from '@/components/icons'
 
 /**
@@ -20,6 +21,7 @@ const PLACEHOLDER = {
 export default function Gallery({ count = 4 }: { count?: number }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
+  const [fullscreen, setFullscreen] = useState<number | null>(null)
 
   const onScroll = useCallback(() => {
     const el = trackRef.current
@@ -49,18 +51,21 @@ export default function Gallery({ count = 4 }: { count?: number }) {
         >
           {Array.from({ length: count }, (_, i) => (
             <div key={i} className="w-full flex-shrink-0 snap-center">
-              <div
-                className="w-full flex items-center justify-center"
+              <button
+                className="w-full flex items-center justify-center cursor-zoom-in"
                 style={{
                   aspectRatio: '1/1',
                   background: i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
+                  border: 'none',
+                  padding: 0,
                 }}
-                aria-label={`Photo ${i + 1} of ${count} — coming soon`}
+                onClick={() => setFullscreen(i)}
+                aria-label={`Photo ${i + 1} of ${count} — tap to enlarge`}
               >
                 {i > 0 && (
                   <LeafOutlineIcon size={30} color={PLACEHOLDER.blankIcon} strokeWidth={1.6} />
                 )}
-              </div>
+              </button>
             </div>
           ))}
         </div>
@@ -68,6 +73,44 @@ export default function Gallery({ count = 4 }: { count?: number }) {
           {active + 1} / {count}
         </span>
       </div>
+
+      {/* Fullscreen modal */}
+      {fullscreen !== null &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+            onClick={() => setFullscreen(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Photo ${fullscreen + 1} enlarged`}
+          >
+            <button
+              className="absolute top-4 right-4 text-white bg-black/50 rounded-full w-9 h-9 flex items-center justify-center text-lg leading-none"
+              onClick={() => setFullscreen(null)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <div
+              className="w-full max-w-lg mx-4"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                aspectRatio: '1/1',
+                background: fullscreen === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
+                borderRadius: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {fullscreen > 0 && (
+                <LeafOutlineIcon size={60} color={PLACEHOLDER.blankIcon} strokeWidth={1.2} />
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Thumbnail strip */}
       <div className="flex gap-2 mt-3 justify-center">
