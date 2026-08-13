@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 import Gallery from '@/components/exhibit/Gallery'
 import LanguageSelector from '@/components/common/LanguageSelector'
@@ -9,7 +9,7 @@ import { useStore } from '@/lib/store'
 import { formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
 import type { ExhibitAudio, ExhibitData } from '@/lib/types'
 
-const SPRING = { type: 'spring', stiffness: 320, damping: 34 } as const
+const SPRING = { duration: 0.3, ease: [0.4, 0, 0.2, 1] } as const
 
 /** Clearance so the collapsed sheet never hides content behind the tab bar. */
 const TAB_BAR_CLEARANCE = 108
@@ -46,8 +46,12 @@ export default function BottomSheet({
   const [elapsed, setElapsed] = useState(0)
   const [duration, setDuration] = useState(0)
   const [peekH, setPeekH] = useState<number | undefined>(undefined)
-  const [fullH, setFullH] = useState<number | undefined>(undefined)
+  const [fullH] = useState<number>(() =>
+    typeof window !== 'undefined' ? (window.visualViewport?.height ?? window.innerHeight) : 900
+  )
+  const yOffset = peekH !== undefined ? fullH - peekH : fullH
   const audioRef = useRef<HTMLAudioElement>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const expandedRef = useRef(false)
   const factsRef = useRef<HTMLElement>(null)
@@ -62,24 +66,18 @@ export default function BottomSheet({
 
   useEffect(() => () => clearTimeout(morphTimer.current ?? undefined), [])
 
-  useEffect(() => {
-    const update = () => setFullH(window.visualViewport?.height ?? window.innerHeight)
-    update()
-    window.visualViewport?.addEventListener('resize', update)
-    return () => window.visualViewport?.removeEventListener('resize', update)
+  // Sync measure before first paint so the sheet starts at the correct y offset.
+  useLayoutEffect(() => {
+    const el = contentRef.current
+    if (el) setPeekH(el.offsetHeight)
   }, [])
 
-  // Sample the collapsed height so we tween between px values (not auto ↔ 100%).
-  // Skipped while expanded — the same node then holds the hero gallery.
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
-    const measure = () => {
-      if (expandedRef.current) return
-      setPeekH(el.offsetHeight)
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
+    const ro = new ResizeObserver(() => {
+      if (!expandedRef.current) setPeekH(el.offsetHeight)
+    })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
@@ -115,9 +113,9 @@ export default function BottomSheet({
   /** Back to peek. Pauses rather than stops; the next Listen restarts from 0. */
   const collapse = () => {
     if (morphTimer.current) clearTimeout(morphTimer.current)
+    if (sheetRef.current) sheetRef.current.scrollTop = 0
     audioRef.current?.pause()
     setStarted(false)
-    // Without this the Listen button would come back still collapsed to zero.
     setPopping(false)
     setExpanded(false)
   }
@@ -142,13 +140,16 @@ export default function BottomSheet({
 
   return (
     <motion.div
+      ref={sheetRef}
       className="absolute left-0 right-0 bottom-0 rounded-t-3xl overflow-y-auto overflow-x-clip bg-ex-paper"
       style={{
         boxShadow: 'var(--ex-shadow-sheet)',
         zIndex: 30,
         fontFamily: 'var(--font-body)',
+        height: '100%',
       }}
-      animate={{ height: expanded ? fullH : peekH }}
+      initial={false}
+      animate={{ y: expanded ? 0 : yOffset }}
       transition={SPRING}
       drag="y"
       dragListener={false}
@@ -188,12 +189,10 @@ export default function BottomSheet({
 
         <div className="px-4">
           {/* Exhibit row — thumbnail morphs into a hero gallery when expanded */}
-          <motion.div
-            layout
-            transition={SPRING}
+          <div
             className={expanded ? 'flex flex-col gap-3' : 'flex flex-row gap-3 items-center pr-9'}
           >
-            <motion.div layout transition={SPRING} className={expanded ? 'w-full' : ''}>
+            <div className={expanded ? 'w-full' : ''}>
               {expanded ? (
                 <div className="-mx-4 relative">
                   <Gallery />
@@ -219,9 +218,9 @@ export default function BottomSheet({
                   }}
                 />
               )}
-            </motion.div>
+            </div>
 
-            <motion.div layout="position" transition={SPRING}>
+            <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span
                   className="text-lg font-bold leading-tight text-ex-ink"
@@ -242,8 +241,8 @@ export default function BottomSheet({
                   {typeLabel}
                 </span>
               )}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
 
           {/* Language chips */}
           {availableLangs.length > 0 && (
