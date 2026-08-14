@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { HomeIcon, MapIcon, ScanIcon } from '@/components/icons'
 
 export default function TabBar() {
@@ -19,9 +20,10 @@ export default function TabBar() {
         Home
       </button>
 
-      <button
+      <Link
+        href="/scan"
         className="flex flex-col items-center"
-        style={{ flex: '0 0 auto', marginTop: -24, border: 'none', background: 'none' }}
+        style={{ flex: '0 0 auto', marginTop: -24 }}
         aria-label="Scan a marker"
       >
         <span
@@ -36,7 +38,7 @@ export default function TabBar() {
         >
           Scan
         </span>
-      </button>
+      </Link>
 
       <button
         className="flex flex-col items-center gap-0.5 text-[10.5px] font-extrabold flex-1 text-ex-forest"
