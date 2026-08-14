@@ -51,6 +51,9 @@ export default function ExhibitView({
       ...(scanSrc ? { scan_src: scanSrc } : {}),
       device_info: { language, ...deviceRef.current },
     })
+      .then((res) => res.json())
+      .then((data) => setTotalDiscovered(data.total_discovered ?? 0))
+      .catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFirstPlay = useCallback(async () => {
