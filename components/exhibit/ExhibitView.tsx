@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import BottomSheet from '@/components/exhibit/BottomSheet'
 import MapStub from '@/components/exhibit/MapStub'
 import TabBar from '@/components/exhibit/TabBar'
 import { CompassIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
+import { getDeviceInfo } from '@/lib/utils'
 import type { ExhibitAudio, ExhibitData } from '@/lib/types'
 
 export default function ExhibitView({
@@ -20,37 +21,60 @@ export default function ExhibitView({
   exhibitId: string
 }) {
   const visitorId = useStore((s) => s.visitorId)
+  const language = useStore((s) => s.language)
+  const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
+  const setListenedCurrentExhibit = useStore((s) => s.setListenedCurrentExhibit)
   const setTotalDiscovered = useStore((s) => s.setTotalDiscovered)
   const markVisited = useStore((s) => s.markVisited)
-  const [discovered, setDiscovered] = useState(false)
+  const deviceRef = useRef(getDeviceInfo())
 
-  const handleAudioEnd = useCallback(
-    async (listenDurationSec: number) => {
-      try {
-        const res = await fetch('/api/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            visitorId: visitorId ?? `anon-${Date.now()}`,
-            qrCodeId,
-            exhibitId,
-            listenDurationSec,
-          }),
-        })
-        const data = await res.json()
-        setTotalDiscovered(data.total_discovered ?? 0)
-        markVisited(exhibitId)
-      } catch {
-        // Non-fatal. The pin still flips, so the visitor sees the scan landed.
-      }
-      setDiscovered(true)
+  const postScan = useCallback(
+    (fields: object) =>
+      fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId, qrCodeId, ...fields }),
+      }),
+    [visitorId, qrCodeId]
+  )
+
+  // Page land — fires once on mount
+  useEffect(() => {
+    postScan({
+      listened: false,
+      discovered: true,
+      listen_duration_sec: 0,
+      device_info: { language, ...deviceRef.current },
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFirstPlay = useCallback(async () => {
+    setListenedCurrentExhibit(true)
+    try {
+      const res = await postScan({
+        listened: true,
+        device_info: { language, ...deviceRef.current },
+      })
+      const data = await res.json()
+      setTotalDiscovered(data.total_discovered ?? 0)
+      markVisited(exhibitId)
+    } catch {}
+  }, [language, postScan, exhibitId, setListenedCurrentExhibit, setTotalDiscovered, markVisited])
+
+  const handleQuartile = useCallback(
+    (sec: number) => {
+      postScan({
+        listened: true,
+        listen_duration_sec: sec,
+        device_info: { language, ...deviceRef.current },
+      })
     },
-    [qrCodeId, exhibitId, visitorId, setTotalDiscovered, markVisited]
+    [language, postScan]
   )
 
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ fontFamily: 'var(--font-body)' }}>
-      <MapStub discovered={discovered} />
+      <MapStub discovered={listenedCurrentExhibit} />
 
       {/* Search bar */}
       <div
@@ -73,7 +97,12 @@ export default function ExhibitView({
       </div>
 
       {/* Bottom sheet — expands to fullscreen and doubles as the audio player */}
-      <BottomSheet exhibit={exhibit} audio={audio} onEnded={handleAudioEnd} />
+      <BottomSheet
+        exhibit={exhibit}
+        audio={audio}
+        onFirstPlay={handleFirstPlay}
+        onQuartile={handleQuartile}
+      />
 
       <TabBar />
     </div>

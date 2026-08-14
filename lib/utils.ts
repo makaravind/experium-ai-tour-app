@@ -36,3 +36,26 @@ export function parseFacts(raw: Fact[] | null | undefined): string[] {
   if (!Array.isArray(raw)) return []
   return raw.map((f) => f?.fact?.trim() ?? '').filter(Boolean)
 }
+
+export function getDeviceInfo(): { os: string; browser: string } {
+  const ua = navigator.userAgent
+  const os = /iP(hone|ad)/.test(ua)
+    ? 'iOS'
+    : /Android/.test(ua)
+      ? 'Android'
+      : /Win/.test(ua)
+        ? 'Windows'
+        : /Mac/.test(ua)
+          ? 'macOS'
+          : 'other'
+  const browser = /SamsungBrowser/.test(ua)
+    ? 'Samsung'
+    : /Firefox/.test(ua)
+      ? 'Firefox'
+      : /Chrome/.test(ua)
+        ? 'Chrome'
+        : /Safari/.test(ua)
+          ? 'Safari'
+          : 'other'
+  return { os, browser }
+}
