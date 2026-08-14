@@ -39,15 +39,19 @@ export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audio 
     import('@fingerprintjs/fingerprintjs')
       .then((FingerprintJS) => FingerprintJS.load())
       .then((fp) => fp.get())
-      .then((result) => {
-        const id = result.visitorId
-        setVisitorId(id)
-        localStorage.setItem('experium_visitor_id', id)
+      .then((result) =>
         fetch('/api/user/handshake', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ visitorId: id }),
-        }).catch(() => {})
+          body: JSON.stringify({ fingerprintHint: result.visitorId }),
+        })
+      )
+      .then((res) => res.json())
+      .then(({ visitorId }) => {
+        if (visitorId) {
+          setVisitorId(visitorId)
+          localStorage.setItem('experium_visitor_id', visitorId)
+        }
         setFpReady(true)
       })
       .catch(() => setFpReady(true))

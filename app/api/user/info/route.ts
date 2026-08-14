@@ -9,9 +9,10 @@ export async function POST(req: NextRequest) {
 
   const { error } = await supabaseAdmin
     .from('users')
-    .upsert({ fingerprint_id: visitorId, name, phone, email }, { onConflict: 'fingerprint_id' })
+    .update({ name, phone, email })
+    .eq('id', visitorId)
 
-  if (error) return NextResponse.json({ error: 'Upsert failed' }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Update failed' }, { status: 500 })
 
   return NextResponse.json({ ok: true })
 }

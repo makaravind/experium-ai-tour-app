@@ -3,15 +3,15 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
   const supabaseAdmin = getSupabaseAdmin()
-  const { visitorId } = await req.json()
+  const { fingerprintHint } = await req.json().catch(() => ({}))
 
-  if (!visitorId) return NextResponse.json({ error: 'Missing visitorId' }, { status: 400 })
-
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('users')
-    .upsert({ fingerprint_id: visitorId }, { onConflict: 'fingerprint_id' })
+    .insert({ fingerprint_hint: fingerprintHint ?? null })
+    .select('id')
+    .single()
 
-  if (error) return NextResponse.json({ error: 'Upsert failed' }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Insert failed' }, { status: 500 })
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ visitorId: data.id })
 }
