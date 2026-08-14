@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import ExhibitView from '@/components/exhibit/ExhibitView'
 import InfoModal from '@/components/exhibit/InfoModal'
 import LoadingScreen from '@/components/exhibit/LoadingScreen'
@@ -19,18 +19,47 @@ export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audio 
   const setOnboardingStep = useStore((s) => s.setOnboardingStep)
   const setVisitorId = useStore((s) => s.setVisitorId)
 
-  const handleLoadingDone = useCallback(() => setOnboardingStep('info'), [setOnboardingStep])
+  const [fpReady, setFpReady] = useState(
+    () => typeof window !== 'undefined' && !!localStorage.getItem('experium_visitor_id')
+  )
+  const [appLoadingComplete, setAppLoadingComplete] = useState(false)
+
+  const handleLoadingDone = useCallback(() => setAppLoadingComplete(true), [])
 
   useEffect(() => {
     const onboarded = localStorage.getItem('experium_onboarded')
     setOnboardingStep(onboarded ? 'exhibit' : 'loading')
 
+    const cachedId = localStorage.getItem('experium_visitor_id')
+    if (cachedId) {
+      setVisitorId(cachedId)
+      return
+    }
+
     import('@fingerprintjs/fingerprintjs')
       .then((FingerprintJS) => FingerprintJS.load())
       .then((fp) => fp.get())
-      .then((result) => setVisitorId(result.visitorId))
-      .catch(() => {})
+      .then((result) =>
+        fetch('/api/user/handshake', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fingerprintHint: result.visitorId }),
+        })
+      )
+      .then((res) => res.json())
+      .then(({ visitorId }) => {
+        if (visitorId) {
+          setVisitorId(visitorId)
+          localStorage.setItem('experium_visitor_id', visitorId)
+        }
+        setFpReady(true)
+      })
+      .catch(() => setFpReady(true))
   }, [setOnboardingStep, setVisitorId])
+
+  useEffect(() => {
+    if (fpReady && appLoadingComplete) setOnboardingStep('info')
+  }, [fpReady, appLoadingComplete, setOnboardingStep])
 
   if (onboardingStep === null) return null
 
