@@ -22,9 +22,9 @@ export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audio 
   const [fpReady, setFpReady] = useState(
     () => typeof window !== 'undefined' && !!localStorage.getItem('experium_visitor_id')
   )
-  const [barDone, setBarDone] = useState(false)
+  const [appLoadingComplete, setAppLoadingComplete] = useState(false)
 
-  const handleLoadingDone = useCallback(() => setBarDone(true), [])
+  const handleLoadingDone = useCallback(() => setAppLoadingComplete(true), [])
 
   useEffect(() => {
     const onboarded = localStorage.getItem('experium_onboarded')
@@ -58,8 +58,8 @@ export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audio 
   }, [setOnboardingStep, setVisitorId])
 
   useEffect(() => {
-    if (fpReady && barDone) setOnboardingStep('info')
-  }, [fpReady, barDone, setOnboardingStep])
+    if (fpReady && appLoadingComplete) setOnboardingStep('info')
+  }, [fpReady, appLoadingComplete, setOnboardingStep])
 
   if (onboardingStep === null) return null
 
