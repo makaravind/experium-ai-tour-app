@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import ExhibitView from '@/components/exhibit/ExhibitView'
 import InfoModal from '@/components/exhibit/InfoModal'
 import LoadingScreen from '@/components/exhibit/LoadingScreen'
@@ -19,7 +19,10 @@ export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audio 
   const setOnboardingStep = useStore((s) => s.setOnboardingStep)
   const setVisitorId = useStore((s) => s.setVisitorId)
 
-  const handleLoadingDone = useCallback(() => setOnboardingStep('info'), [setOnboardingStep])
+  const [fpReady, setFpReady] = useState(false)
+  const [barDone, setBarDone] = useState(false)
+
+  const handleLoadingDone = useCallback(() => setBarDone(true), [])
 
   useEffect(() => {
     const onboarded = localStorage.getItem('experium_onboarded')
@@ -28,9 +31,16 @@ export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audio 
     import('@fingerprintjs/fingerprintjs')
       .then((FingerprintJS) => FingerprintJS.load())
       .then((fp) => fp.get())
-      .then((result) => setVisitorId(result.visitorId))
-      .catch(() => {})
+      .then((result) => {
+        setVisitorId(result.visitorId)
+        setFpReady(true)
+      })
+      .catch(() => setFpReady(true))
   }, [setOnboardingStep, setVisitorId])
+
+  useEffect(() => {
+    if (fpReady && barDone) setOnboardingStep('info')
+  }, [fpReady, barDone, setOnboardingStep])
 
   if (onboardingStep === null) return null
 

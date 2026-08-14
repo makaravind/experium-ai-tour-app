@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useStore } from '@/lib/store'
 
 const inputStyle = {
   width: '100%',
@@ -23,10 +24,18 @@ export default function InfoModal({ onDone }: { onDone: () => void }) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
+  const visitorId = useStore((s) => s.visitorId)
 
   const commit = () => {
     localStorage.setItem('experium_user_info', JSON.stringify({ name, phone, email }))
     localStorage.setItem('experium_onboarded', '1')
+    if (visitorId && (name || phone || email)) {
+      fetch('/api/user/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId, name, phone, email }),
+      }).catch(() => {})
+    }
     onDone()
   }
 
