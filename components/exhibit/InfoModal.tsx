@@ -25,10 +25,12 @@ export default function InfoModal({ onDone }: { onDone: () => void }) {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const visitorId = useStore((s) => s.visitorId)
+  const setUserInfo = useStore((s) => s.setUserInfo)
 
   const commit = () => {
     localStorage.setItem('experium_user_info', JSON.stringify({ name, phone, email }))
     localStorage.setItem('experium_onboarded', '1')
+    setUserInfo({ name, phone, email })
     if (visitorId && (name || phone || email)) {
       fetch('/api/user/info', {
         method: 'POST',

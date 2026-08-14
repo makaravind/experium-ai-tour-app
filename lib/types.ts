@@ -1,5 +1,11 @@
 export type Language = 'en' | 'hi' | 'te'
 
+export interface User {
+  name: string
+  phone: string
+  email: string
+}
+
 /** `exhibits.facts` is a jsonb array shaped `[{ fact: "..." }]` */
 export interface Fact {
   fact: string

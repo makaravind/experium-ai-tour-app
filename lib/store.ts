@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Language } from '@/lib/types'
+import type { Language, User } from '@/lib/types'
 
 type OnboardingStep = 'loading' | 'info' | 'exhibit' | null
 
@@ -20,6 +20,9 @@ interface Store {
 
   visitorId: string | null
   setVisitorId: (id: string) => void
+
+  userInfo: User | null
+  setUserInfo: (info: User) => void
 
   totalDiscovered: number
   setTotalDiscovered: (n: number) => void
@@ -45,6 +48,9 @@ export const useStore = create<Store>()(
       visitorId: null,
       setVisitorId: (visitorId) => set({ visitorId }),
 
+      userInfo: null,
+      setUserInfo: (userInfo) => set({ userInfo }),
+
       totalDiscovered: 0,
       setTotalDiscovered: (totalDiscovered) => set({ totalDiscovered }),
     }),
@@ -54,6 +60,8 @@ export const useStore = create<Store>()(
         language: s.language,
         visitedExhibits: s.visitedExhibits,
         totalDiscovered: s.totalDiscovered,
+        visitorId: s.visitorId,
+        userInfo: s.userInfo,
       }),
     }
   )
