@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
     p_listen_quartile: listen_quartile ?? null,
     p_is_qr_scan: is_qr_scan ?? false,
     p_scan_src: scan_src ?? null,
+    p_discovered: scan_src === 'onsite',
     p_device_info: device_info ?? {},
   })
 

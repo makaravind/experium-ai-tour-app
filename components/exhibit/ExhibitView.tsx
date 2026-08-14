@@ -46,7 +46,6 @@ export default function ExhibitView({
   useEffect(() => {
     postScan({
       listened: false,
-      discovered: true,
       listen_duration_sec: 0,
       is_qr_scan: isQrScan,
       ...(scanSrc ? { scan_src: scanSrc } : {}),
