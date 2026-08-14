@@ -36,7 +36,7 @@ export default function BottomSheet({
   exhibit: ExhibitData
   audio: ExhibitAudio[]
   onFirstPlay: () => void
-  onQuartile: (sec: number) => void
+  onQuartile: (sec: number, quartile: number) => void
 }) {
   const language = useStore((s) => s.language)
   const [expanded, setExpanded] = useState(false)
@@ -169,7 +169,7 @@ export default function BottomSheet({
             for (const q of [25, 50, 75, 100]) {
               if (pct >= q && !firedQuartiles.current.has(q)) {
                 firedQuartiles.current.add(q)
-                onQuartile(Math.round(el.currentTime))
+                onQuartile(Math.round(el.currentTime), q)
               }
             }
           }

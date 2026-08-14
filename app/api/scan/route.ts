@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 export async function POST(req: NextRequest) {
   const supabaseAdmin = getSupabaseAdmin()
   const body = await req.json()
-  const { visitorId, code, listened, listen_duration_sec, device_info } = body
+  const { visitorId, code, listened, listen_duration_sec, listen_quartile, device_info } = body
 
   if (!visitorId || !code) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     p_qr_code_id: qr.id,
     p_listened: listened ?? false,
     p_listen_duration_sec: listen_duration_sec ?? 0,
+    p_listen_quartile: listen_quartile ?? null,
     p_device_info: device_info ?? {},
   })
 

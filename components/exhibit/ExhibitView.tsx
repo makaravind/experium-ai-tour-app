@@ -27,7 +27,6 @@ export default function ExhibitView({
   const setTotalDiscovered = useStore((s) => s.setTotalDiscovered)
   const markVisited = useStore((s) => s.markVisited)
   const deviceRef = useRef(getDeviceInfo())
-  const pageLandFired = useRef(false)
 
   const postScan = useCallback(
     (fields: object) =>
@@ -39,10 +38,8 @@ export default function ExhibitView({
     [visitorId, qrCode]
   )
 
-  // Page land — fires once per visit (ref guard prevents Strict Mode double-fire)
+  // Page land — fires once on mount
   useEffect(() => {
-    if (pageLandFired.current) return
-    pageLandFired.current = true
     postScan({
       listened: false,
       discovered: true,
@@ -65,10 +62,11 @@ export default function ExhibitView({
   }, [language, postScan, exhibitId, setListenedCurrentExhibit, setTotalDiscovered, markVisited])
 
   const handleQuartile = useCallback(
-    (sec: number) => {
+    (sec: number, quartile: number) => {
       postScan({
         listened: true,
         listen_duration_sec: sec,
+        listen_quartile: quartile,
         device_info: { language, ...deviceRef.current },
       })
     },
