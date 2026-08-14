@@ -14,11 +14,15 @@ export default function ExhibitView({
   audio,
   qrCode,
   exhibitId,
+  isQrScan,
+  scanSrc,
 }: {
   exhibit: ExhibitData
   audio: ExhibitAudio[]
   qrCode: string
   exhibitId: string
+  isQrScan: boolean
+  scanSrc: string | null
 }) {
   const visitorId = useStore((s) => s.visitorId)
   const language = useStore((s) => s.language)
@@ -44,6 +48,8 @@ export default function ExhibitView({
       listened: false,
       discovered: true,
       listen_duration_sec: 0,
+      is_qr_scan: isQrScan,
+      ...(scanSrc ? { scan_src: scanSrc } : {}),
       device_info: { language, ...deviceRef.current },
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

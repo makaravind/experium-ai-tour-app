@@ -10,11 +10,20 @@ import type { ExhibitAudio, ExhibitData } from '@/lib/types'
 interface Props {
   exhibitId: string
   qrCode: string
+  isQrScan: boolean
+  scanSrc: string | null
   exhibit: ExhibitData
   audio: ExhibitAudio[]
 }
 
-export default function ExhibitPageClient({ exhibitId, qrCode, exhibit, audio }: Props) {
+export default function ExhibitPageClient({
+  exhibitId,
+  qrCode,
+  isQrScan,
+  scanSrc,
+  exhibit,
+  audio,
+}: Props) {
   const onboardingStep = useStore((s) => s.onboardingStep)
   const setOnboardingStep = useStore((s) => s.setOnboardingStep)
   const setVisitorId = useStore((s) => s.setVisitorId)
@@ -71,5 +80,14 @@ export default function ExhibitPageClient({ exhibitId, qrCode, exhibit, audio }:
     return <InfoModal onDone={() => setOnboardingStep('exhibit')} />
   }
 
-  return <ExhibitView exhibit={exhibit} audio={audio} qrCode={qrCode} exhibitId={exhibitId} />
+  return (
+    <ExhibitView
+      exhibit={exhibit}
+      audio={audio}
+      qrCode={qrCode}
+      exhibitId={exhibitId}
+      isQrScan={isQrScan}
+      scanSrc={scanSrc}
+    />
+  )
 }
