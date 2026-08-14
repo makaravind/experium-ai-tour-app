@@ -19,7 +19,9 @@ export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audio 
   const setOnboardingStep = useStore((s) => s.setOnboardingStep)
   const setVisitorId = useStore((s) => s.setVisitorId)
 
-  const [fpReady, setFpReady] = useState(false)
+  const [fpReady, setFpReady] = useState(
+    () => typeof window !== 'undefined' && !!localStorage.getItem('experium_visitor_id')
+  )
   const [barDone, setBarDone] = useState(false)
 
   const handleLoadingDone = useCallback(() => setBarDone(true), [])
@@ -28,11 +30,24 @@ export default function ExhibitPageClient({ exhibitId, qrCodeId, exhibit, audio 
     const onboarded = localStorage.getItem('experium_onboarded')
     setOnboardingStep(onboarded ? 'exhibit' : 'loading')
 
+    const cachedId = localStorage.getItem('experium_visitor_id')
+    if (cachedId) {
+      setVisitorId(cachedId)
+      return
+    }
+
     import('@fingerprintjs/fingerprintjs')
       .then((FingerprintJS) => FingerprintJS.load())
       .then((fp) => fp.get())
       .then((result) => {
-        setVisitorId(result.visitorId)
+        const id = result.visitorId
+        setVisitorId(id)
+        localStorage.setItem('experium_visitor_id', id)
+        fetch('/api/user/handshake', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visitorId: id }),
+        }).catch(() => {})
         setFpReady(true)
       })
       .catch(() => setFpReady(true))
