@@ -40,7 +40,7 @@ export default async function ExhibitPage({ params }: { params: Promise<{ code: 
   return (
     <ExhibitPageClient
       exhibitId={exhibit.id}
-      qrCodeId={qr.id}
+      qrCode={code}
       exhibit={{
         name: exhibit.name,
         type: exhibit.type,

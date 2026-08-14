@@ -12,12 +12,12 @@ import type { ExhibitAudio, ExhibitData } from '@/lib/types'
 export default function ExhibitView({
   exhibit,
   audio,
-  qrCodeId,
+  qrCode,
   exhibitId,
 }: {
   exhibit: ExhibitData
   audio: ExhibitAudio[]
-  qrCodeId: string
+  qrCode: string
   exhibitId: string
 }) {
   const visitorId = useStore((s) => s.visitorId)
@@ -33,9 +33,9 @@ export default function ExhibitView({
       fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visitorId, qrCodeId, ...fields }),
+        body: JSON.stringify({ visitorId, code: qrCode, ...fields }),
       }),
-    [visitorId, qrCodeId]
+    [visitorId, qrCode]
   )
 
   // Page land — fires once on mount
