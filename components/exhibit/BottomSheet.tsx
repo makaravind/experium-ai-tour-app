@@ -30,11 +30,13 @@ const MORPH_DELAY = 280
 export default function BottomSheet({
   exhibit,
   audio,
-  onEnded,
+  onFirstPlay,
+  onQuartile,
 }: {
   exhibit: ExhibitData
   audio: ExhibitAudio[]
-  onEnded: (listenDurationSec: number) => void
+  onFirstPlay: () => void
+  onQuartile: (sec: number, quartile: number) => void
 }) {
   const language = useStore((s) => s.language)
   const [expanded, setExpanded] = useState(false)
@@ -56,6 +58,7 @@ export default function BottomSheet({
   const contentRef = useRef<HTMLDivElement>(null)
   const factsRef = useRef<HTMLElement>(null)
   const morphTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const firedQuartiles = useRef<Set<number>>(new Set())
   const dragControls = useDragControls()
 
   const currentSrc = audio.find((a) => a.language === language)?.audio_url ?? null
@@ -85,6 +88,7 @@ export default function BottomSheet({
   const listen = () => {
     const el = audioRef.current
     if (!el) return
+    firedQuartiles.current = new Set()
     setExpanded(true)
     setIsPlaying(true)
     setPopping(true)
@@ -92,6 +96,7 @@ export default function BottomSheet({
     setElapsed(0)
     // Must stay inside the click's gesture context or iOS blocks playback.
     el.play()
+    onFirstPlay()
     // The pop runs for exactly this long, so the ring takes over the instant
     // the button hits zero — whether or not the sheet had to open first.
     morphTimer.current = setTimeout(() => setStarted(true), MORPH_DELAY)
@@ -155,11 +160,21 @@ export default function BottomSheet({
         ref={audioRef}
         preload="metadata"
         onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
-        onTimeUpdate={() => setElapsed(audioRef.current?.currentTime ?? 0)}
-        onEnded={() => {
-          collapse()
-          onEnded(Math.round(elapsed))
+        onTimeUpdate={() => {
+          const el = audioRef.current
+          if (!el) return
+          setElapsed(el.currentTime)
+          if (duration > 0) {
+            const pct = (el.currentTime / duration) * 100
+            for (const q of [25, 50, 75, 100]) {
+              if (pct >= q && !firedQuartiles.current.has(q)) {
+                firedQuartiles.current.add(q)
+                onQuartile(Math.round(el.currentTime), q)
+              }
+            }
+          }
         }}
+        onEnded={() => collapse()}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
       />

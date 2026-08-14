@@ -4,48 +4,52 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 export async function POST(req: NextRequest) {
   const supabaseAdmin = getSupabaseAdmin()
   const body = await req.json()
-  const { visitorId, qrCodeId, exhibitId, listenDurationSec } = body
+  const {
+    visitorId,
+    code,
+    listened,
+    listen_duration_sec,
+    listen_quartile,
+    is_qr_scan,
+    scan_src,
+    device_info,
+  } = body
 
-  if (!visitorId || !qrCodeId || !exhibitId) {
+  if (!visitorId || !code) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
 
-  // 1. Look up or create user by fingerprint_id
-  const { data: user, error: uErr } = await supabaseAdmin
-    .from('users')
-    .upsert({ fingerprint_id: visitorId }, { onConflict: 'fingerprint_id' })
+  const { data: qr, error: qrErr } = await supabaseAdmin
+    .from('exhibit_qr_codes')
     .select('id')
+    .eq('code', code)
     .single()
 
-  if (uErr || !user) {
-    console.error('User upsert failed', uErr)
-    return NextResponse.json({ error: 'User upsert failed' }, { status: 500 })
+  if (qrErr || !qr) {
+    return NextResponse.json({ error: 'Unknown QR code' }, { status: 404 })
   }
 
-  // 2. Upsert scan row (dedup on user_id + qr_code_id)
-  const { error: sErr } = await supabaseAdmin.from('scans').upsert(
-    {
-      qr_code_id: qrCodeId,
-      user_id: user.id,
-      listened: true,
-      discovered: true,
-      listen_duration_sec: listenDurationSec ?? 0,
-      scanned_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,qr_code_id' }
-  )
+  const { error } = await supabaseAdmin.rpc('upsert_scan', {
+    p_user_id: visitorId,
+    p_qr_code_id: qr.id,
+    p_listened: listened ?? false,
+    p_listen_duration_sec: listen_duration_sec ?? 0,
+    p_listen_quartile: listen_quartile ?? null,
+    p_is_qr_scan: is_qr_scan ?? false,
+    p_scan_src: scan_src ?? null,
+    p_discovered: scan_src === 'onsite',
+    p_device_info: device_info ?? {},
+  })
 
-  if (sErr) {
-    console.error('Scan upsert failed', sErr)
-    return NextResponse.json({ error: 'Scan upsert failed' }, { status: 500 })
+  if (error) {
+    console.error('upsert_scan failed', error)
+    return NextResponse.json({ error: 'Scan failed' }, { status: 500 })
   }
 
-  // 3. Count total discovered for this user
   const { count } = await supabaseAdmin
     .from('scans')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
+    .eq('user_id', visitorId)
     .eq('discovered', true)
 
   return NextResponse.json({ total_discovered: count ?? 0 })

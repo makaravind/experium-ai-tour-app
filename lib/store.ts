@@ -26,6 +26,9 @@ interface Store {
 
   totalDiscovered: number
   setTotalDiscovered: (n: number) => void
+
+  listenedCurrentExhibit: boolean
+  setListenedCurrentExhibit: (b: boolean) => void
 }
 
 export const useStore = create<Store>()(
@@ -53,6 +56,9 @@ export const useStore = create<Store>()(
 
       totalDiscovered: 0,
       setTotalDiscovered: (totalDiscovered) => set({ totalDiscovered }),
+
+      listenedCurrentExhibit: false,
+      setListenedCurrentExhibit: (listenedCurrentExhibit) => set({ listenedCurrentExhibit }),
     }),
     {
       name: 'experium-store',

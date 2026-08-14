@@ -14,8 +14,17 @@ interface Exhibit {
   exhibit_audio: ExhibitAudio[]
 }
 
-export default async function ExhibitPage({ params }: { params: Promise<{ code: string }> }) {
+export default async function ExhibitPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ code: string }>
+  searchParams: Promise<{ scan?: string; scansrc?: string }>
+}) {
   const { code } = await params
+  const sp = await searchParams
+  const isQrScan = sp.scan === '1'
+  const scanSrc = sp.scansrc ?? null
 
   const { data: qr, error } = await supabase
     .from('exhibit_qr_codes')
@@ -40,7 +49,9 @@ export default async function ExhibitPage({ params }: { params: Promise<{ code: 
   return (
     <ExhibitPageClient
       exhibitId={exhibit.id}
-      qrCodeId={qr.id}
+      qrCode={code}
+      isQrScan={isQrScan}
+      scanSrc={scanSrc}
       exhibit={{
         name: exhibit.name,
         type: exhibit.type,
