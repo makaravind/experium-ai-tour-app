@@ -2,26 +2,20 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { LeafOutlineIcon } from '@/components/icons'
 
-/**
- * Placeholder art only — these disappear once `exhibit_photos` has rows, so they
- * stay local rather than entering the theme palette.
- */
 const PLACEHOLDER = {
   hero: 'linear-gradient(160deg, #6f9557, #456a3f)',
   blank: 'linear-gradient(160deg, #e8e5df, #d8d4cb)',
   blankIcon: '#b9b4a8',
 } as const
 
-/**
- * Photo gallery. `exhibit_photos` has no rows yet, so cards render as blank
- * placeholders — but the swipe, snapping and thumbnails are fully functional.
- */
 export default function Gallery({ count = 4 }: { count?: number }) {
   const trackRef = useRef<HTMLDivElement>(null)
+  const slideRefs = useRef<(HTMLButtonElement | null)[]>([])
   const [active, setActive] = useState(0)
-  const [fullscreen, setFullscreen] = useState<number | null>(null)
+  const [fullscreen, setFullscreen] = useState<{ index: number; rect: DOMRect } | null>(null)
 
   const onScroll = useCallback(() => {
     const el = trackRef.current
@@ -36,10 +30,10 @@ export default function Gallery({ count = 4 }: { count?: number }) {
     el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
   }
 
+  const bgFor = (i: number) => (i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank)
+
   return (
     <div className="w-full">
-      {/* The counter is a sibling of the track, not of the slides, so one pill
-          stays put instead of every slide carrying its own copy. */}
       <div className="relative">
         <div
           ref={trackRef}
@@ -52,14 +46,20 @@ export default function Gallery({ count = 4 }: { count?: number }) {
           {Array.from({ length: count }, (_, i) => (
             <div key={i} className="w-full flex-shrink-0 snap-center">
               <button
+                ref={(el) => {
+                  slideRefs.current[i] = el
+                }}
                 className="w-full flex items-center justify-center cursor-zoom-in"
                 style={{
                   aspectRatio: '1/1',
-                  background: i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
+                  background: bgFor(i),
                   border: 'none',
                   padding: 0,
                 }}
-                onClick={() => setFullscreen(i)}
+                onClick={() => {
+                  const el = slideRefs.current[i]
+                  if (el) setFullscreen({ index: i, rect: el.getBoundingClientRect() })
+                }}
                 aria-label={`Photo ${i + 1} of ${count} — tap to enlarge`}
               >
                 {i > 0 && (
@@ -74,41 +74,19 @@ export default function Gallery({ count = 4 }: { count?: number }) {
         </span>
       </div>
 
-      {/* Fullscreen modal */}
-      {fullscreen !== null &&
-        typeof document !== 'undefined' &&
+      {typeof document !== 'undefined' &&
         createPortal(
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-            onClick={() => setFullscreen(null)}
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Photo ${fullscreen + 1} enlarged`}
-          >
-            <button
-              className="absolute top-4 right-4 text-white bg-black/50 rounded-full w-9 h-9 flex items-center justify-center text-lg leading-none"
-              onClick={() => setFullscreen(null)}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-            <div
-              className="w-full max-w-lg mx-4"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                aspectRatio: '1/1',
-                background: fullscreen === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
-                borderRadius: 12,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {fullscreen > 0 && (
-                <LeafOutlineIcon size={60} color={PLACEHOLDER.blankIcon} strokeWidth={1.2} />
-              )}
-            </div>
-          </div>,
+          <AnimatePresence>
+            {fullscreen !== null && (
+              <FullscreenModal
+                key="fullscreen"
+                index={fullscreen.index}
+                rect={fullscreen.rect}
+                bg={bgFor(fullscreen.index)}
+                onClose={() => setFullscreen(null)}
+              />
+            )}
+          </AnimatePresence>,
           document.body
         )}
 
@@ -124,7 +102,7 @@ export default function Gallery({ count = 4 }: { count?: number }) {
             style={{
               width: 60,
               height: 48,
-              background: i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank,
+              background: bgFor(i),
               padding: 0,
             }}
             aria-label={`Go to photo ${i + 1}`}
@@ -139,5 +117,89 @@ export default function Gallery({ count = 4 }: { count?: number }) {
         ))}
       </div>
     </div>
+  )
+}
+
+/**
+ * Separate component so AnimatePresence captures a stable snapshot of `rect`
+ * at mount time — the FLIP exit animation references those same values.
+ */
+function FullscreenModal({
+  index,
+  rect,
+  bg,
+  onClose,
+}: {
+  index: number
+  rect: DOMRect
+  bg: string
+  onClose: () => void
+}) {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const size = Math.min(vw - 32, 480)
+  const targetLeft = (vw - size) / 2
+  const targetTop = (vh - size) / 2
+
+  // FLIP: position image at final (fullscreen) coordinates, then apply an
+  // initial transform that maps it to the thumbnail's position on screen.
+  const scale = rect.width / size
+  const dx = rect.left + rect.width / 2 - (targetLeft + size / 2)
+  const dy = rect.top + rect.height / 2 - (targetTop + size / 2)
+
+  const morphTransition = { type: 'spring', stiffness: 350, damping: 35 } as const
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50"
+      initial={{ backgroundColor: 'rgba(0,0,0,0)' }}
+      animate={{ backgroundColor: 'rgba(0,0,0,0.9)' }}
+      exit={{ backgroundColor: 'rgba(0,0,0,0)' }}
+      transition={{ duration: 0.25 }}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Photo ${index + 1} enlarged`}
+    >
+      {/* Close button fades in after the morph settles */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15, delay: 0.22 }}
+        className="absolute top-4 right-4 text-white bg-black/50 rounded-full w-9 h-9 flex items-center justify-center text-lg leading-none"
+        onClick={(e) => {
+          e.stopPropagation()
+          onClose()
+        }}
+        aria-label="Close"
+      >
+        ✕
+      </motion.button>
+
+      {/* Morphing image — starts at thumbnail, springs to fullscreen */}
+      <motion.div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'fixed',
+          left: targetLeft,
+          top: targetTop,
+          width: size,
+          height: size,
+          background: bg,
+          borderRadius: 12,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}
+        initial={{ scale, x: dx, y: dy, borderRadius: 10 / scale }}
+        animate={{ scale: 1, x: 0, y: 0, borderRadius: 12 }}
+        exit={{ scale, x: dx, y: dy, borderRadius: 10 / scale }}
+        transition={morphTransition}
+      >
+        {index > 0 && <LeafOutlineIcon size={60} color={PLACEHOLDER.blankIcon} strokeWidth={1.2} />}
+      </motion.div>
+    </motion.div>
   )
 }

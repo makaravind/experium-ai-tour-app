@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion, useDragControls } from 'framer-motion'
+import { AnimatePresence, animate, motion, useDragControls, useMotionValue } from 'framer-motion'
 import Gallery from '@/components/exhibit/Gallery'
 import LanguageSelector from '@/components/common/LanguageSelector'
 import { CloseIcon, LeafOutlineIcon, PauseIcon, PlayIcon, StarIcon } from '@/components/icons'
@@ -10,6 +10,21 @@ import { formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
 import type { ExhibitAudio, ExhibitData } from '@/lib/types'
 
 const SPRING = { duration: 0.3, ease: [0.4, 0, 0.2, 1] } as const
+
+/**
+ * Critically damped, so the sheet lands without wobble. Release velocity gets
+ * fed in on drag end — that's what makes a flick carry through instead of
+ * restarting from a standstill.
+ */
+const SHEET_SPRING = { type: 'spring', stiffness: 400, damping: 40, restDelta: 0.5 } as const
+
+/**
+ * Fraction of the travel after which a drag swaps in the expanded layout. Low
+ * on purpose: the row→column reflow then happens while the sheet is still
+ * mostly off-screen, so the fullscreen content has already arrived by the time
+ * the sheet lands rather than popping in when the finger lifts.
+ */
+const REVEAL_AT = 0.18
 
 /** Clearance so the collapsed sheet never hides content behind the tab bar. */
 const TAB_BAR_CLEARANCE = 108
@@ -53,6 +68,12 @@ export default function BottomSheet({
   // change this value across renders and cause a height flash on Chrome.
   const [fullH] = useState<number>(() => (typeof window !== 'undefined' ? window.innerHeight : 900))
   const yOffset = peekH !== undefined ? fullH - peekH : fullH
+  /**
+   * The sheet's translation, owned here rather than driven by an `animate` prop.
+   * The drag gesture writes to this exact value, so a declarative target would
+   * be fighting the finger for control of it mid-gesture.
+   */
+  const y = useMotionValue(fullH)
   const audioRef = useRef<HTMLAudioElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -69,8 +90,12 @@ export default function BottomSheet({
   // (server-rendered exhibit data, constant chips and button), so no ResizeObserver needed.
   useLayoutEffect(() => {
     const el = contentRef.current
-    if (el) setPeekH(el.offsetHeight)
-  }, [])
+    if (!el) return
+    const h = el.offsetHeight
+    setPeekH(h)
+    // Park the sheet at its resting position before the first paint.
+    y.set(fullH - h)
+  }, [fullH, y])
 
   // Re-point the element whenever the language changes. Playback only carries
   // over if it was already running — switching while idle must never autoplay.
@@ -84,12 +109,18 @@ export default function BottomSheet({
     if (wasPlaying) el.play()
   }, [currentSrc])
 
+  /** Open to fullscreen. `velocity` carries a drag release into the snap. */
+  const expand = (velocity = 0) => {
+    setExpanded(true)
+    animate(y, 0, { ...SHEET_SPRING, velocity })
+  }
+
   /** Listen → fullscreen and play from the top; the ring lands a beat later. */
   const listen = () => {
     const el = audioRef.current
     if (!el) return
     firedQuartiles.current = new Set()
-    setExpanded(true)
+    expand()
     setIsPlaying(true)
     setPopping(true)
     el.currentTime = 0
@@ -103,13 +134,14 @@ export default function BottomSheet({
   }
 
   /** Back to peek. Pauses rather than stops; the next Listen restarts from 0. */
-  const collapse = () => {
+  const collapse = (velocity = 0) => {
     if (morphTimer.current) clearTimeout(morphTimer.current)
     if (sheetRef.current) sheetRef.current.scrollTop = 0
     audioRef.current?.pause()
     setStarted(false)
     setPopping(false)
     setExpanded(false)
+    animate(y, yOffset, { ...SHEET_SPRING, velocity })
   }
 
   const togglePlay = () => {
@@ -139,21 +171,35 @@ export default function BottomSheet({
         zIndex: 30,
         fontFamily: 'var(--font-body)',
         height: fullH,
+        y,
       }}
-      initial={false}
-      animate={{ y: expanded ? 0 : yOffset }}
-      transition={SPRING}
       drag="y"
       dragListener={false}
       dragControls={dragControls}
-      dragConstraints={{ top: 0, bottom: 0 }}
-      dragElastic={0.16}
+      // These are min/max for `y` itself, relative to the layout position: 0 is
+      // fullscreen, yOffset is peek. Framer rebases object constraints into the
+      // transform's own space, so anything else here drags the sheet outside its
+      // legal travel and makes it jump on the first touch.
+      dragConstraints={{ top: 0, bottom: yOffset }}
+      // Hard ceiling at fullscreen — overshooting upward lifts the sheet off the
+      // bottom edge and exposes the map beneath it. Downward can give a little.
+      dragElastic={{ top: 0, bottom: 0.2 }}
+      // Framer kicks off its own inertia on `y` before onDragEnd fires, which
+      // would strand a sub-threshold release mid-screen. We snap explicitly below.
+      dragMomentum={false}
+      onDrag={() => {
+        // Swap layouts as the finger moves rather than on release, so the
+        // fullscreen content is already in place by the time the sheet lands.
+        const revealed = y.get() < yOffset * (1 - REVEAL_AT)
+        if (revealed !== expanded) setExpanded(revealed)
+      }}
       onDragEnd={(_, info) => {
-        if (info.offset.y < -40 || info.velocity.y < -400) {
-          setExpanded(true)
-        } else if (info.offset.y > 40 || info.velocity.y > 400) {
-          collapse()
-        }
+        // Always resolve to a snap point, handing the spring the release velocity
+        // so the sheet keeps the momentum the finger gave it.
+        const flick = info.velocity.y
+        const pastHalfway = y.get() < yOffset / 2
+        if (flick < -400 || (pastHalfway && flick <= 400)) expand(flick)
+        else collapse(flick)
       }}
     >
       <audio
@@ -183,13 +229,7 @@ export default function BottomSheet({
         {/* Grab handle — drag or tap to toggle full view */}
         <button
           onPointerDown={(e) => dragControls.start(e)}
-          onClick={() => {
-            if (expanded) {
-              collapse()
-            } else {
-              setExpanded(true)
-            }
-          }}
+          onClick={() => (expanded ? collapse() : expand())}
           className="w-full pt-2.5 pb-4 flex justify-center"
           style={{ background: 'none', border: 'none', touchAction: 'none', cursor: 'grab' }}
           aria-label={expanded ? 'Collapse details' : 'Expand to full view'}
@@ -204,33 +244,50 @@ export default function BottomSheet({
             className={expanded ? 'flex flex-col gap-3' : 'flex flex-row gap-3 items-center pr-9'}
           >
             <div className={expanded ? 'w-full' : ''}>
-              {expanded ? (
-                <div className="-mx-4 relative">
-                  <Gallery />
-                  <motion.button
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.2, delay: 0.12 }}
-                    onClick={collapse}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center bg-white/92 text-ex-ink"
-                    style={{ border: 'none', boxShadow: 'var(--ex-shadow-float)' }}
-                    aria-label="Close"
+              <AnimatePresence mode="popLayout" initial={false}>
+                {expanded ? (
+                  <motion.div
+                    key="gallery"
+                    className="-mx-4 relative"
+                    initial={{ opacity: 0, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
                   >
-                    <CloseIcon size={16} strokeWidth={2.4} />
-                  </motion.button>
-                </div>
-              ) : (
-                <div
-                  className="w-14 h-14 rounded-xl"
-                  style={{
-                    background:
-                      'linear-gradient(135deg, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
-                    overflow: 'hidden',
-                  }}
-                />
-              )}
+                    <Gallery />
+                    <motion.button
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.2, delay: 0.12 }}
+                      onClick={() => collapse()}
+                      className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center bg-white/92 text-ex-ink"
+                      style={{ border: 'none', boxShadow: 'var(--ex-shadow-float)' }}
+                      aria-label="Close"
+                    >
+                      <CloseIcon size={16} strokeWidth={2.4} />
+                    </motion.button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="thumb"
+                    exit={{ opacity: 0, scale: 0.85 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <div
+                      className="w-14 h-14 rounded-xl"
+                      style={{
+                        background:
+                          'linear-gradient(135deg, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
+                        overflow: 'hidden',
+                      }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
+            {/* No layout animation here: it measures in viewport space, so while the
+                sheet is translating every frame the delta absorbs the parent's
+                motion and the title jitters sideways. */}
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span
