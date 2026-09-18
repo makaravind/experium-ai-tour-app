@@ -1,7 +1,14 @@
+'use client'
+
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { HomeIcon, MapIcon, ScanIcon } from '@/components/icons'
 
 export default function TabBar() {
+  const pathname = usePathname()
+  const isHome = pathname === '/'
+  const isMap = pathname === '/map'
+
   return (
     <nav
       className="absolute left-4 right-4 bottom-6 h-16 flex items-center justify-around rounded-[28px] bg-ex-paper border border-ex-border"
@@ -12,13 +19,16 @@ export default function TabBar() {
       }}
       aria-label="Primary"
     >
-      <button
-        className="flex flex-col items-center gap-0.5 text-[10.5px] font-extrabold flex-1 text-ex-muted"
-        style={{ border: 'none', background: 'none' }}
+      <Link
+        href="/"
+        aria-current={isHome ? 'page' : undefined}
+        className={`flex flex-col items-center gap-0.5 text-[10.5px] font-extrabold flex-1 ${
+          isHome ? 'text-ex-forest' : 'text-ex-muted'
+        }`}
       >
         <HomeIcon strokeWidth={2.1} />
         Home
-      </button>
+      </Link>
 
       <Link
         href="/scan"
@@ -40,13 +50,16 @@ export default function TabBar() {
         </span>
       </Link>
 
-      <button
-        className="flex flex-col items-center gap-0.5 text-[10.5px] font-extrabold flex-1 text-ex-forest"
-        style={{ border: 'none', background: 'none' }}
+      <Link
+        href="/map"
+        aria-current={isMap ? 'page' : undefined}
+        className={`flex flex-col items-center gap-0.5 text-[10.5px] font-extrabold flex-1 ${
+          isMap ? 'text-ex-forest' : 'text-ex-muted'
+        }`}
       >
         <MapIcon strokeWidth={2.1} />
         Map
-      </button>
+      </Link>
     </nav>
   )
 }
