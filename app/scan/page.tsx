@@ -4,13 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import jsQR from 'jsqr'
 
-function extractExhibitCode(text: string): string | null {
+/**
+ * Physical park markers encode their own `scansrc` (always `onsite`, per
+ * anti-fraud design — only a real plate scan should count as discovered).
+ * We forward that value as-is rather than overwriting it, so scanning a
+ * plate through the in-app camera counts the same as the OS camera app.
+ */
+export function extractExhibitScan(text: string): { code: string; scansrc: string | null } | null {
   try {
     const url = new URL(text)
     const match = url.pathname.match(/^\/s\/([^/?#]+)/)
-    if (match) return match[1]
+    if (match) return { code: match[1], scansrc: url.searchParams.get('scansrc') }
   } catch {
-    if (/^[a-zA-Z0-9_-]{2,32}$/.test(text)) return text
+    if (/^[a-zA-Z0-9_-]{2,32}$/.test(text)) return { code: text, scansrc: null }
   }
   return null
 }
@@ -49,13 +55,13 @@ export default function ScanPage() {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const code = jsQR(imageData.data, imageData.width, imageData.height)
       if (code) {
-        const exhibitCode = extractExhibitCode(code.data)
-        if (exhibitCode && !redirectedRef.current) {
+        const scan = extractExhibitScan(code.data)
+        if (scan && !redirectedRef.current) {
           redirectedRef.current = true
           stopCamera()
-          router.replace(`/s/${exhibitCode}?scan=1&scansrc=camera`)
+          router.replace(`/s/${scan.code}?scan=1&scansrc=${scan.scansrc ?? 'camera'}`)
           return
-        } else if (!exhibitCode) {
+        } else if (!scan) {
           setToast('Not an exhibit QR code')
           setTimeout(() => setToast(null), 2500)
         }
