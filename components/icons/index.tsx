@@ -116,6 +116,14 @@ export function ChevronDownIcon(props: IconProps) {
   )
 }
 
+export function CheckIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="m5 13 4 4L19 7" />
+    </Stroke>
+  )
+}
+
 // ─── filled icons ─────────────────────────────────────────────────────────────
 
 export function PlayIcon({ size = 24, color = 'currentColor', className, style }: IconProps) {
