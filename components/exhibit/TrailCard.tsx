@@ -1,35 +1,54 @@
 'use client'
 
+import { useState } from 'react'
 import { CheckIcon } from '@/components/icons'
+import MilestoneModal from '@/components/exhibit/MilestoneModal'
 import { useStore } from '@/lib/store'
 import { TRAIL_MILESTONES, getCurrentSegment } from '@/lib/trail'
+
+const NODE_BASE = 'w-[26px] h-[26px] rounded-full flex-none grid place-items-center'
 
 function Node({
   variant,
   label,
+  onClick,
 }: {
   variant: 'hollow' | 'done' | 'target'
   label: string | number
+  onClick?: () => void
 }) {
   if (variant === 'done') {
     return (
-      <div className="w-[26px] h-[26px] rounded-full flex-none grid place-items-center bg-ex-forest">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`Milestone ${label} — achieved, tap to revisit`}
+        className={`${NODE_BASE} bg-ex-forest`}
+        style={{ border: 'none', padding: 0 }}
+      >
         <CheckIcon size={13} color="#fff" strokeWidth={3} />
-      </div>
+      </button>
     )
   }
   if (variant === 'target') {
     return (
-      <div
-        className="w-[26px] h-[26px] rounded-full flex-none grid place-items-center bg-ex-orange text-[11px] font-extrabold text-white"
-        style={{ boxShadow: '0 0 0 5px rgba(221,161,94,.3), 0 2px 0 #b8834a' }}
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`Milestone ${label} — in progress, tap for details`}
+        className={`${NODE_BASE} bg-ex-orange text-[11px] font-extrabold text-white`}
+        style={{
+          boxShadow: '0 0 0 5px rgba(221,161,94,.3), 0 2px 0 #b8834a',
+          border: 'none',
+          padding: 0,
+        }}
       >
         {label}
-      </div>
+      </button>
     )
   }
   return (
-    <div className="w-[26px] h-[26px] rounded-full flex-none grid place-items-center border-2 border-ex-sage text-[11px] font-extrabold text-ex-sage">
+    <div className={`${NODE_BASE} border-2 border-ex-sage text-[11px] font-extrabold text-ex-sage`}>
       {label}
     </div>
   )
@@ -42,6 +61,10 @@ function Segment({ filled }: { filled: boolean }) {
 export default function TrailCard() {
   const totalDiscovered = useStore((s) => s.totalDiscovered)
   const segment = getCurrentSegment(totalDiscovered)
+  const [openMilestone, setOpenMilestone] = useState<{
+    milestone: number
+    achieved: boolean
+  } | null>(null)
 
   const isFresh = totalDiscovered === 0
   const isComplete = segment.isComplete
@@ -70,7 +93,7 @@ export default function TrailCard() {
     lead = <>You&apos;ve discovered all 50 exhibits! 🎉</>
     meta = 'Trail complete — every exhibit found.'
     ariaLabel = 'Trail progress: all 50 exhibits discovered.'
-    nodes = segment.achieved.slice(-3).map((m) => ({ variant: 'done' as const, label: m }))
+    nodes = segment.achieved.map((m) => ({ variant: 'done' as const, label: m }))
   } else {
     const next = segment.next as number
     const toNextBadge = next - totalDiscovered
@@ -101,10 +124,22 @@ export default function TrailCard() {
       style={{ boxShadow: 'var(--ex-shadow-soft)' }}
     >
       <div className="font-display font-bold text-base leading-tight">{lead}</div>
-      <div className="flex items-center mt-5 mb-2" role="img" aria-label={ariaLabel}>
+      <div className="flex items-center mt-5 mb-2" role="group" aria-label={ariaLabel}>
         {nodes.map((node, i) => (
           <div className="flex items-center flex-1 last:flex-none" key={i}>
-            <Node variant={node.variant} label={node.label} />
+            <Node
+              variant={node.variant}
+              label={node.label}
+              onClick={
+                node.variant === 'hollow'
+                  ? undefined
+                  : () =>
+                      setOpenMilestone({
+                        milestone: node.label as number,
+                        achieved: node.variant === 'done',
+                      })
+              }
+            />
             {i < nodes.length - 1 && (
               <Segment filled={node.variant === 'done' && nodes[i + 1]?.variant === 'done'} />
             )}
@@ -112,6 +147,15 @@ export default function TrailCard() {
         ))}
       </div>
       <div className="text-[13px] text-ex-muted font-semibold mt-3">{meta}</div>
+
+      {openMilestone && (
+        <MilestoneModal
+          milestone={openMilestone.milestone}
+          achieved={openMilestone.achieved}
+          totalDiscovered={totalDiscovered}
+          onClose={() => setOpenMilestone(null)}
+        />
+      )}
     </div>
   )
 }

@@ -21,10 +21,12 @@ export default function Home() {
             <>
               Welcome to <span className="text-ex-forest">Experium</span>
             </>
-          ) : (
+          ) : userInfo?.name ? (
             <>
-              Welcome back, <span className="text-ex-forest">{userInfo?.name ?? 'there'}</span>
+              Welcome back, <span className="text-ex-forest">{userInfo.name}</span>
             </>
+          ) : (
+            'Welcome back!'
           )}
           <LeafIcon size={20} color="var(--color-ex-forest)" />
         </div>
