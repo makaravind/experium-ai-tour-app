@@ -7,6 +7,7 @@
 -- no-source visits insert unbounded duplicate rows.
 UPDATE scans SET scan_src = 'unknown' WHERE scan_src IS NULL;
 
+ALTER TABLE scans DROP CONSTRAINT IF EXISTS scans_user_qr_unique;
 DROP INDEX IF EXISTS scans_user_qr_unique;
 CREATE UNIQUE INDEX IF NOT EXISTS scans_user_qr_src_unique ON scans (user_id, qr_code_id, scan_src);
 
