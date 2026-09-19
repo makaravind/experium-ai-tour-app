@@ -61,13 +61,22 @@ export default function ExhibitView({
     try {
       const res = await postScan({
         listened: true,
+        ...(scanSrc ? { scan_src: scanSrc } : {}),
         device_info: { language, ...deviceRef.current },
       })
       const data = await res.json()
       setTotalDiscovered(data.total_discovered ?? 0)
       markVisited(exhibitId)
     } catch {}
-  }, [language, postScan, exhibitId, setListenedCurrentExhibit, setTotalDiscovered, markVisited])
+  }, [
+    language,
+    postScan,
+    exhibitId,
+    scanSrc,
+    setListenedCurrentExhibit,
+    setTotalDiscovered,
+    markVisited,
+  ])
 
   const handleQuartile = useCallback(
     (sec: number, quartile: number) => {
@@ -75,10 +84,11 @@ export default function ExhibitView({
         listened: true,
         listen_duration_sec: sec,
         listen_quartile: quartile,
+        ...(scanSrc ? { scan_src: scanSrc } : {}),
         device_info: { language, ...deviceRef.current },
       })
     },
-    [language, postScan]
+    [language, postScan, scanSrc]
   )
 
   return (

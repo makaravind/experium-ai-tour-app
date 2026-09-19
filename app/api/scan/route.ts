@@ -46,11 +46,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Scan failed' }, { status: 500 })
   }
 
-  const { count } = await supabaseAdmin
-    .from('scans')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', visitorId)
-    .eq('discovered', true)
+  const { data: totalDiscovered, error: countErr } = await supabaseAdmin.rpc('total_discovered', {
+    p_user_id: visitorId,
+  })
 
-  return NextResponse.json({ total_discovered: count ?? 0 })
+  if (countErr) {
+    console.error('total_discovered failed', countErr)
+    return NextResponse.json({ error: 'Scan failed' }, { status: 500 })
+  }
+
+  return NextResponse.json({ total_discovered: totalDiscovered ?? 0 })
 }
