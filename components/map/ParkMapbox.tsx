@@ -78,6 +78,7 @@ export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkM
       const { data } = await supabase
         .from('exhibits')
         .select('id, name, type, tier, gps_lng, gps_lat, exhibit_qr_codes(code)')
+        .eq('exhibit_qr_codes.status', 'active')
         .not('gps_lat', 'is', null)
         .not('gps_lng', 'is', null)
 
