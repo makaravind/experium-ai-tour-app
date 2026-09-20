@@ -294,6 +294,9 @@ export default function ParkMapbox({
         if (pending) map.flyTo({ center: [pending.gps_lng, pending.gps_lat], zoom: 19 })
       }
 
+      // Initial peek chip calculation — moveend won't fire on first load
+      setPeekChips(calcPeekChips(map, exhibitsRef.current, visitedExhibits))
+
       map.on('moveend', () => {
         const visited = useStore.getState().visitedExhibits
         setPeekChips(calcPeekChips(map, exhibitsRef.current, visited))
