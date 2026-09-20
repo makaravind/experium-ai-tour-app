@@ -1,13 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
-import BottomSheet from '@/components/exhibit/BottomSheet'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import MapStub from '@/components/exhibit/MapStub'
+import ParkMapbox from '@/components/map/ParkMapbox'
+import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import TabBar from '@/components/exhibit/TabBar'
 import { CompassIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { getDeviceInfo } from '@/lib/utils'
-import type { ExhibitAudio, ExhibitData } from '@/lib/types'
+import type { ExhibitAudio, ExhibitData, MapExhibit, PreviewExhibit } from '@/lib/types'
 
 export default function ExhibitView({
   exhibit,
@@ -16,6 +18,7 @@ export default function ExhibitView({
   exhibitId,
   isQrScan,
   scanSrc,
+  autoPlay,
 }: {
   exhibit: ExhibitData
   audio: ExhibitAudio[]
@@ -23,7 +26,21 @@ export default function ExhibitView({
   exhibitId: string
   isQrScan: boolean
   scanSrc: string | null
+  autoPlay: boolean
 }) {
+  const router = useRouter()
+  const [mapFailed, setMapFailed] = useState(false)
+  const [flyToTarget, setFlyToTarget] = useState<string | null>(null)
+  const [navigateEnabled, setNavigateEnabled] = useState(false)
+  const [selectedExhibit, setSelectedExhibit] = useState<PreviewExhibit>(() => ({
+    id: exhibitId,
+    name: exhibit.name,
+    type: exhibit.type,
+    tier: exhibit.tier,
+    qr_code: qrCode,
+    facts: exhibit.facts,
+  }))
+
   const visitorId = useStore((s) => s.visitorId)
   const language = useStore((s) => s.language)
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
@@ -91,9 +108,33 @@ export default function ExhibitView({
     [language, postScan, scanSrc]
   )
 
+  const handlePinTap = (pin: MapExhibit) => {
+    setSelectedExhibit({
+      id: pin.id,
+      name: pin.name,
+      type: pin.type,
+      tier: pin.tier,
+      qr_code: pin.qr_code,
+    })
+    setNavigateEnabled(true)
+  }
+
+  const handleNavigate = () => setFlyToTarget(selectedExhibit.id)
+
+  const sheetAudio = selectedExhibit.id === exhibitId ? audio : []
+
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ fontFamily: 'var(--font-body)' }}>
-      <MapStub discovered={listenedCurrentExhibit} />
+      {mapFailed ? (
+        <MapStub discovered={listenedCurrentExhibit} />
+      ) : (
+        <ParkMapbox
+          onLoadError={() => setMapFailed(true)}
+          onPinTap={handlePinTap}
+          flyToTarget={flyToTarget}
+          onMapTap={() => router.push('/map')}
+        />
+      )}
 
       {/* Search bar */}
       <div
@@ -115,12 +156,13 @@ export default function ExhibitView({
         </div>
       </div>
 
-      {/* Bottom sheet — expands to fullscreen and doubles as the audio player */}
-      <BottomSheet
-        exhibit={exhibit}
-        audio={audio}
-        onFirstPlay={handleFirstPlay}
-        onQuartile={handleQuartile}
+      <PreviewSheet
+        exhibit={selectedExhibit}
+        audio={sheetAudio}
+        autoPlay={autoPlay}
+        onNavigate={navigateEnabled ? handleNavigate : undefined}
+        onFirstPlay={selectedExhibit.id === exhibitId ? handleFirstPlay : undefined}
+        onQuartile={selectedExhibit.id === exhibitId ? handleQuartile : undefined}
       />
 
       <TabBar />
