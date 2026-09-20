@@ -48,7 +48,6 @@ type PeekChip = {
   offset: number // px along the edge: y-coord for left/right, x-coord for top/bottom
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- consumed in a later step
 function calcPeekChips(
   map: mapboxgl.Map,
   exhibits: MapExhibit[],
@@ -253,6 +252,11 @@ export default function ParkMapbox({
         const pending = exhibitsRef.current.find((ex) => ex.id === flyToTargetRef.current)
         if (pending) map.flyTo({ center: [pending.gps_lng, pending.gps_lat], zoom: 19 })
       }
+
+      map.on('moveend', () => {
+        const visited = useStore.getState().visitedExhibits
+        setPeekChips(calcPeekChips(map, exhibitsRef.current, visited))
+      })
     })
 
     map.on('error', onLoadError)
