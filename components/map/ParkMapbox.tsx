@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import type React from 'react'
+import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useDebugStore } from '@/lib/debug-store'
@@ -40,6 +41,110 @@ function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
   )
 }
 
+type PeekChip = {
+  id: string
+  name: string
+  visited: boolean
+  edge: 'left' | 'right' | 'top' | 'bottom'
+  offset: number // px along the edge: y-coord for left/right, x-coord for top/bottom
+}
+export type { PeekChip }
+
+export function calcPeekChips(
+  map: mapboxgl.Map,
+  exhibits: MapExhibit[],
+  visitedIds: string[]
+): PeekChip[] {
+  const bounds = map.getBounds()!
+  const sw = bounds.getSouthWest()
+  const ne = bounds.getNorthEast()
+
+  const W = map.getCanvas().width
+  const H = map.getCanvas().height
+
+  // Extended bounds: 50% expansion in each direction
+  const lngSpan = ne.lng - sw.lng
+  const latSpan = ne.lat - sw.lat
+  const extSw = { lng: sw.lng - lngSpan * 0.5, lat: sw.lat - latSpan * 0.5 }
+  const extNe = { lng: ne.lng + lngSpan * 0.5, lat: ne.lat + latSpan * 0.5 }
+
+  const chips: PeekChip[] = []
+
+  for (const exhibit of exhibits) {
+    const { gps_lng: lng, gps_lat: lat } = exhibit
+
+    // Skip if inside viewport
+    if (lng >= sw.lng && lng <= ne.lng && lat >= sw.lat && lat <= ne.lat) continue
+    // Skip if outside extended bounds
+    if (lng < extSw.lng || lng > extNe.lng || lat < extSw.lat || lat > extNe.lat) continue
+
+    const { x, y } = map.project([lng, lat])
+
+    const dx = x < 0 ? x : x > W ? x - W : 0
+    const dy = y < 0 ? y : y > H ? y - H : 0
+
+    let edge: PeekChip['edge']
+    let offset: number
+
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      edge = dx < 0 ? 'left' : 'right'
+      offset = Math.min(Math.max(y, 16), H - 16)
+    } else {
+      edge = dy < 0 ? 'top' : 'bottom'
+      offset = Math.min(Math.max(x, 16), W - 16)
+    }
+
+    chips.push({
+      id: exhibit.id,
+      name: exhibit.name,
+      visited: visitedIds.includes(exhibit.id),
+      edge,
+      offset,
+    })
+  }
+
+  return chips
+}
+
+const EDGE_ROTATION: Record<PeekChip['edge'], number> = {
+  bottom: 0,
+  top: 180,
+  left: 90,
+  right: -90,
+}
+
+const MARGIN = 8
+
+function PeekChipEl({ chip }: { chip: PeekChip }) {
+  const style: React.CSSProperties =
+    chip.edge === 'left'
+      ? { position: 'absolute', left: MARGIN, top: chip.offset - 14 }
+      : chip.edge === 'right'
+        ? { position: 'absolute', right: MARGIN, top: chip.offset - 14 }
+        : chip.edge === 'top'
+          ? { position: 'absolute', top: MARGIN, left: chip.offset - 14 }
+          : { position: 'absolute', bottom: MARGIN, left: chip.offset - 14 }
+
+  return (
+    <div style={style}>
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        style={{
+          transform: `rotate(${EDGE_ROTATION[chip.edge]}deg)`,
+          display: 'block',
+          filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
+        }}
+        fill={chip.visited ? '#588157' : '#dda15e'}
+      >
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+        <circle cx="12" cy="9" r="2.5" fill="white" />
+      </svg>
+    </div>
+  )
+}
+
 export default function ParkMapbox({
   onLoadError,
   onPinTap,
@@ -59,6 +164,7 @@ export default function ParkMapbox({
   onPinTapRef.current = onPinTap
   // eslint-disable-next-line react-hooks/refs
   onMapTapRef.current = onMapTap
+  const [peekChips, setPeekChips] = useState<PeekChip[]>([])
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
   useEffect(() => {
@@ -186,6 +292,11 @@ export default function ParkMapbox({
         const pending = exhibitsRef.current.find((ex) => ex.id === flyToTargetRef.current)
         if (pending) map.flyTo({ center: [pending.gps_lng, pending.gps_lat], zoom: 19 })
       }
+
+      map.on('moveend', () => {
+        const visited = useStore.getState().visitedExhibits
+        setPeekChips(calcPeekChips(map, exhibitsRef.current, visited))
+      })
     })
 
     map.on('error', onLoadError)
@@ -208,6 +319,11 @@ export default function ParkMapbox({
   return (
     <div className="absolute inset-0">
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {peekChips.map((chip) => (
+          <PeekChipEl key={chip.id} chip={chip} />
+        ))}
+      </div>
     </div>
   )
 }
