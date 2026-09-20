@@ -19,6 +19,11 @@ const MAX_BOUNDS: [number, number, number, number] = [
   ORTHO_BOUNDS[2] + 0.003,
   ORTHO_BOUNDS[3] + 0.003,
 ]
+const STARTING_CENTER: [number, number] = [
+  (ORTHO_BOUNDS[0] + ORTHO_BOUNDS[2]) / 2,
+  (ORTHO_BOUNDS[1] + ORTHO_BOUNDS[3]) / 2,
+]
+const STARTING_ZOOM = 18
 
 function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
   return (
@@ -39,6 +44,8 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
     const map = new mapboxgl.Map({
       container: containerRef.current!,
       style: 'mapbox://styles/mapbox/satellite-v9',
+      center: STARTING_CENTER,
+      zoom: STARTING_ZOOM,
       maxBounds: MAX_BOUNDS,
       minZoom: 14,
     })
@@ -61,21 +68,18 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
       map.fitBounds(ORTHO_BOUNDS, { padding: 40, maxZoom: 19 })
 
       if (useDebugStore.getState().isActive) {
-        map.once('moveend', () => {
-          const startingZoom = map.getZoom()
-          const updateDebug = () => {
-            const center = map.getCenter()
-            setMapDebug({
-              zoom: map.getZoom(),
-              startingZoom,
-              outOfBounds: isOutOfOrthoBounds(center),
-              lat: center.lat,
-              lng: center.lng,
-            })
-          }
-          updateDebug()
-          map.on('move', updateDebug)
-        })
+        const updateDebug = () => {
+          const center = map.getCenter()
+          setMapDebug({
+            zoom: map.getZoom(),
+            startingZoom: STARTING_ZOOM,
+            outOfBounds: isOutOfOrthoBounds(center),
+            lat: center.lat,
+            lng: center.lng,
+          })
+        }
+        updateDebug()
+        map.on('move', updateDebug)
       }
     })
 
