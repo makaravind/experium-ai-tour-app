@@ -47,5 +47,9 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
     return () => map.remove()
   }, [])
 
-  return <div ref={containerRef} className="absolute inset-0" />
+  return (
+    <div className="absolute inset-0">
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+    </div>
+  )
 }
