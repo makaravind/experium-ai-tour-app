@@ -47,6 +47,7 @@ export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkM
 
   useEffect(() => {
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
+    let cancelled = false
 
     const map = new mapboxgl.Map({
       container: containerRef.current!,
@@ -60,6 +61,7 @@ export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkM
     mapRef.current = map
 
     map.on('load', async () => {
+      if (cancelled) return
       map.addSource('ortho', {
         type: 'raster',
         url: `mapbox://${ORTHO_ID}`,
@@ -118,7 +120,7 @@ export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkM
         source: 'exhibit-pins',
         paint: {
           'circle-radius': 8,
-          'circle-color': ['match', ['get', 'discovered'], true, '#588157', '#dda15e'],
+          'circle-color': ['case', ['==', ['get', 'discovered'], true], '#588157', '#dda15e'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
         },
@@ -156,7 +158,11 @@ export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkM
 
     map.on('error', onLoadError)
 
-    return () => map.remove()
+    return () => {
+      cancelled = true
+      map.off('error', onLoadError)
+      map.remove()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- map initialises once; callbacks are stable refs
   }, [])
 
