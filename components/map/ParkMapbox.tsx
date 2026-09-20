@@ -10,8 +10,7 @@ interface ParkMapboxProps {
 
 const ORTHO_ID = 'aravindmetku.nedour'
 const ORTHO_BOUNDS: [number, number, number, number] = [
-  78.45778053580075, 17.934780490162368,
-  78.46515161551673, 17.940598787066882,
+  78.45778053580075, 17.934780490162368, 78.46515161551673, 17.940598787066882,
 ]
 
 export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
@@ -43,7 +42,7 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
       map.fitBounds(ORTHO_BOUNDS, { padding: 40, maxZoom: 19 })
     })
 
-    map.on('error', () => onLoadError())
+    map.on('error', onLoadError)
 
     return () => map.remove()
   }, [])
