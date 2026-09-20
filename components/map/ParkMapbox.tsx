@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useDebugStore } from '@/lib/debug-store'
+import { useStore } from '@/lib/store'
+import { supabase } from '@/lib/supabase'
 import type { MapExhibit } from '@/lib/types'
 
 interface ParkMapboxProps {
@@ -39,7 +41,6 @@ function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- onPinTap wired into click handler in gh-48 step 5
 export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- populated in gh-48 step 3, read in step 5
   const exhibitsRef = useRef<MapExhibit[]>([])
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
@@ -55,7 +56,7 @@ export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
       minZoom: 14,
     })
 
-    map.on('load', () => {
+    map.on('load', async () => {
       map.addSource('ortho', {
         type: 'raster',
         url: `mapbox://${ORTHO_ID}`,
@@ -70,6 +71,31 @@ export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
           'raster-resampling': 'linear',
         },
       })
+
+      const { data } = await supabase
+        .from('exhibits')
+        .select('id, name, type, tier, gps_lng, gps_lat')
+        .not('gps_lat', 'is', null)
+        .not('gps_lng', 'is', null)
+
+      exhibitsRef.current = data ?? []
+
+      const visitedExhibits = useStore.getState().visitedExhibits
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- source/layer added from this in gh-48 step 4
+      const exhibitPinsGeoJson = {
+        type: 'FeatureCollection' as const,
+        features: exhibitsRef.current.map((exhibit) => ({
+          type: 'Feature' as const,
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [exhibit.gps_lng, exhibit.gps_lat],
+          },
+          properties: {
+            id: exhibit.id,
+            discovered: visitedExhibits.includes(exhibit.id),
+          },
+        })),
+      }
 
       if (useDebugStore.getState().isActive) {
         const updateDebug = () => {
