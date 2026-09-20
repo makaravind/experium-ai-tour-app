@@ -40,13 +40,69 @@ function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
   )
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- consumed in a later step
 type PeekChip = {
   id: string
   name: string
   visited: boolean
   edge: 'left' | 'right' | 'top' | 'bottom'
   offset: number // px along the edge: y-coord for left/right, x-coord for top/bottom
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- consumed in a later step
+function calcPeekChips(
+  map: mapboxgl.Map,
+  exhibits: MapExhibit[],
+  visitedIds: string[]
+): PeekChip[] {
+  const bounds = map.getBounds()!
+  const sw = bounds.getSouthWest()
+  const ne = bounds.getNorthEast()
+
+  const W = map.getCanvas().width
+  const H = map.getCanvas().height
+
+  // Extended bounds: 50% expansion in each direction
+  const lngSpan = ne.lng - sw.lng
+  const latSpan = ne.lat - sw.lat
+  const extSw = { lng: sw.lng - lngSpan * 0.5, lat: sw.lat - latSpan * 0.5 }
+  const extNe = { lng: ne.lng + lngSpan * 0.5, lat: ne.lat + latSpan * 0.5 }
+
+  const chips: PeekChip[] = []
+
+  for (const exhibit of exhibits) {
+    const { gps_lng: lng, gps_lat: lat } = exhibit
+
+    // Skip if inside viewport
+    if (lng >= sw.lng && lng <= ne.lng && lat >= sw.lat && lat <= ne.lat) continue
+    // Skip if outside extended bounds
+    if (lng < extSw.lng || lng > extNe.lng || lat < extSw.lat || lat > extNe.lat) continue
+
+    const { x, y } = map.project([lng, lat])
+
+    const dx = x < 0 ? x : x > W ? x - W : 0
+    const dy = y < 0 ? y : y > H ? y - H : 0
+
+    let edge: PeekChip['edge']
+    let offset: number
+
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      edge = dx < 0 ? 'left' : 'right'
+      offset = Math.min(Math.max(y, 16), H - 16)
+    } else {
+      edge = dy < 0 ? 'top' : 'bottom'
+      offset = Math.min(Math.max(x, 16), W - 16)
+    }
+
+    chips.push({
+      id: exhibit.id,
+      name: exhibit.name,
+      visited: visitedIds.includes(exhibit.id),
+      edge,
+      offset,
+    })
+  }
+
+  return chips
 }
 
 export default function ParkMapbox({
