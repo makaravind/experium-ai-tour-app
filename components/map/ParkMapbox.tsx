@@ -32,7 +32,6 @@ function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
 export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
-  const isDebugActive = useDebugStore((s) => s.isActive)
 
   useEffect(() => {
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
@@ -61,7 +60,7 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
       })
       map.fitBounds(ORTHO_BOUNDS, { padding: 40, maxZoom: 19 })
 
-      if (isDebugActive) {
+      if (useDebugStore.getState().isActive) {
         map.once('moveend', () => {
           const startingZoom = map.getZoom()
           const updateDebug = () =>
