@@ -35,3 +35,13 @@ export interface MapExhibit {
   gps_lng: number
   qr_code: string | null
 }
+
+/** Exhibit shape used by PreviewSheet — no GPS needed. */
+export interface PreviewExhibit {
+  id: string
+  name: string
+  type: string | null
+  tier: string
+  qr_code: string | null
+  facts?: Fact[] | null
+}
