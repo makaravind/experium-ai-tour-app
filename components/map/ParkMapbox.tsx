@@ -14,10 +14,10 @@ const ORTHO_BOUNDS: [number, number, number, number] = [
   78.45778053580075, 17.934780490162368, 78.46515161551673, 17.940598787066882,
 ]
 const MAX_BOUNDS: [number, number, number, number] = [
-  ORTHO_BOUNDS[0] - 0.003,
-  ORTHO_BOUNDS[1] - 0.003,
-  ORTHO_BOUNDS[2] + 0.003,
-  ORTHO_BOUNDS[3] + 0.003,
+  ORTHO_BOUNDS[0] - 0.001,
+  ORTHO_BOUNDS[1] - 0.001,
+  ORTHO_BOUNDS[2] + 0.001,
+  ORTHO_BOUNDS[3] + 0.001,
 ]
 const STARTING_CENTER: [number, number] = [
   (ORTHO_BOUNDS[0] + ORTHO_BOUNDS[2]) / 2,
@@ -65,7 +65,6 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
           'raster-resampling': 'linear',
         },
       })
-      map.fitBounds(ORTHO_BOUNDS, { padding: 40, maxZoom: 19 })
 
       if (useDebugStore.getState().isActive) {
         const updateDebug = () => {
