@@ -119,8 +119,7 @@ function PeekChipEl({ chip }: { chip: PeekChip }) {
     <div style={style}>
       <div className="flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs shadow">
         <span
-          className="h-2 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: chip.visited ? '#588157' : '#dda15e' }}
+          className={`h-2 w-2 shrink-0 rounded-full ${chip.visited ? 'bg-[#588157]' : 'bg-[#dda15e]'}`}
         />
         <span className="max-w-[80px] truncate">{chip.name}</span>
       </div>
