@@ -79,22 +79,22 @@ export default function PreviewSheet({
   }, [fullH, y]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Animate in/out when exhibit changes.
-   
+
   useEffect(() => {
     if (peekH === undefined) return
     if (!exhibit) {
       if (morphTimer.current) clearTimeout(morphTimer.current)
       audioRef.current?.pause()
       setStarted(false) // eslint-disable-line react-hooks/set-state-in-effect
-      setPopping(false)  
-      setExpanded(false)  
+      setPopping(false)
+      setExpanded(false)
       animate(y, fullH, SHEET_SPRING)
     } else if (exhibit.id !== prevExhibitId.current || y.get() > fullH - peekH - 5) {
       if (morphTimer.current) clearTimeout(morphTimer.current)
       audioRef.current?.pause()
-      setStarted(false)  
-      setPopping(false)  
-      setExpanded(false)  
+      setStarted(false)
+      setPopping(false)
+      setExpanded(false)
       animate(y, fullH - peekH, SHEET_SPRING)
     }
     prevExhibitId.current = exhibit?.id ?? null
@@ -132,7 +132,7 @@ export default function PreviewSheet({
 
   const listen = () => {
     if (!hasAudio) {
-      if (exhibit?.qr_code) router.push(`/s/${exhibit.qr_code}?from=map`)
+      if (exhibit?.qr_code) router.push(`/s/${exhibit.qr_code}?from=map&autoplay=1`)
       return
     }
     const el = audioRef.current
