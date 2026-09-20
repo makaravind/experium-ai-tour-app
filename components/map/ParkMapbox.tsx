@@ -106,24 +106,41 @@ export function calcPeekChips(
   return chips
 }
 
+const EDGE_ROTATION: Record<PeekChip['edge'], number> = {
+  bottom: 0,
+  top: 180,
+  left: 90,
+  right: -90,
+}
+
+const MARGIN = 8
+
 function PeekChipEl({ chip }: { chip: PeekChip }) {
   const style: React.CSSProperties =
     chip.edge === 'left'
-      ? { position: 'absolute', left: 0, top: chip.offset, transform: 'translateX(-40%)' }
+      ? { position: 'absolute', left: MARGIN, top: chip.offset - 14 }
       : chip.edge === 'right'
-        ? { position: 'absolute', right: 0, top: chip.offset, transform: 'translateX(40%)' }
+        ? { position: 'absolute', right: MARGIN, top: chip.offset - 14 }
         : chip.edge === 'top'
-          ? { position: 'absolute', top: 0, left: chip.offset, transform: 'translateY(-40%)' }
-          : { position: 'absolute', bottom: 0, left: chip.offset, transform: 'translateY(40%)' }
+          ? { position: 'absolute', top: MARGIN, left: chip.offset - 14 }
+          : { position: 'absolute', bottom: MARGIN, left: chip.offset - 14 }
 
   return (
     <div style={style}>
-      <div className="flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs shadow">
-        <span
-          className={`h-2 w-2 shrink-0 rounded-full ${chip.visited ? 'bg-[#588157]' : 'bg-[#dda15e]'}`}
-        />
-        <span className="max-w-[80px] truncate">{chip.name}</span>
-      </div>
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        style={{
+          transform: `rotate(${EDGE_ROTATION[chip.edge]}deg)`,
+          display: 'block',
+          filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
+        }}
+        fill={chip.visited ? '#588157' : '#dda15e'}
+      >
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+        <circle cx="12" cy="9" r="2.5" fill="white" />
+      </svg>
     </div>
   )
 }
