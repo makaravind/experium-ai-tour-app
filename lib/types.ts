@@ -34,6 +34,7 @@ export interface MapExhibit {
   gps_lat: number
   gps_lng: number
   qr_code: string | null
+  languages: string[]
 }
 
 /** Exhibit shape used by PreviewSheet — no GPS needed. */
@@ -44,4 +45,5 @@ export interface PreviewExhibit {
   tier: string
   qr_code: string | null
   facts?: Fact[] | null
+  languages?: string[]
 }

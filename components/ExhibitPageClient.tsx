@@ -154,6 +154,7 @@ export default function ExhibitPageClient({
       tier: exhibit.tier,
       qr_code: qrCode,
       facts: exhibit.facts,
+      languages: audio.map((a) => a.language),
     }
     setExhibitPageData({
       exhibit: previewExhibit,

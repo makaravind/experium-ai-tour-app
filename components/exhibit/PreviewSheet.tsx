@@ -104,6 +104,11 @@ export default function PreviewSheet({
     prevExhibitId.current = exhibit?.id ?? null
   }, [exhibit?.id, peekH]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Reset autoPlay guard when exhibit changes so re-navigation with autoplay=1 works
+  useEffect(() => {
+    autoPlayFired.current = false
+  }, [exhibit?.id])
+
   useEffect(() => {
     const el = audioRef.current
     if (!el || !currentSrc) return
@@ -156,7 +161,7 @@ export default function PreviewSheet({
     if (!autoPlay || peekH === undefined || autoPlayFired.current) return
     autoPlayFired.current = true
     listen()
-  }, [peekH]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [peekH, autoPlay]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const togglePlay = () => {
     const el = audioRef.current
@@ -170,7 +175,10 @@ export default function PreviewSheet({
     }
   }
 
-  const availableLangs = getAvailableLangs(audio)
+  const availableLangs =
+    audio.length > 0
+      ? getAvailableLangs(audio)
+      : LANGUAGES.filter((l) => exhibit?.languages?.includes(l.code) ?? false)
   const facts = parseFacts(exhibit?.facts)
   const durationLabel = duration > 0 ? ` · ${formatTime(duration)}` : ''
   const typeLabel = exhibit?.type?.replace(/_/g, ' ')
@@ -311,12 +319,8 @@ export default function PreviewSheet({
               </div>
             </div>
 
-            {(availableLangs.length > 0 || !hasAudio) && exhibit && (
-              <LanguageSelector
-                options={availableLangs.length > 0 ? availableLangs : LANGUAGES}
-                variant="chip"
-                className="mt-4 mb-4"
-              />
+            {availableLangs.length > 0 && (
+              <LanguageSelector options={availableLangs} variant="chip" className="mt-4 mb-4" />
             )}
 
             {started ? (

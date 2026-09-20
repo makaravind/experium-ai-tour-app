@@ -25,17 +25,17 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
 
   // Clear map-page state when leaving exhibit page
-   
+
   useEffect(() => {
     if (!isExhibitPage) {
       setMapSelectedExhibit(null) // eslint-disable-line react-hooks/set-state-in-effect
-      setFlyToTarget(null)  
-      setNavigateEnabled(false)  
+      setFlyToTarget(null)
+      setNavigateEnabled(false)
     }
   }, [isExhibitPage])
 
   // Fly to exhibit when page data arrives or changes
-   
+
   useEffect(() => {
     if (exhibitPageData) {
       setFlyToTarget(exhibitPageData.exhibit.id) // eslint-disable-line react-hooks/set-state-in-effect
@@ -59,6 +59,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       type: pin.type,
       tier: pin.tier,
       qr_code: pin.qr_code,
+      languages: pin.languages,
     })
     setNavigateEnabled(true)
   }

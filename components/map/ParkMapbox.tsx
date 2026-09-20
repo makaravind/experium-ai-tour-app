@@ -50,7 +50,15 @@ export default function ParkMapbox({
   const exhibitsRef = useRef<MapExhibit[]>([])
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const flyToTargetRef = useRef(flyToTarget)
-  flyToTargetRef.current = flyToTarget // eslint-disable-line react-hooks/refs
+  const onPinTapRef = useRef(onPinTap)
+  const onMapTapRef = useRef(onMapTap)
+  // Keep refs current so stale-closure handlers always call the latest callbacks
+  // eslint-disable-next-line react-hooks/refs
+  flyToTargetRef.current = flyToTarget
+  // eslint-disable-next-line react-hooks/refs
+  onPinTapRef.current = onPinTap
+  // eslint-disable-next-line react-hooks/refs
+  onMapTapRef.current = onMapTap
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
   useEffect(() => {
@@ -87,7 +95,9 @@ export default function ParkMapbox({
 
       const { data } = await supabase
         .from('exhibits')
-        .select('id, name, type, tier, gps_lng, gps_lat, exhibit_qr_codes(code)')
+        .select(
+          'id, name, type, tier, gps_lng, gps_lat, exhibit_qr_codes(code), exhibit_audio(language, status)'
+        )
         .eq('exhibit_qr_codes.status', 'active')
         .not('gps_lat', 'is', null)
         .not('gps_lng', 'is', null)
@@ -100,6 +110,10 @@ export default function ParkMapbox({
         gps_lat: row.gps_lat,
         gps_lng: row.gps_lng,
         qr_code: (row.exhibit_qr_codes as { code: string }[] | null)?.[0]?.code ?? null,
+        languages:
+          (row.exhibit_audio as { language: string; status: string }[] | null)
+            ?.filter((a) => a.status === 'published')
+            .map((a) => a.language) ?? [],
       }))
 
       const visitedExhibits = useStore.getState().visitedExhibits
@@ -138,12 +152,12 @@ export default function ParkMapbox({
         const feature = e.features?.[0]
         if (!feature) return
         const exhibit = exhibitsRef.current.find((ex) => ex.id === feature.properties?.id)
-        if (exhibit) onPinTap(exhibit)
+        if (exhibit) onPinTapRef.current(exhibit)
       })
 
       map.on('click', (e) => {
         const hits = map.queryRenderedFeatures(e.point, { layers: ['exhibit-pins'] })
-        if (hits.length === 0) onMapTap?.()
+        if (hits.length === 0) onMapTapRef.current?.()
       })
 
       map.on('mouseenter', 'exhibit-pins', () => {
