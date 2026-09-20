@@ -38,7 +38,6 @@ function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
   )
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- onPinTap wired into click handler in gh-48 step 5
 export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
@@ -110,6 +109,20 @@ export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
         },
+      })
+
+      map.on('click', 'exhibit-pins', (e) => {
+        const feature = e.features?.[0]
+        if (!feature) return
+        const exhibit = exhibitsRef.current.find((ex) => ex.id === feature.properties?.id)
+        if (exhibit) onPinTap(exhibit)
+      })
+
+      map.on('mouseenter', 'exhibit-pins', () => {
+        map.getCanvas().style.cursor = 'pointer'
+      })
+      map.on('mouseleave', 'exhibit-pins', () => {
+        map.getCanvas().style.cursor = ''
       })
 
       if (useDebugStore.getState().isActive) {
