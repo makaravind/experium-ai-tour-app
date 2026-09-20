@@ -24,3 +24,13 @@ export interface ExhibitAudio {
   audio_url: string | null
   status: string
 }
+
+/** Minimal exhibit shape for map pins and the Preview bottom sheet. */
+export interface MapExhibit {
+  id: string
+  name: string
+  type: string | null
+  tier: string
+  gps_lat: number
+  gps_lng: number
+}
