@@ -81,7 +81,6 @@ export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
       exhibitsRef.current = data ?? []
 
       const visitedExhibits = useStore.getState().visitedExhibits
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- source/layer added from this in gh-48 step 4
       const exhibitPinsGeoJson = {
         type: 'FeatureCollection' as const,
         features: exhibitsRef.current.map((exhibit) => ({
@@ -96,6 +95,22 @@ export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
           },
         })),
       }
+
+      map.addSource('exhibit-pins', {
+        type: 'geojson',
+        data: exhibitPinsGeoJson,
+      })
+      map.addLayer({
+        id: 'exhibit-pins',
+        type: 'circle',
+        source: 'exhibit-pins',
+        paint: {
+          'circle-radius': 8,
+          'circle-color': ['match', ['get', 'discovered'], true, '#588157', '#dda15e'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+        },
+      })
 
       if (useDebugStore.getState().isActive) {
         const updateDebug = () => {
