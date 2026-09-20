@@ -4,9 +4,11 @@ import { useEffect, useRef } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useDebugStore } from '@/lib/debug-store'
+import type { MapExhibit } from '@/lib/types'
 
 interface ParkMapboxProps {
   onLoadError: () => void
+  onPinTap: (exhibit: MapExhibit) => void
 }
 
 const ORTHO_ID = 'aravindmetku.nedour'
@@ -34,8 +36,11 @@ function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
   )
 }
 
-export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- onPinTap wired into click handler in gh-48 step 5
+export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- populated in gh-48 step 3, read in step 5
+  const exhibitsRef = useRef<MapExhibit[]>([])
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
   useEffect(() => {
