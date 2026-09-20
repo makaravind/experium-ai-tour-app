@@ -157,6 +157,7 @@ export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkM
     map.on('error', onLoadError)
 
     return () => map.remove()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- map initialises once; callbacks are stable refs
   }, [])
 
   useEffect(() => {
