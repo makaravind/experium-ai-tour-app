@@ -42,6 +42,8 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
       })
       map.fitBounds(ORTHO_BOUNDS, { padding: 40, maxZoom: 19 })
     })
+
+    map.on('error', () => onLoadError())
   }, [])
 
   return <div ref={containerRef} className="absolute inset-0" />
