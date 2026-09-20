@@ -6,7 +6,7 @@ import { useDebugStore } from '@/lib/debug-store'
 
 export default function DebugPanel() {
   const [open, setOpen] = useState(false)
-  const { isActive, setActive, gps, setGps, apiLog, clearApiLog } = useDebugStore()
+  const { isActive, setActive, gps, setGps, apiLog, clearApiLog, mapDebug } = useDebugStore()
   const { language, visitedExhibits, onboardingStep, totalDiscovered } = useStore()
 
   useEffect(() => {
@@ -72,6 +72,25 @@ export default function DebugPanel() {
                 )}
               </pre>
             </section>
+
+            {mapDebug && (
+              <section>
+                <p className="text-stone-500 text-xs mb-1">MAP</p>
+                <pre className="text-xs text-stone-300 bg-stone-950 rounded p-2 overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(
+                    {
+                      zoom: mapDebug.zoom.toFixed(2),
+                      startingZoom: mapDebug.startingZoom?.toFixed(2) ?? null,
+                      outOfBounds: mapDebug.outOfBounds,
+                      lat: mapDebug.lat.toFixed(6),
+                      lng: mapDebug.lng.toFixed(6),
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </section>
+            )}
 
             <section>
               <div className="flex justify-between items-center mb-1">
