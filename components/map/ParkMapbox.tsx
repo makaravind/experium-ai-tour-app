@@ -11,6 +11,7 @@ import type { MapExhibit } from '@/lib/types'
 interface ParkMapboxProps {
   onLoadError: () => void
   onPinTap: (exhibit: MapExhibit) => void
+  flyToTarget?: string | null
 }
 
 const ORTHO_ID = 'aravindmetku.nedour'
@@ -38,9 +39,10 @@ function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
   )
 }
 
-export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
+export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkMapboxProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
+  const mapRef = useRef<mapboxgl.Map | null>(null)
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
   useEffect(() => {
@@ -54,6 +56,8 @@ export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
       maxBounds: MAX_BOUNDS,
       minZoom: 14,
     })
+
+    mapRef.current = map
 
     map.on('load', async () => {
       map.addSource('ortho', {
@@ -145,6 +149,13 @@ export default function ParkMapbox({ onLoadError, onPinTap }: ParkMapboxProps) {
 
     return () => map.remove()
   }, [])
+
+  useEffect(() => {
+    if (!flyToTarget || !mapRef.current) return
+    const exhibit = exhibitsRef.current.find((ex) => ex.id === flyToTarget)
+    if (!exhibit) return
+    mapRef.current.flyTo({ center: [exhibit.gps_lng, exhibit.gps_lat], zoom: 19 })
+  }, [flyToTarget])
 
   return (
     <div className="absolute inset-0">
