@@ -40,6 +40,15 @@ function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
   )
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- consumed in a later step
+type PeekChip = {
+  id: string
+  name: string
+  visited: boolean
+  edge: 'left' | 'right' | 'top' | 'bottom'
+  offset: number // px along the edge: y-coord for left/right, x-coord for top/bottom
+}
+
 export default function ParkMapbox({
   onLoadError,
   onPinTap,
