@@ -1,17 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import MapStub from '@/components/exhibit/MapStub'
 import TabBar from '@/components/exhibit/TabBar'
+import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import ParkMapbox from '@/components/map/ParkMapbox'
-import PreviewSheet from '@/components/map/PreviewSheet'
-import type { MapExhibit } from '@/lib/types'
+import type { PreviewExhibit } from '@/lib/types'
 
 export default function MapPage() {
-  const router = useRouter()
   const [mapFailed, setMapFailed] = useState(false)
-  const [selectedExhibit, setSelectedExhibit] = useState<MapExhibit | null>(null)
+  const [selectedExhibit, setSelectedExhibit] = useState<PreviewExhibit | null>(null)
   const [flyToTarget, setFlyToTarget] = useState<string | null>(null)
 
   useEffect(() => {
@@ -26,17 +24,21 @@ export default function MapPage() {
       ) : (
         <ParkMapbox
           onLoadError={() => setMapFailed(true)}
-          onPinTap={(exhibit) => setSelectedExhibit(exhibit)}
+          onPinTap={(exhibit) =>
+            setSelectedExhibit({
+              id: exhibit.id,
+              name: exhibit.name,
+              type: exhibit.type,
+              tier: exhibit.tier,
+              qr_code: exhibit.qr_code,
+            })
+          }
           flyToTarget={flyToTarget}
         />
       )}
       <PreviewSheet
         exhibit={selectedExhibit}
         onClose={() => setSelectedExhibit(null)}
-        onListen={() => {
-          if (!selectedExhibit?.qr_code) return
-          router.push(`/s/${selectedExhibit.qr_code}?from=map`)
-        }}
         onNavigate={() => {
           if (!selectedExhibit) return
           setFlyToTarget(selectedExhibit.id)

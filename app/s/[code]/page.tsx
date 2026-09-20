@@ -19,12 +19,13 @@ export default async function ExhibitPage({
   searchParams,
 }: {
   params: Promise<{ code: string }>
-  searchParams: Promise<{ scan?: string; scansrc?: string }>
+  searchParams: Promise<{ scan?: string; scansrc?: string; autoplay?: string }>
 }) {
   const { code } = await params
   const sp = await searchParams
   const isQrScan = sp.scan === '1'
   const scanSrc = sp.scansrc ?? null
+  const autoPlay = sp.autoplay === '1'
 
   const { data: qr, error } = await supabase
     .from('exhibit_qr_codes')
@@ -52,6 +53,7 @@ export default async function ExhibitPage({
       qrCode={code}
       isQrScan={isQrScan}
       scanSrc={scanSrc}
+      autoPlay={autoPlay}
       exhibit={{
         name: exhibit.name,
         type: exhibit.type,

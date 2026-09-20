@@ -12,6 +12,7 @@ interface ParkMapboxProps {
   onLoadError: () => void
   onPinTap: (exhibit: MapExhibit) => void
   flyToTarget?: string | null
+  onMapTap?: () => void
 }
 
 const ORTHO_ID = 'aravindmetku.nedour'
@@ -39,7 +40,12 @@ function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
   )
 }
 
-export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkMapboxProps) {
+export default function ParkMapbox({
+  onLoadError,
+  onPinTap,
+  flyToTarget,
+  onMapTap,
+}: ParkMapboxProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -131,6 +137,11 @@ export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkM
         if (!feature) return
         const exhibit = exhibitsRef.current.find((ex) => ex.id === feature.properties?.id)
         if (exhibit) onPinTap(exhibit)
+      })
+
+      map.on('click', (e) => {
+        const hits = map.queryRenderedFeatures(e.point, { layers: ['exhibit-pins'] })
+        if (hits.length === 0) onMapTap?.()
       })
 
       map.on('mouseenter', 'exhibit-pins', () => {
