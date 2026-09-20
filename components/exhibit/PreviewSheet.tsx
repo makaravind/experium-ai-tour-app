@@ -141,7 +141,7 @@ export default function PreviewSheet({
 
   const listen = () => {
     if (!hasAudio) {
-      if (exhibit?.qr_code) router.push(`/s/${exhibit.qr_code}?from=map&autoplay=1`)
+      if (exhibit?.qr_code) router.push(`/s/${exhibit.qr_code}?scansrc=app&autoplay=1`)
       return
     }
     const el = audioRef.current
