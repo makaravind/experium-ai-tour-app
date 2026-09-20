@@ -17,6 +17,8 @@ interface MapDebug {
   zoom: number
   startingZoom: number | null
   outOfBounds: boolean
+  lat: number
+  lng: number
 }
 
 interface DebugStore {

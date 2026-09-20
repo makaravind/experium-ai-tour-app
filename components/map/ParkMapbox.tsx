@@ -63,12 +63,16 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
       if (useDebugStore.getState().isActive) {
         map.once('moveend', () => {
           const startingZoom = map.getZoom()
-          const updateDebug = () =>
+          const updateDebug = () => {
+            const center = map.getCenter()
             setMapDebug({
               zoom: map.getZoom(),
               startingZoom,
-              outOfBounds: isOutOfOrthoBounds(map.getCenter()),
+              outOfBounds: isOutOfOrthoBounds(center),
+              lat: center.lat,
+              lng: center.lng,
             })
+          }
           updateDebug()
           map.on('move', updateDebug)
         })

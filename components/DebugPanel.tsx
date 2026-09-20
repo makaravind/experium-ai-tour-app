@@ -82,6 +82,8 @@ export default function DebugPanel() {
                       zoom: mapDebug.zoom.toFixed(2),
                       startingZoom: mapDebug.startingZoom?.toFixed(2) ?? null,
                       outOfBounds: mapDebug.outOfBounds,
+                      lat: mapDebug.lat.toFixed(6),
+                      lng: mapDebug.lng.toFixed(6),
                     },
                     null,
                     2
