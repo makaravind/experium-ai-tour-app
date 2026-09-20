@@ -44,6 +44,8 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
     })
 
     map.on('error', () => onLoadError())
+
+    return () => map.remove()
   }, [])
 
   return <div ref={containerRef} className="absolute inset-0" />
