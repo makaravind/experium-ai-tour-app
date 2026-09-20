@@ -13,6 +13,12 @@ interface ApiLogEntry {
   timestamp: number
 }
 
+interface MapDebug {
+  zoom: number
+  startingZoom: number | null
+  outOfBounds: boolean
+}
+
 interface DebugStore {
   isActive: boolean
   setActive: (v: boolean) => void
@@ -21,6 +27,8 @@ interface DebugStore {
   apiLog: ApiLogEntry[]
   logApi: (label: string, response: unknown) => void
   clearApiLog: () => void
+  mapDebug: MapDebug | null
+  setMapDebug: (m: MapDebug) => void
 }
 
 export const useDebugStore = create<DebugStore>((set) => ({
@@ -34,4 +42,6 @@ export const useDebugStore = create<DebugStore>((set) => ({
       apiLog: [...s.apiLog, { label, response, timestamp: Date.now() }],
     })),
   clearApiLog: () => set({ apiLog: [] }),
+  mapDebug: null,
+  setMapDebug: (mapDebug) => set({ mapDebug }),
 }))

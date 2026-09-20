@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
+import { useDebugStore } from '@/lib/debug-store'
 
 interface ParkMapboxProps {
   onLoadError: () => void
@@ -19,8 +20,19 @@ const MAX_BOUNDS: [number, number, number, number] = [
   ORTHO_BOUNDS[3] + 0.003,
 ]
 
+function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
+  return (
+    center.lng < ORTHO_BOUNDS[0] ||
+    center.lat < ORTHO_BOUNDS[1] ||
+    center.lng > ORTHO_BOUNDS[2] ||
+    center.lat > ORTHO_BOUNDS[3]
+  )
+}
+
 export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const setMapDebug = useDebugStore((s) => s.setMapDebug)
+  const isDebugActive = useDebugStore((s) => s.isActive)
 
   useEffect(() => {
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
@@ -48,6 +60,20 @@ export default function ParkMapbox({ onLoadError }: ParkMapboxProps) {
         },
       })
       map.fitBounds(ORTHO_BOUNDS, { padding: 40, maxZoom: 19 })
+
+      if (isDebugActive) {
+        map.once('moveend', () => {
+          const startingZoom = map.getZoom()
+          const updateDebug = () =>
+            setMapDebug({
+              zoom: map.getZoom(),
+              startingZoom,
+              outOfBounds: isOutOfOrthoBounds(map.getCenter()),
+            })
+          updateDebug()
+          map.on('move', updateDebug)
+        })
+      }
     })
 
     map.on('error', onLoadError)
