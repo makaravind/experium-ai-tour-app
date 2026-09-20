@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractExhibitScan } from '@/app/scan/page'
+import { extractExhibitScan } from '@/lib/scan-utils'
 
 describe('extractExhibitScan', () => {
   it('forwards the onsite scansrc encoded on a physical plate URL', () => {

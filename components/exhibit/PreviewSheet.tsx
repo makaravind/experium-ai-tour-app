@@ -14,7 +14,7 @@ import {
   StarIcon,
 } from '@/components/icons'
 import { useStore } from '@/lib/store'
-import { formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
+import { LANGUAGES, formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
 import type { ExhibitAudio, PreviewExhibit } from '@/lib/types'
 
 const SPRING = { duration: 0.3, ease: [0.4, 0, 0.2, 1] } as const
@@ -51,8 +51,8 @@ export default function PreviewSheet({
   const [elapsed, setElapsed] = useState(0)
   const [duration, setDuration] = useState(0)
   const [peekH, setPeekH] = useState<number | undefined>(undefined)
-  const [fullH] = useState<number>(() => (typeof window !== 'undefined' ? window.innerHeight : 900))
-  const yOffset = peekH !== undefined ? fullH - peekH : fullH
+  const [fullH, setFullH] = useState(900)
+  const yOffset = exhibit && peekH !== undefined ? fullH - peekH : fullH
   const y = useMotionValue(fullH)
   const audioRef = useRef<HTMLAudioElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -68,6 +68,10 @@ export default function PreviewSheet({
   const hasAudio = audio.length > 0
 
   useEffect(() => () => clearTimeout(morphTimer.current ?? undefined), [])
+
+  useEffect(() => {
+    setFullH(window.innerHeight) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [])
 
   // Measure peek height once; park sheet at correct initial position.
   useLayoutEffect(() => {
@@ -307,8 +311,12 @@ export default function PreviewSheet({
               </div>
             </div>
 
-            {availableLangs.length > 0 && (
-              <LanguageSelector options={availableLangs} variant="chip" className="mt-4 mb-4" />
+            {(availableLangs.length > 0 || !hasAudio) && exhibit && (
+              <LanguageSelector
+                options={availableLangs.length > 0 ? availableLangs : LANGUAGES}
+                variant="chip"
+                className="mt-4 mb-4"
+              />
             )}
 
             {started ? (
@@ -383,7 +391,7 @@ export default function PreviewSheet({
                 )}
               </div>
             ) : (
-              <div className={onNavigate ? 'flex gap-3' : ''}>
+              <div className={`mt-4 ${onNavigate ? 'flex gap-3' : ''}`}>
                 <motion.button
                   onClick={listen}
                   whileTap={{ scale: 0.98 }}

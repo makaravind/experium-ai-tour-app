@@ -49,6 +49,8 @@ export default function ParkMapbox({
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
   const mapRef = useRef<mapboxgl.Map | null>(null)
+  const flyToTargetRef = useRef(flyToTarget)
+  flyToTargetRef.current = flyToTarget // eslint-disable-line react-hooks/refs
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
   useEffect(() => {
@@ -164,6 +166,11 @@ export default function ParkMapbox({
         }
         updateDebug()
         map.on('move', updateDebug)
+      }
+
+      if (flyToTargetRef.current) {
+        const pending = exhibitsRef.current.find((ex) => ex.id === flyToTargetRef.current)
+        if (pending) map.flyTo({ center: [pending.gps_lng, pending.gps_lat], zoom: 19 })
       }
     })
 
