@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useDebugStore } from '@/lib/debug-store'
@@ -124,6 +124,8 @@ export default function ParkMapbox({
   onPinTapRef.current = onPinTap
   // eslint-disable-next-line react-hooks/refs
   onMapTapRef.current = onMapTap
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- consumed in a later step
+  const [peekChips, setPeekChips] = useState<PeekChip[]>([])
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
   useEffect(() => {
