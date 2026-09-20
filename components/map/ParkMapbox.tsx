@@ -1,5 +1,6 @@
 'use client'
 
+import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -104,6 +105,29 @@ function calcPeekChips(
   return chips
 }
 
+function PeekChipEl({ chip }: { chip: PeekChip }) {
+  const style: React.CSSProperties =
+    chip.edge === 'left'
+      ? { position: 'absolute', left: 0, top: chip.offset, transform: 'translateX(-40%)' }
+      : chip.edge === 'right'
+        ? { position: 'absolute', right: 0, top: chip.offset, transform: 'translateX(40%)' }
+        : chip.edge === 'top'
+          ? { position: 'absolute', top: 0, left: chip.offset, transform: 'translateY(-40%)' }
+          : { position: 'absolute', bottom: 0, left: chip.offset, transform: 'translateY(40%)' }
+
+  return (
+    <div style={style}>
+      <div className="flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs shadow">
+        <span
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ backgroundColor: chip.visited ? '#588157' : '#dda15e' }}
+        />
+        <span className="max-w-[80px] truncate">{chip.name}</span>
+      </div>
+    </div>
+  )
+}
+
 export default function ParkMapbox({
   onLoadError,
   onPinTap,
@@ -123,7 +147,6 @@ export default function ParkMapbox({
   onPinTapRef.current = onPinTap
   // eslint-disable-next-line react-hooks/refs
   onMapTapRef.current = onMapTap
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- consumed in a later step
   const [peekChips, setPeekChips] = useState<PeekChip[]>([])
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
@@ -279,6 +302,11 @@ export default function ParkMapbox({
   return (
     <div className="absolute inset-0">
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {peekChips.map((chip) => (
+          <PeekChipEl key={chip.id} chip={chip} />
+        ))}
+      </div>
     </div>
   )
 }
