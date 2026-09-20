@@ -14,6 +14,7 @@ interface Props {
   scanSrc: string | null
   exhibit: ExhibitData
   audio: ExhibitAudio[]
+  autoPlay: boolean
 }
 
 export default function ExhibitPageClient({
@@ -23,6 +24,7 @@ export default function ExhibitPageClient({
   scanSrc,
   exhibit,
   audio,
+  autoPlay,
 }: Props) {
   const onboardingStep = useStore((s) => s.onboardingStep)
   const setOnboardingStep = useStore((s) => s.setOnboardingStep)
@@ -88,6 +90,7 @@ export default function ExhibitPageClient({
       exhibitId={exhibitId}
       isQrScan={isQrScan}
       scanSrc={scanSrc}
+      autoPlay={autoPlay}
     />
   )
 }
