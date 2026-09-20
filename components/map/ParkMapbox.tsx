@@ -48,8 +48,9 @@ type PeekChip = {
   edge: 'left' | 'right' | 'top' | 'bottom'
   offset: number // px along the edge: y-coord for left/right, x-coord for top/bottom
 }
+export type { PeekChip }
 
-function calcPeekChips(
+export function calcPeekChips(
   map: mapboxgl.Map,
   exhibits: MapExhibit[],
   visitedIds: string[]
