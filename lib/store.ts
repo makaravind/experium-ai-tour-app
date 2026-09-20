@@ -14,6 +14,9 @@ interface Store {
   visitedExhibits: string[]
   markVisited: (exhibitId: string) => void
 
+  mapViewport: { center: [number, number]; zoom: number } | null
+  setMapViewport: (v: { center: [number, number]; zoom: number }) => void
+
   // session only
   onboardingStep: OnboardingStep
   setOnboardingStep: (s: OnboardingStep) => void
@@ -45,6 +48,9 @@ export const useStore = create<Store>()(
             : [...s.visitedExhibits, exhibitId],
         })),
 
+      mapViewport: null,
+      setMapViewport: (mapViewport) => set({ mapViewport }),
+
       onboardingStep: null,
       setOnboardingStep: (onboardingStep) => set({ onboardingStep }),
 
@@ -68,6 +74,7 @@ export const useStore = create<Store>()(
         totalDiscovered: s.totalDiscovered,
         visitorId: s.visitorId,
         userInfo: s.userInfo,
+        mapViewport: s.mapViewport,
       }),
     }
   )

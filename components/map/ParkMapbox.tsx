@@ -171,11 +171,12 @@ export default function ParkMapbox({
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
     let cancelled = false
 
+    const savedViewport = useStore.getState().mapViewport
     const map = new mapboxgl.Map({
       container: containerRef.current!,
       style: 'mapbox://styles/mapbox/satellite-v9',
-      center: STARTING_CENTER,
-      zoom: STARTING_ZOOM,
+      center: savedViewport?.center ?? STARTING_CENTER,
+      zoom: savedViewport?.zoom ?? STARTING_ZOOM,
       maxBounds: MAX_BOUNDS,
       minZoom: 14,
     })
@@ -296,6 +297,8 @@ export default function ParkMapbox({
       map.on('moveend', () => {
         const visited = useStore.getState().visitedExhibits
         setPeekChips(calcPeekChips(map, exhibitsRef.current, visited))
+        const c = map.getCenter()
+        useStore.getState().setMapViewport({ center: [c.lng, c.lat], zoom: map.getZoom() })
       })
     })
 
