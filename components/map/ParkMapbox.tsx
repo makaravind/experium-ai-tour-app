@@ -77,11 +77,19 @@ export default function ParkMapbox({ onLoadError, onPinTap, flyToTarget }: ParkM
 
       const { data } = await supabase
         .from('exhibits')
-        .select('id, name, type, tier, gps_lng, gps_lat')
+        .select('id, name, type, tier, gps_lng, gps_lat, exhibit_qr_codes(code)')
         .not('gps_lat', 'is', null)
         .not('gps_lng', 'is', null)
 
-      exhibitsRef.current = data ?? []
+      exhibitsRef.current = (data ?? []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        tier: row.tier,
+        gps_lat: row.gps_lat,
+        gps_lng: row.gps_lng,
+        qr_code: (row.exhibit_qr_codes as { code: string }[] | null)?.[0]?.code ?? null,
+      }))
 
       const visitedExhibits = useStore.getState().visitedExhibits
       const exhibitPinsGeoJson = {

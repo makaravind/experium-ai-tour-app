@@ -33,4 +33,5 @@ export interface MapExhibit {
   tier: string
   gps_lat: number
   gps_lng: number
+  qr_code: string | null
 }

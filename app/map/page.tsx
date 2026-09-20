@@ -34,8 +34,8 @@ export default function MapPage() {
         exhibit={selectedExhibit}
         onClose={() => setSelectedExhibit(null)}
         onListen={() => {
-          if (!selectedExhibit) return
-          router.push(`/s/${selectedExhibit.id}?from=map`)
+          if (!selectedExhibit?.qr_code) return
+          router.push(`/s/${selectedExhibit.qr_code}?from=map`)
         }}
         onNavigate={() => {
           if (!selectedExhibit) return
