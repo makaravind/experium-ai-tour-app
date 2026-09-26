@@ -5,9 +5,10 @@ import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useDebugStore } from '@/lib/debug-store'
+import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
 import { supabase } from '@/lib/supabase'
-import { pinPixelHeight } from '@/lib/nearby'
+import { nearestWithin, pinPixelHeight } from '@/lib/nearby'
 import type { ExhibitStatus, MapExhibit } from '@/lib/types'
 
 interface ParkMapboxProps {
@@ -310,6 +311,32 @@ export default function ParkMapbox({
         console.error('Failed to load 3D marker layer, falling back to circle markers', err)
       }
 
+      const geolocateControl = new mapboxgl.GeolocateControl({
+        trackUserLocation: true,
+        showAccuracyCircle: true,
+        positionOptions: { enableHighAccuracy: true },
+      })
+      map.addControl(geolocateControl)
+      geolocateControl.on('geolocate', (position) => {
+        const ids = nearestWithin(
+          {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracyM: position.coords.accuracy,
+          },
+          exhibitsRef.current.map((exhibit) => ({
+            id: exhibit.id,
+            lat: exhibit.gps_lat,
+            lng: exhibit.gps_lng,
+          }))
+        )
+        useMapStore.getState().setNearbyExhibitIds(ids)
+      })
+      geolocateControl.on('error', () => {
+        useMapStore.getState().setNearbyExhibitIds([])
+      })
+      useMapStore.getState().setGeolocateTrigger(() => geolocateControl.trigger())
+
       map.on('click', 'exhibit-pins', (e) => {
         const feature = e.features?.[0]
         if (!feature) return
@@ -366,6 +393,7 @@ export default function ParkMapbox({
       cancelled = true
       map.off('error', onLoadError)
       map.remove()
+      useMapStore.getState().setGeolocateTrigger(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- map initialises once; callbacks are stable refs
   }, [])
