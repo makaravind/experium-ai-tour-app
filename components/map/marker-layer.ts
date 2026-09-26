@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type mapboxgl from 'mapbox-gl'
 import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
+import { useDebugStore } from '@/lib/debug-store'
 import { pinPixelHeight } from '@/lib/nearby'
 
 export type MarkerInput = {
@@ -410,6 +411,7 @@ export function createMarkerLayer(opts: {
       const activeExhibitId = mapState.activeExhibitId
       const nearbyExhibitIds = mapState.nearbyExhibitIds
       const visitedIds = useStore.getState().visitedExhibits
+      const forcedMarkerState = useDebugStore.getState().forcedMarkerState
 
       const now = performance.now()
       if (activeExhibitId !== activeId) {
@@ -425,6 +427,7 @@ export function createMarkerLayer(opts: {
       const exhibits = getExhibits()
       const seen = new Set<string>()
       const placed: Array<{ entry: MarkerEntry; screenY: number; isActive: boolean }> = []
+      let forcedNearbyIndex = 0
 
       for (const exhibit of exhibits) {
         seen.add(exhibit.id)
@@ -440,10 +443,28 @@ export function createMarkerLayer(opts: {
 
         const isComingSoon = exhibit.status === 'coming_soon'
         const isVisited = !isComingSoon && visitedIds.includes(exhibit.id)
-        const tintKey: TintKey = isComingSoon ? 'coming_soon' : isVisited ? 'visited' : 'unvisited'
-        const isActive = exhibit.id === activeExhibitId
-        const nearbyIndex = nearbyExhibitIds.indexOf(exhibit.id)
-        const isNearby = !isActive && !isComingSoon && !isVisited && nearbyIndex !== -1
+        const realTintKey: TintKey = isComingSoon
+          ? 'coming_soon'
+          : isVisited
+            ? 'visited'
+            : 'unvisited'
+
+        let tintKey = realTintKey
+        let isActive = exhibit.id === activeExhibitId
+        let nearbyIndex = nearbyExhibitIds.indexOf(exhibit.id)
+        let isNearby = !isActive && !isComingSoon && !isVisited && nearbyIndex !== -1
+
+        if (forcedMarkerState) {
+          isActive = forcedMarkerState === 'active'
+          isNearby = forcedMarkerState === 'nearby'
+          nearbyIndex = isNearby ? forcedNearbyIndex++ : -1
+          tintKey =
+            forcedMarkerState === 'visited' || forcedMarkerState === 'coming_soon'
+              ? forcedMarkerState
+              : forcedMarkerState === 'unvisited' || forcedMarkerState === 'nearby'
+                ? 'unvisited'
+                : realTintKey
+        }
 
         entry.pivot.position.set(worldX, worldY, 0)
         entry.pin.scale.setScalar(scaleFactor)
@@ -516,7 +537,10 @@ export function createMarkerLayer(opts: {
 
       renderer.render(scene, camera)
 
-      if (activeExhibitId !== null || nearbyExhibitIds.length > 0) {
+      const shouldRepaint = forcedMarkerState
+        ? forcedMarkerState === 'active' || forcedMarkerState === 'nearby'
+        : activeExhibitId !== null || nearbyExhibitIds.length > 0
+      if (shouldRepaint) {
         map.triggerRepaint()
       }
     },

@@ -6,7 +6,17 @@ import { useDebugStore } from '@/lib/debug-store'
 
 export default function DebugPanel() {
   const [open, setOpen] = useState(false)
-  const { isActive, setActive, gps, setGps, apiLog, clearApiLog, mapDebug } = useDebugStore()
+  const {
+    isActive,
+    setActive,
+    gps,
+    setGps,
+    apiLog,
+    clearApiLog,
+    mapDebug,
+    forcedMarkerState,
+    setForcedMarkerState,
+  } = useDebugStore()
   const { language, visitedExhibits, onboardingStep, totalDiscovered } = useStore()
 
   useEffect(() => {
@@ -91,6 +101,31 @@ export default function DebugPanel() {
                 </pre>
               </section>
             )}
+
+            <section>
+              <p className="text-stone-500 text-xs mb-1">MARKER STATE</p>
+              <div className="flex flex-wrap gap-1">
+                {(['off', 'unvisited', 'visited', 'coming_soon', 'nearby', 'active'] as const).map(
+                  (s) => {
+                    const value = s === 'off' ? null : s
+                    const isSelected = forcedMarkerState === value
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setForcedMarkerState(value)}
+                        className={`text-xs px-2 py-1 rounded font-mono ${
+                          isSelected
+                            ? 'bg-emerald-500 text-black font-bold'
+                            : 'bg-stone-800 text-stone-300'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    )
+                  }
+                )}
+              </div>
+            </section>
 
             <section>
               <div className="flex justify-between items-center mb-1">

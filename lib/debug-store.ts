@@ -21,6 +21,8 @@ interface MapDebug {
   lng: number
 }
 
+export type ForcedMarkerState = 'unvisited' | 'visited' | 'coming_soon' | 'nearby' | 'active'
+
 interface DebugStore {
   isActive: boolean
   setActive: (v: boolean) => void
@@ -31,6 +33,8 @@ interface DebugStore {
   clearApiLog: () => void
   mapDebug: MapDebug | null
   setMapDebug: (m: MapDebug) => void
+  forcedMarkerState: ForcedMarkerState | null
+  setForcedMarkerState: (v: ForcedMarkerState | null) => void
 }
 
 export const useDebugStore = create<DebugStore>((set) => ({
@@ -46,4 +50,6 @@ export const useDebugStore = create<DebugStore>((set) => ({
   clearApiLog: () => set({ apiLog: [] }),
   mapDebug: null,
   setMapDebug: (mapDebug) => set({ mapDebug }),
+  forcedMarkerState: null,
+  setForcedMarkerState: (forcedMarkerState) => set({ forcedMarkerState }),
 }))
