@@ -7,7 +7,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { useDebugStore } from '@/lib/debug-store'
 import { useStore } from '@/lib/store'
 import { supabase } from '@/lib/supabase'
-import type { MapExhibit } from '@/lib/types'
+import type { ExhibitStatus, MapExhibit } from '@/lib/types'
 
 interface ParkMapboxProps {
   onLoadError: () => void
@@ -45,6 +45,7 @@ type PeekChip = {
   id: string
   name: string
   visited: boolean
+  status?: ExhibitStatus
   edge: 'left' | 'right' | 'top' | 'bottom'
   offset: number // px along the edge: y-coord for left/right, x-coord for top/bottom
 }

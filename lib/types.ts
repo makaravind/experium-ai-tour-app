@@ -1,5 +1,7 @@
 export type Language = 'en' | 'hi' | 'te'
 
+export type ExhibitStatus = 'live' | 'coming_soon'
+
 export interface User {
   name: string
   phone: string
@@ -35,6 +37,7 @@ export interface MapExhibit {
   gps_lng: number
   qr_code: string | null
   languages: string[]
+  status: ExhibitStatus
 }
 
 /** Exhibit shape used by PreviewSheet — no GPS needed. */

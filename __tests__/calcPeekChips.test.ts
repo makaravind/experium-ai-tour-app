@@ -33,6 +33,7 @@ function exhibit(id: string, lng: number, lat: number): MapExhibit {
     gps_lat: lat,
     qr_code: null,
     languages: [],
+    status: 'live',
   }
 }
 
