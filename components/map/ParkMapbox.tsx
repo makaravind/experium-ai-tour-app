@@ -7,6 +7,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { useDebugStore } from '@/lib/debug-store'
 import { useStore } from '@/lib/store'
 import { supabase } from '@/lib/supabase'
+import { pinPixelHeight } from '@/lib/nearby'
 import type { ExhibitStatus, MapExhibit } from '@/lib/types'
 
 interface ParkMapboxProps {
@@ -31,6 +32,15 @@ const STARTING_CENTER: [number, number] = [
   (ORTHO_BOUNDS[1] + ORTHO_BOUNDS[3]) / 2,
 ]
 const STARTING_ZOOM = 18
+
+// The `exhibit-pins` circle layer is invisible (opacity 0) once the 3D marker layer loads, but
+// stays the hit target — sized/translated to sit over the drawn pin, which is tip-anchored and
+// grows upward. Sampled at min/starting/max zoom using pinPixelHeight's own clamp curve; a
+// generous (not tight) target, so radius is half the pin's on-screen height and the disc is
+// translated up by that same amount.
+const HIT_CIRCLE_RADIUS_MIN = 0.5 * pinPixelHeight(14, STARTING_CENTER[1])
+const HIT_CIRCLE_RADIUS_START = 0.5 * pinPixelHeight(STARTING_ZOOM, STARTING_CENTER[1])
+const HIT_CIRCLE_RADIUS_MAX = 0.5 * pinPixelHeight(22, STARTING_CENTER[1])
 
 function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
   return (
@@ -204,7 +214,7 @@ export default function ParkMapbox({
       const { data } = await supabase
         .from('exhibits')
         .select(
-          'id, name, type, tier, gps_lng, gps_lat, exhibit_qr_codes(code), exhibit_audio(language, status)'
+          'id, name, type, tier, status, gps_lng, gps_lat, exhibit_qr_codes(code), exhibit_audio(language, status)'
         )
         .eq('exhibit_qr_codes.status', 'active')
         .not('gps_lat', 'is', null)
@@ -217,6 +227,7 @@ export default function ParkMapbox({
         tier: row.tier,
         gps_lat: row.gps_lat,
         gps_lng: row.gps_lng,
+        status: row.status ?? 'live',
         qr_code: (row.exhibit_qr_codes as { code: string }[] | null)?.[0]?.code ?? null,
         languages:
           (row.exhibit_audio as { language: string; status: string }[] | null)
@@ -249,12 +260,55 @@ export default function ParkMapbox({
         type: 'circle',
         source: 'exhibit-pins',
         paint: {
-          'circle-radius': 8,
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            14,
+            HIT_CIRCLE_RADIUS_MIN,
+            STARTING_ZOOM,
+            HIT_CIRCLE_RADIUS_START,
+            22,
+            HIT_CIRCLE_RADIUS_MAX,
+          ],
+          'circle-translate': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            14,
+            ['literal', [0, -HIT_CIRCLE_RADIUS_MIN]],
+            STARTING_ZOOM,
+            ['literal', [0, -HIT_CIRCLE_RADIUS_START]],
+            22,
+            ['literal', [0, -HIT_CIRCLE_RADIUS_MAX]],
+          ],
           'circle-color': ['case', ['==', ['get', 'discovered'], true], '#588157', '#dda15e'],
+          'circle-opacity': 0,
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
+          'circle-stroke-opacity': 0,
         },
       })
+
+      try {
+        const { createMarkerLayer } = await import('./marker-layer')
+        map.addLayer(
+          createMarkerLayer({
+            map,
+            getExhibits: () =>
+              exhibitsRef.current.map((exhibit) => ({
+                id: exhibit.id,
+                lat: exhibit.gps_lat,
+                lng: exhibit.gps_lng,
+                status: exhibit.status,
+              })),
+          })
+        )
+      } catch (err) {
+        map.setPaintProperty('exhibit-pins', 'circle-opacity', 1)
+        map.setPaintProperty('exhibit-pins', 'circle-stroke-opacity', 1)
+        console.error('Failed to load 3D marker layer, falling back to circle markers', err)
+      }
 
       map.on('click', 'exhibit-pins', (e) => {
         const feature = e.features?.[0]
