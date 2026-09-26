@@ -45,6 +45,11 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   // Which exhibit and audio to show in sheet
   const sheetExhibit =
     mapSelectedExhibit ?? (isExhibitPage ? (exhibitPageData?.exhibit ?? null) : null)
+
+  // Drive the 3D marker layer's rise-and-spin: the sheet's exhibit is the map's "active" pin.
+  useEffect(() => {
+    useMapStore.getState().setActiveExhibitId(sheetExhibit?.id ?? null)
+  }, [sheetExhibit?.id])
   const isShowingCurrentExhibit =
     isExhibitPage && exhibitPageData != null && sheetExhibit?.id === exhibitPageData.exhibit.id
   const sheetAudio = isShowingCurrentExhibit ? exhibitPageData!.audio : []

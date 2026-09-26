@@ -31,6 +31,7 @@ const SPIN_DURATION_MS = 2200
 const SPARKLE_DURATION_MS = 1000
 const SPARKLE_STAGGER_MS = 200
 const ACTIVE_ENV_MAP_INTENSITY = 2.0
+const FORCED_ACTIVE_KEY = '__forced-active__'
 
 // Sparkle anchor, in pin-local units — off the front face, top-right of the head band.
 const SPARK_X = 0.54
@@ -229,19 +230,29 @@ function makeShadowTexture(): THREE.CanvasTexture {
   return tex
 }
 
-function makeStandardMaterial(tint: {
-  color: number
-  metalness: number
-  roughness: number
-  envMapIntensity: number
-}): THREE.MeshStandardMaterial {
+function makeStandardMaterial(
+  tint: {
+    color: number
+    metalness: number
+    roughness: number
+    envMapIntensity: number
+  },
+  selfDepthSorted = false
+): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
     color: tint.color,
     metalness: tint.metalness,
     roughness: tint.roughness,
     envMapIntensity: tint.envMapIntensity,
-    depthTest: false,
-    depthWrite: false,
+    // Static pins never rotate, so their front/hole/back faces never overlap on screen and
+    // depthTest:false (required so we don't touch Mapbox's own depth buffer) is harmless. The
+    // active pin spins, and a depthless solid extrusion with a through-hole self-intersects at
+    // most yaw angles — its own faces draw in submission order instead of front-to-back. So the
+    // active variant opts into real depth testing; render() clears the depth buffer every frame
+    // first, and no other material in this layer writes depth, so this can't leak into Mapbox's own
+    // buffer or affect inter-marker draw order (still governed by the screen-y renderOrder sort).
+    depthTest: selfDepthSorted,
+    depthWrite: selfDepthSorted,
   })
 }
 
@@ -349,18 +360,18 @@ export function createMarkerLayer(opts: {
         coming_soon: makeStandardMaterial(TINTS.coming_soon),
       }
       activeMaterials = {
-        unvisited: makeStandardMaterial({
-          ...TINTS.unvisited,
-          envMapIntensity: ACTIVE_ENV_MAP_INTENSITY,
-        }),
-        visited: makeStandardMaterial({
-          ...TINTS.visited,
-          envMapIntensity: ACTIVE_ENV_MAP_INTENSITY,
-        }),
-        coming_soon: makeStandardMaterial({
-          ...TINTS.coming_soon,
-          envMapIntensity: ACTIVE_ENV_MAP_INTENSITY,
-        }),
+        unvisited: makeStandardMaterial(
+          { ...TINTS.unvisited, envMapIntensity: ACTIVE_ENV_MAP_INTENSITY },
+          true
+        ),
+        visited: makeStandardMaterial(
+          { ...TINTS.visited, envMapIntensity: ACTIVE_ENV_MAP_INTENSITY },
+          true
+        ),
+        coming_soon: makeStandardMaterial(
+          { ...TINTS.coming_soon, envMapIntensity: ACTIVE_ENV_MAP_INTENSITY },
+          true
+        ),
       }
 
       baseShadowMaterial = new THREE.MeshBasicMaterial({
@@ -414,8 +425,12 @@ export function createMarkerLayer(opts: {
       const forcedMarkerState = useDebugStore.getState().forcedMarkerState
 
       const now = performance.now()
-      if (activeExhibitId !== activeId) {
-        activeId = activeExhibitId
+      // The debug override bypasses activeExhibitId entirely, so track it as its own key —
+      // otherwise toggling the "active" debug button mid-session drops the rise-and-spin into
+      // whatever phase performance.now() happens to be at, instead of starting fresh.
+      const activeKey = forcedMarkerState === 'active' ? FORCED_ACTIVE_KEY : activeExhibitId
+      if (activeKey !== activeId) {
+        activeId = activeKey
         activeSince = now
       }
 
@@ -535,6 +550,10 @@ export function createMarkerLayer(opts: {
         p.entry.sparkle.renderOrder = order++
       }
 
+      // Fresh depth buffer for the active pin's self-depth-tested material (see makeStandardMaterial);
+      // every other material here has depthWrite:false, so nothing else is affected and nothing
+      // leaks into Mapbox's own depth buffer on the next frame.
+      renderer.clearDepth()
       renderer.render(scene, camera)
 
       const shouldRepaint = forcedMarkerState
