@@ -327,6 +327,9 @@ export function createMarkerLayer(opts: {
     onAdd(_map, gl) {
       renderer = new THREE.WebGLRenderer({ canvas: map.getCanvas(), context: gl })
       renderer.autoClear = false
+      // Ported from marker-3d.html: HDR studio panels need the roll-off, or highlights clip to flat white.
+      renderer.toneMapping = THREE.ACESFilmicToneMapping
+      renderer.toneMappingExposure = 1.0
 
       scene = new THREE.Scene()
       camera = new THREE.OrthographicCamera(0, 1, 0, -1, 0.1, 1000)
