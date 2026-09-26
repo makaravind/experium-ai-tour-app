@@ -218,3 +218,19 @@
     display: none;
   }
 }
+
+/* Mapbox GeolocateControl (components/map/ParkMapbox.tsx): hide its own button — the compass
+   button in app/(map)/layout.tsx calls the control's trigger() instead — and retint the location
+   dot to the .you-dot treatment from sample-map/drony-ortho.html. */
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl-group {
+  display: none;
+}
+
+.mapboxgl-user-location-dot,
+.mapboxgl-user-location-dot::before {
+  background-color: #4285f4;
+}
+
+.mapboxgl-user-location-accuracy-circle {
+  background-color: rgba(66, 133, 244, 0.2);
+}

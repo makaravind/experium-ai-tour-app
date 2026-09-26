@@ -107,12 +107,14 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           <SearchIcon size={17} strokeWidth={2.2} />
           Search
         </div>
-        <div
+        <button
+          type="button"
+          onClick={() => useMapStore.getState().geolocateTrigger?.()}
           className="w-11 h-11 rounded-full flex items-center justify-center bg-ex-paper border border-ex-border text-ex-forest"
           style={{ boxShadow: 'var(--ex-shadow-soft)' }}
         >
           <CompassIcon size={20} strokeWidth={2.2} />
-        </div>
+        </button>
       </div>
 
       <PreviewSheet
