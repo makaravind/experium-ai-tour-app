@@ -110,6 +110,7 @@ export function calcPeekChips(
       id: exhibit.id,
       name: exhibit.name,
       visited: visitedIds.includes(exhibit.id),
+      status: exhibit.status,
       edge,
       offset,
     })
@@ -148,7 +149,13 @@ function PeekChipEl({ chip }: { chip: PeekChip }) {
           display: 'block',
           filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
         }}
-        fill={chip.visited ? '#588157' : '#dda15e'}
+        fill={
+          chip.status === 'coming_soon'
+            ? 'var(--color-ex-coming-soon)'
+            : chip.visited
+              ? 'var(--color-ex-forest)'
+              : 'var(--color-ex-orange)'
+        }
       >
         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
         <circle cx="12" cy="9" r="2.5" fill="white" />
@@ -291,18 +298,19 @@ export default function ParkMapbox({
         },
       })
 
+      const markerInputs = exhibitsRef.current.map((exhibit) => ({
+        id: exhibit.id,
+        lat: exhibit.gps_lat,
+        lng: exhibit.gps_lng,
+        status: exhibit.status,
+      }))
+
       try {
         const { createMarkerLayer } = await import('./marker-layer')
         map.addLayer(
           createMarkerLayer({
             map,
-            getExhibits: () =>
-              exhibitsRef.current.map((exhibit) => ({
-                id: exhibit.id,
-                lat: exhibit.gps_lat,
-                lng: exhibit.gps_lng,
-                status: exhibit.status,
-              })),
+            getExhibits: () => markerInputs,
           })
         )
       } catch (err) {
@@ -318,17 +326,20 @@ export default function ParkMapbox({
       })
       map.addControl(geolocateControl)
       geolocateControl.on('geolocate', (position) => {
+        const visitedIds = useStore.getState().visitedExhibits
         const ids = nearestWithin(
           {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
             accuracyM: position.coords.accuracy,
           },
-          exhibitsRef.current.map((exhibit) => ({
-            id: exhibit.id,
-            lat: exhibit.gps_lat,
-            lng: exhibit.gps_lng,
-          }))
+          exhibitsRef.current
+            .filter((exhibit) => exhibit.status === 'live' && !visitedIds.includes(exhibit.id))
+            .map((exhibit) => ({
+              id: exhibit.id,
+              lat: exhibit.gps_lat,
+              lng: exhibit.gps_lng,
+            }))
         )
         useMapStore.getState().setNearbyExhibitIds(ids)
       })

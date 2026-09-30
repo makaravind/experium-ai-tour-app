@@ -23,7 +23,12 @@ function mockMap({
   } as unknown as import('mapbox-gl').Map
 }
 
-function exhibit(id: string, lng: number, lat: number): MapExhibit {
+function exhibit(
+  id: string,
+  lng: number,
+  lat: number,
+  status: MapExhibit['status'] = 'live'
+): MapExhibit {
   return {
     id,
     name: `Exhibit ${id}`,
@@ -33,7 +38,7 @@ function exhibit(id: string, lng: number, lat: number): MapExhibit {
     gps_lat: lat,
     qr_code: null,
     languages: [],
-    status: 'live',
+    status,
   }
 }
 
@@ -129,5 +134,13 @@ describe('calcPeekChips', () => {
     })
     const result = calcPeekChips(map, [exhibit('e1', -0.3, 0.5)], [])
     expect(result[0].offset).toBe(784)
+  })
+
+  it('passes the exhibit status through to the chip', () => {
+    const map = mockMap({
+      projectFn: () => ({ x: -300, y: 400 }),
+    })
+    const result = calcPeekChips(map, [exhibit('e1', -0.3, 0.5, 'coming_soon')], [])
+    expect(result[0].status).toBe('coming_soon')
   })
 })
