@@ -23,6 +23,10 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
+  const recenterTrigger = useMapStore((s) => s.recenterTrigger)
+  const followMode = useMapStore((s) => s.followMode)
+  const geoError = useMapStore((s) => s.geoError)
+  const retryGpsTrigger = useMapStore((s) => s.retryGpsTrigger)
 
   // Clear map-page state when leaving exhibit page
 
@@ -100,6 +104,30 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
+      {/* GPS error banner — persists until geoError clears (not a toast) */}
+      {geoError && (
+        <div
+          role="alert"
+          className="absolute left-0 right-0 top-0 flex items-center justify-center gap-3 px-4 py-2 text-sm font-semibold bg-yellow-300 text-black"
+          style={{ zIndex: 30 }}
+        >
+          {geoError === 'denied' ? (
+            <>
+              <span>Location access denied — tap to enable</span>
+              <button
+                type="button"
+                onClick={() => retryGpsTrigger?.()}
+                className="px-3 py-1 rounded-full bg-black text-white"
+              >
+                Retry
+              </button>
+            </>
+          ) : (
+            <span>Location isn&apos;t available on this device</span>
+          )}
+        </div>
+      )}
+
       {/* Search bar */}
       <div
         className="absolute left-4 right-4 flex gap-2.5 items-center"
@@ -114,8 +142,12 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         </div>
         <button
           type="button"
-          onClick={() => useMapStore.getState().geolocateTrigger?.()}
-          className="w-11 h-11 rounded-full flex items-center justify-center bg-ex-paper border border-ex-border text-ex-forest"
+          onClick={() => recenterTrigger?.()}
+          className={`w-11 h-11 rounded-full flex items-center justify-center border ${
+            followMode === 'following'
+              ? 'bg-ex-forest border-ex-forest text-white'
+              : 'bg-ex-paper border-ex-border text-ex-forest'
+          }`}
           style={{ boxShadow: 'var(--ex-shadow-soft)' }}
         >
           <CompassIcon size={20} strokeWidth={2.2} />
