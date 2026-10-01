@@ -8,6 +8,7 @@ import { useDebugStore } from '@/lib/debug-store'
 import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
 import { supabase } from '@/lib/supabase'
+import { classifyGeoError, lerpPosition, type LatLng } from '@/lib/gps'
 import { nearestWithin, pinPixelHeight } from '@/lib/nearby'
 import type { ExhibitStatus, MapExhibit } from '@/lib/types'
 
@@ -33,6 +34,9 @@ const STARTING_CENTER: [number, number] = [
   (ORTHO_BOUNDS[1] + ORTHO_BOUNDS[3]) / 2,
 ]
 const STARTING_ZOOM = 18
+const POSITION_UNAVAILABLE = 2
+const MOCK_WALK_MS = 5000
+const MOCK_ACCURACY_M = 15
 
 // The `exhibit-pins` circle layer is invisible (opacity 0) once the 3D marker layer loads, but
 // stays the hit target — sized/translated to sit over the drawn pin, which is tip-anchored and
@@ -189,6 +193,10 @@ export default function ParkMapbox({
   useEffect(() => {
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
     let cancelled = false
+    let watchId: number | null = null
+    let mockFrame: number | null = null
+    let stopWatcherRef: (() => void) | null = null
+    let unsubscribeMock: (() => void) | null = null
 
     const savedViewport = useStore.getState().mapViewport
     const map = new mapboxgl.Map({
@@ -319,20 +327,26 @@ export default function ParkMapbox({
         console.error('Failed to load 3D marker layer, falling back to circle markers', err)
       }
 
-      const geolocateControl = new mapboxgl.GeolocateControl({
-        trackUserLocation: true,
-        showAccuracyCircle: true,
-        positionOptions: { enableHighAccuracy: true },
-      })
-      map.addControl(geolocateControl)
-      geolocateControl.on('geolocate', (position) => {
+      const youDot = document.createElement('div')
+      youDot.className = 'you-dot'
+      const youMarker = new mapboxgl.Marker({ element: youDot, anchor: 'center' })
+      let markerAdded = false
+      let hasFix = false
+
+      const handlePosition = (lat: number, lng: number, accuracyM: number) => {
+        const mapStore = useMapStore.getState()
+        if (!markerAdded) {
+          youMarker.setLngLat([lng, lat]).addTo(map)
+          markerAdded = true
+        } else {
+          youMarker.setLngLat([lng, lat])
+        }
+        mapStore.setUserPosition({ lat, lng, accuracyM })
+        mapStore.setGeoError(null)
+
         const visitedIds = useStore.getState().visitedExhibits
         const ids = nearestWithin(
-          {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracyM: position.coords.accuracy,
-          },
+          { lat, lng, accuracyM },
           exhibitsRef.current
             .filter((exhibit) => exhibit.status === 'live' && !visitedIds.includes(exhibit.id))
             .map((exhibit) => ({
@@ -341,12 +355,82 @@ export default function ParkMapbox({
               lng: exhibit.gps_lng,
             }))
         )
-        useMapStore.getState().setNearbyExhibitIds(ids)
+        mapStore.setNearbyExhibitIds(ids)
+
+        if (!hasFix) {
+          hasFix = true
+          mapStore.setFollowMode('following')
+          map.flyTo({ center: [lng, lat] })
+        } else if (mapStore.followMode === 'following') {
+          map.panTo([lng, lat])
+        }
+      }
+
+      const handleGeoError = (code: number) => {
+        const mapStore = useMapStore.getState()
+        mapStore.setGeoError(classifyGeoError(code))
+        mapStore.setFollowMode('idle')
+        mapStore.setNearbyExhibitIds([])
+        if (markerAdded) {
+          youMarker.remove()
+          markerAdded = false
+        }
+        hasFix = false
+      }
+
+      const stopWatcher = () => {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId)
+          watchId = null
+        }
+        if (mockFrame !== null) {
+          cancelAnimationFrame(mockFrame)
+          mockFrame = null
+        }
+      }
+      stopWatcherRef = stopWatcher
+
+      const startWatcher = () => {
+        stopWatcher()
+        if (useDebugStore.getState().mockGpsEnabled) return
+        if (!('geolocation' in navigator)) {
+          handleGeoError(POSITION_UNAVAILABLE)
+          return
+        }
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => handlePosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+          (err) => handleGeoError(err.code),
+          { enableHighAccuracy: true }
+        )
+      }
+
+      const startMockWalk = (to: LatLng) => {
+        if (mockFrame !== null) cancelAnimationFrame(mockFrame)
+        const current = useMapStore.getState().userPosition
+        const c = map.getCenter()
+        const from: LatLng = current ?? { lat: c.lat, lng: c.lng }
+        const startedAt = performance.now()
+        const tick = (now: number) => {
+          const t = Math.min(1, (now - startedAt) / MOCK_WALK_MS)
+          const p = lerpPosition(from, to, t)
+          handlePosition(p.lat, p.lng, MOCK_ACCURACY_M)
+          mockFrame = t < 1 ? requestAnimationFrame(tick) : null
+        }
+        mockFrame = requestAnimationFrame(tick)
+      }
+
+      startWatcher()
+      unsubscribeMock = useDebugStore.subscribe((state, prev) => {
+        if (state.mockGpsEnabled !== prev.mockGpsEnabled) startWatcher()
       })
-      geolocateControl.on('error', () => {
-        useMapStore.getState().setNearbyExhibitIds([])
+      useMapStore.getState().setRecenterTrigger(() => {
+        const pos = useMapStore.getState().userPosition
+        if (!pos) return
+        useMapStore.getState().setFollowMode('following')
+        map.flyTo({ center: [pos.lng, pos.lat] })
       })
-      useMapStore.getState().setGeolocateTrigger(() => geolocateControl.trigger())
+      useMapStore.getState().setRetryGpsTrigger(startWatcher)
+      map.on('dragstart', () => useMapStore.getState().setFollowMode('idle'))
 
       map.on('click', 'exhibit-pins', (e) => {
         const feature = e.features?.[0]
@@ -357,7 +441,12 @@ export default function ParkMapbox({
 
       map.on('click', (e) => {
         const hits = map.queryRenderedFeatures(e.point, { layers: ['exhibit-pins'] })
-        if (hits.length === 0) onMapTapRef.current?.()
+        if (hits.length === 0) {
+          onMapTapRef.current?.()
+          if (useDebugStore.getState().mockGpsEnabled) {
+            startMockWalk({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+          }
+        }
       })
 
       map.on('mouseenter', 'exhibit-pins', () => {
@@ -402,9 +491,12 @@ export default function ParkMapbox({
 
     return () => {
       cancelled = true
+      unsubscribeMock?.()
+      stopWatcherRef?.()
       map.off('error', onLoadError)
       map.remove()
-      useMapStore.getState().setGeolocateTrigger(null)
+      useMapStore.getState().setRecenterTrigger(null)
+      useMapStore.getState().setRetryGpsTrigger(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- map initialises once; callbacks are stable refs
   }, [])
