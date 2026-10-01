@@ -220,18 +220,38 @@
   }
 }
 
-/* Mapbox GeolocateControl (components/map/ParkMapbox.tsx): hide its own button — the compass
-   button in app/(map)/layout.tsx calls the control's trigger() instead — and retint the location
-   dot to the .you-dot treatment from sample-map/drony-ortho.html. */
-.mapboxgl-ctrl-top-right .mapboxgl-ctrl-group {
-  display: none;
+/* "You are here" dot — ported from sample-map/drony-ortho.html; used by the GPS marker in
+   components/map/ParkMapbox.tsx. */
+.you-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #4285f4;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px #4285f4;
+  position: relative;
 }
 
-.mapboxgl-user-location-dot,
-.mapboxgl-user-location-dot::before {
-  background-color: #4285f4;
+.you-dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(66, 133, 244, 0.2);
+  animation: pulse 1.8s ease-out infinite;
 }
 
-.mapboxgl-user-location-accuracy-circle {
-  background-color: rgba(66, 133, 244, 0.2);
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0;
+  }
 }
