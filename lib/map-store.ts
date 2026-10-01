@@ -9,6 +9,12 @@ interface ExhibitPageData {
   onQuartile: (sec: number, quartile: number) => void
 }
 
+interface UserPosition {
+  lat: number
+  lng: number
+  accuracyM: number
+}
+
 interface MapStoreState {
   exhibitPageData: ExhibitPageData | null
   setExhibitPageData: (data: ExhibitPageData) => void
@@ -17,8 +23,16 @@ interface MapStoreState {
   setActiveExhibitId: (id: string | null) => void
   nearbyExhibitIds: string[]
   setNearbyExhibitIds: (ids: string[]) => void
-  geolocateTrigger: (() => void) | null
-  setGeolocateTrigger: (fn: (() => void) | null) => void
+  userPosition: UserPosition | null
+  setUserPosition: (pos: UserPosition | null) => void
+  followMode: 'idle' | 'following'
+  setFollowMode: (mode: 'idle' | 'following') => void
+  geoError: 'denied' | 'unavailable' | null
+  setGeoError: (err: 'denied' | 'unavailable' | null) => void
+  recenterTrigger: (() => void) | null
+  setRecenterTrigger: (fn: (() => void) | null) => void
+  retryGpsTrigger: (() => void) | null
+  setRetryGpsTrigger: (fn: (() => void) | null) => void
 }
 
 export const useMapStore = create<MapStoreState>((set, get) => ({
@@ -35,6 +49,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
     set({ nearbyExhibitIds: ids })
   },
-  geolocateTrigger: null,
-  setGeolocateTrigger: (fn) => set({ geolocateTrigger: fn }),
+  userPosition: null,
+  setUserPosition: (pos) => set({ userPosition: pos }),
+  followMode: 'idle',
+  setFollowMode: (mode) => set({ followMode: mode }),
+  geoError: null,
+  setGeoError: (err) => set({ geoError: err }),
+  recenterTrigger: null,
+  setRecenterTrigger: (fn) => set({ recenterTrigger: fn }),
+  retryGpsTrigger: null,
+  setRetryGpsTrigger: (fn) => set({ retryGpsTrigger: fn }),
 }))

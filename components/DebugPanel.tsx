@@ -16,6 +16,8 @@ export default function DebugPanel() {
     mapDebug,
     forcedMarkerState,
     setForcedMarkerState,
+    mockGpsEnabled,
+    setMockGpsEnabled,
   } = useDebugStore()
   const { language, visitedExhibits, onboardingStep, totalDiscovered } = useStore()
 
@@ -125,6 +127,20 @@ export default function DebugPanel() {
                   }
                 )}
               </div>
+            </section>
+
+            <section>
+              <p className="text-stone-500 text-xs mb-1">MOCK GPS</p>
+              <button
+                onClick={() => setMockGpsEnabled(!mockGpsEnabled)}
+                className={`text-xs px-2 py-1 rounded font-mono ${
+                  mockGpsEnabled
+                    ? 'bg-emerald-500 text-black font-bold'
+                    : 'bg-stone-800 text-stone-300'
+                }`}
+              >
+                Mock GPS: {mockGpsEnabled ? 'ON' : 'OFF'}
+              </button>
             </section>
 
             <section>

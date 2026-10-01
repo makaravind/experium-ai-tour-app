@@ -35,6 +35,8 @@ interface DebugStore {
   setMapDebug: (m: MapDebug) => void
   forcedMarkerState: ForcedMarkerState | null
   setForcedMarkerState: (v: ForcedMarkerState | null) => void
+  mockGpsEnabled: boolean
+  setMockGpsEnabled: (v: boolean) => void
 }
 
 export const useDebugStore = create<DebugStore>((set) => ({
@@ -52,4 +54,6 @@ export const useDebugStore = create<DebugStore>((set) => ({
   setMapDebug: (mapDebug) => set({ mapDebug }),
   forcedMarkerState: null,
   setForcedMarkerState: (forcedMarkerState) => set({ forcedMarkerState }),
+  mockGpsEnabled: false,
+  setMockGpsEnabled: (mockGpsEnabled) => set({ mockGpsEnabled }),
 }))
