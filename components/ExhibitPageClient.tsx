@@ -89,8 +89,14 @@ export default function ExhibitPageClient({
     [visitorId, qrCode]
   )
 
-  // Page land analytics — fires once on mount
+  // Page land analytics — fires once visitorId has resolved (cached or via handshake).
+  // Firing before that would send visitorId: null, which the server rejects, and the
+  // resulting empty response would reset totalDiscovered to 0 for a returning visitor
+  // on a new device/cleared storage.
+  const pageLandSentRef = useRef(false)
   useEffect(() => {
+    if (!visitorId || pageLandSentRef.current) return
+    pageLandSentRef.current = true
     postScan({
       listened: false,
       listen_duration_sec: 0,
@@ -101,7 +107,7 @@ export default function ExhibitPageClient({
       .then((res) => res.json())
       .then((data) => setTotalDiscovered(data.total_discovered ?? 0))
       .catch(() => {})
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visitorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFirstPlay = useCallback(async () => {
     setListenedCurrentExhibit(true)
