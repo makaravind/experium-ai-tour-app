@@ -134,9 +134,11 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     const { prevTotal, newTotal } = pendingDiscovery
     if (audioEndTimerRef.current) clearTimeout(audioEndTimerRef.current)
     audioEndTimerRef.current = setTimeout(() => {
-      setToast({ total: newTotal })
-      const crossed = getCrossedMilestone(prevTotal, newTotal)
-      if (crossed) setCelebration({ milestone: crossed, total: newTotal })
+      if (newTotal > prevTotal) {
+        setToast({ total: newTotal })
+        const crossed = getCrossedMilestone(prevTotal, newTotal)
+        if (crossed) setCelebration({ milestone: crossed, total: newTotal })
+      }
       clearPendingDiscovery()
     }, 500)
   }
