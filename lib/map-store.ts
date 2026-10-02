@@ -33,8 +33,8 @@ interface MapStoreState {
   setRecenterTrigger: (fn: (() => void) | null) => void
   retryGpsTrigger: (() => void) | null
   setRetryGpsTrigger: (fn: (() => void) | null) => void
-  pendingDiscovery: { prevTotal: number; newTotal: number } | null
-  setPendingDiscovery: (d: { prevTotal: number; newTotal: number }) => void
+  pendingDiscovery: { exhibitId: string; prevTotal: number; newTotal: number } | null
+  setPendingDiscovery: (d: { exhibitId: string; prevTotal: number; newTotal: number }) => void
   clearPendingDiscovery: () => void
 }
 

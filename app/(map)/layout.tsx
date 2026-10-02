@@ -39,6 +39,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [exhibitsForSearch, setExhibitsForSearch] = useState<MapExhibit[]>([])
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
+  const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<{ total: number } | null>(null)
   const [celebration, setCelebration] = useState<{ milestone: number; total: number } | null>(null)
 
@@ -126,14 +127,25 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const handleAudioEnded = () => {
     const { pendingDiscovery, clearPendingDiscovery } = useMapStore.getState()
     if (!pendingDiscovery) return
+    if (pendingDiscovery.exhibitId !== exhibitPageData?.exhibit.id) {
+      clearPendingDiscovery()
+      return
+    }
     const { prevTotal, newTotal } = pendingDiscovery
-    setTimeout(() => {
+    if (audioEndTimerRef.current) clearTimeout(audioEndTimerRef.current)
+    audioEndTimerRef.current = setTimeout(() => {
       setToast({ total: newTotal })
       const crossed = getCrossedMilestone(prevTotal, newTotal)
       if (crossed) setCelebration({ milestone: crossed, total: newTotal })
       clearPendingDiscovery()
     }, 500)
   }
+
+  useEffect(() => {
+    return () => {
+      if (audioEndTimerRef.current) clearTimeout(audioEndTimerRef.current)
+    }
+  }, [])
 
   // Auto-dismiss toast
   useEffect(() => {
