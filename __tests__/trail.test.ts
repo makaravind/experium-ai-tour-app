@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getCurrentSegment } from '@/lib/trail'
+import { getCurrentSegment, getCrossedMilestone } from '@/lib/trail'
 
 describe('getCurrentSegment', () => {
   it('is not complete and has no achieved milestones at 0', () => {
@@ -49,5 +49,27 @@ describe('getCurrentSegment', () => {
     const s = getCurrentSegment(51)
     expect(s.next).toBe(null)
     expect(s.isComplete).toBe(true)
+  })
+})
+
+describe('getCrossedMilestone', () => {
+  it('crosses 1 going from 0 to 1', () => {
+    expect(getCrossedMilestone(0, 1)).toBe(1)
+  })
+
+  it('crosses 10 going from 9 to 10', () => {
+    expect(getCrossedMilestone(9, 10)).toBe(10)
+  })
+
+  it('is null on a repeat listen (10 to 10)', () => {
+    expect(getCrossedMilestone(10, 10)).toBe(null)
+  })
+
+  it('is null when new total is not a milestone (9 to 11)', () => {
+    expect(getCrossedMilestone(9, 11)).toBe(null)
+  })
+
+  it('is null when new total is not a milestone (49 to 51)', () => {
+    expect(getCrossedMilestone(49, 51)).toBe(null)
   })
 })
