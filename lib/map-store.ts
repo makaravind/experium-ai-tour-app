@@ -33,6 +33,9 @@ interface MapStoreState {
   setRecenterTrigger: (fn: (() => void) | null) => void
   retryGpsTrigger: (() => void) | null
   setRetryGpsTrigger: (fn: (() => void) | null) => void
+  pendingDiscovery: { prevTotal: number; newTotal: number } | null
+  setPendingDiscovery: (d: { prevTotal: number; newTotal: number }) => void
+  clearPendingDiscovery: () => void
 }
 
 export const useMapStore = create<MapStoreState>((set, get) => ({
@@ -59,4 +62,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   setRecenterTrigger: (fn) => set({ recenterTrigger: fn }),
   retryGpsTrigger: null,
   setRetryGpsTrigger: (fn) => set({ retryGpsTrigger: fn }),
+  pendingDiscovery: null,
+  setPendingDiscovery: (d) => set({ pendingDiscovery: d }),
+  clearPendingDiscovery: () => set({ pendingDiscovery: null }),
 }))
