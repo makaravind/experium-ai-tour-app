@@ -115,6 +115,7 @@ export default function ExhibitPageClient({
       const data = await res.json()
       setTotalDiscovered(data.total_discovered ?? 0)
       useMapStore.getState().setPendingDiscovery({
+        exhibitId,
         prevTotal,
         newTotal: data.total_discovered ?? 0,
       })
