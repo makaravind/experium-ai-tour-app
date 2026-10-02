@@ -2,14 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
 import ParkMapbox from '@/components/map/ParkMapbox'
+import MilestoneCelebration from '@/components/exhibit/MilestoneCelebration'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
 import { CompassIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
+import { getCrossedMilestone } from '@/lib/trail'
 import { supabase } from '@/lib/supabase'
 import type { MapExhibit, PreviewExhibit } from '@/lib/types'
 
@@ -36,6 +39,8 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [exhibitsForSearch, setExhibitsForSearch] = useState<MapExhibit[]>([])
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
+  const [toast, setToast] = useState<{ total: number } | null>(null)
+  const [celebration, setCelebration] = useState<{ milestone: number; total: number } | null>(null)
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
@@ -117,6 +122,25 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const sheetAutoPlay = isShowingCurrentExhibit ? exhibitPageData!.autoPlay || undefined : undefined
   const sheetOnFirstPlay = isShowingCurrentExhibit ? exhibitPageData!.onFirstPlay : undefined
   const sheetOnQuartile = isShowingCurrentExhibit ? exhibitPageData!.onQuartile : undefined
+
+  const handleAudioEnded = () => {
+    const { pendingDiscovery, clearPendingDiscovery } = useMapStore.getState()
+    if (!pendingDiscovery) return
+    const { prevTotal, newTotal } = pendingDiscovery
+    setTimeout(() => {
+      setToast({ total: newTotal })
+      const crossed = getCrossedMilestone(prevTotal, newTotal)
+      if (crossed) setCelebration({ milestone: crossed, total: newTotal })
+      clearPendingDiscovery()
+    }, 500)
+  }
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const handlePinTap = (pin: MapExhibit) => {
     setMapSelectedExhibit(toPreviewExhibit(pin))
@@ -244,7 +268,33 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         onNavigate={navigateEnabled ? handleNavigate : undefined}
         onFirstPlay={sheetOnFirstPlay}
         onQuartile={sheetOnQuartile}
+        onAudioEnded={isShowingCurrentExhibit ? handleAudioEnded : undefined}
       />
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="discovery-toast"
+            role="status"
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -40, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="absolute left-1/2 px-4 py-2 rounded-full text-sm font-semibold bg-ex-forest text-white"
+            style={{ top: 60, x: '-50%', zIndex: 55, boxShadow: 'var(--ex-shadow-soft)' }}
+          >
+            {`+1 🌿 · ${toast.total}/50 discovered`}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {celebration && (
+        <MilestoneCelebration
+          milestone={celebration.milestone}
+          totalDiscovered={celebration.total}
+          onClose={() => setCelebration(null)}
+        />
+      )}
 
       {searchOpen && (
         <SearchOverlay
