@@ -13,6 +13,17 @@ import { useMapStore } from '@/lib/map-store'
 import { supabase } from '@/lib/supabase'
 import type { MapExhibit, PreviewExhibit } from '@/lib/types'
 
+function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
+  return {
+    id: exhibit.id,
+    name: exhibit.name,
+    type: exhibit.type,
+    tier: exhibit.tier,
+    qr_code: exhibit.qr_code,
+    languages: exhibit.languages,
+  }
+}
+
 export default function MapShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -42,14 +53,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       const pending = pendingSearchSelectRef.current
       pendingSearchSelectRef.current = null
       if (pending) {
-        setMapSelectedExhibit({
-          id: pending.id,
-          name: pending.name,
-          type: pending.type,
-          tier: pending.tier,
-          qr_code: pending.qr_code,
-          languages: pending.languages,
-        })
+        setMapSelectedExhibit(toPreviewExhibit(pending))
         setFlyToTarget(pending.id)
         setNavigateEnabled(true)
       } else {
@@ -115,14 +119,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const sheetOnQuartile = isShowingCurrentExhibit ? exhibitPageData!.onQuartile : undefined
 
   const handlePinTap = (pin: MapExhibit) => {
-    setMapSelectedExhibit({
-      id: pin.id,
-      name: pin.name,
-      type: pin.type,
-      tier: pin.tier,
-      qr_code: pin.qr_code,
-      languages: pin.languages,
-    })
+    setMapSelectedExhibit(toPreviewExhibit(pin))
     setNavigateEnabled(true)
   }
 
@@ -143,7 +140,11 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   }
 
   const handleOpenSearch = () => {
-    handleMapTap()
+    if (mapFailed) {
+      setMapSelectedExhibit(null)
+    } else {
+      handleMapTap()
+    }
     setSearchOpen(true)
   }
 
@@ -158,14 +159,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       pendingSearchSelectRef.current = exhibit
       return
     }
-    setMapSelectedExhibit({
-      id: exhibit.id,
-      name: exhibit.name,
-      type: exhibit.type,
-      tier: exhibit.tier,
-      qr_code: exhibit.qr_code,
-      languages: exhibit.languages,
-    })
+    setMapSelectedExhibit(toPreviewExhibit(exhibit))
     setFlyToTarget(exhibit.id)
     setNavigateEnabled(true)
   }
