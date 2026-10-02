@@ -443,9 +443,9 @@ export default function ParkMapbox({
         const hits = map.queryRenderedFeatures(e.point, { layers: ['exhibit-pins'] })
         if (hits.length === 0) {
           onMapTapRef.current?.()
-          if (useDebugStore.getState().mockGpsEnabled) {
-            startMockWalk({ lat: e.lngLat.lat, lng: e.lngLat.lng })
-          }
+        }
+        if (useDebugStore.getState().mockGpsEnabled) {
+          startMockWalk({ lat: e.lngLat.lat, lng: e.lngLat.lng })
         }
       })
 
