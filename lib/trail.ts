@@ -17,3 +17,9 @@ export function getCurrentSegment(totalDiscovered: number): TrailSegment {
     isComplete: totalDiscovered >= 50,
   }
 }
+
+/** Milestone just reached by this discovery, or null. Not a range scan: discovery moves the total by at most +1. */
+export function getCrossedMilestone(prevTotal: number, newTotal: number): number | null {
+  if (newTotal <= prevTotal) return null
+  return TRAIL_MILESTONES.find((m) => m === newTotal) ?? null
+}
