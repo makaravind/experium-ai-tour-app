@@ -33,6 +33,7 @@ export default function PreviewSheet({
   autoPlay,
   onFirstPlay,
   onQuartile,
+  onAudioEnded,
 }: {
   exhibit: PreviewExhibit | null
   audio?: ExhibitAudio[]
@@ -41,6 +42,7 @@ export default function PreviewSheet({
   onClose?: () => void
   onFirstPlay?: () => void
   onQuartile?: (sec: number, quartile: number) => void
+  onAudioEnded?: () => void
 }) {
   const router = useRouter()
   const language = useStore((s) => s.language)
@@ -232,7 +234,10 @@ export default function PreviewSheet({
               }
             }
           }}
-          onEnded={() => collapse()}
+          onEnded={() => {
+            collapse()
+            onAudioEnded?.()
+          }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
         />
