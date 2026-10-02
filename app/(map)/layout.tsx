@@ -1,15 +1,28 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import MapStub from '@/components/exhibit/MapStub'
 import ParkMapbox from '@/components/map/ParkMapbox'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
+import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
 import { CompassIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
+import { supabase } from '@/lib/supabase'
 import type { MapExhibit, PreviewExhibit } from '@/lib/types'
+
+function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
+  return {
+    id: exhibit.id,
+    name: exhibit.name,
+    type: exhibit.type,
+    tier: exhibit.tier,
+    qr_code: exhibit.qr_code,
+    languages: exhibit.languages,
+  }
+}
 
 export default function MapShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -20,6 +33,9 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [flyToTarget, setFlyToTarget] = useState<string | null>(null)
   const [navigateEnabled, setNavigateEnabled] = useState(false)
   const [mapFailed, setMapFailed] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [exhibitsForSearch, setExhibitsForSearch] = useState<MapExhibit[]>([])
+  const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
@@ -27,16 +43,57 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const followMode = useMapStore((s) => s.followMode)
   const geoError = useMapStore((s) => s.geoError)
   const retryGpsTrigger = useMapStore((s) => s.retryGpsTrigger)
+  const nearbyExhibitIds = useMapStore((s) => s.nearbyExhibitIds)
+  const userPosition = useMapStore((s) => s.userPosition)
 
   // Clear map-page state when leaving exhibit page
 
   useEffect(() => {
     if (!isExhibitPage) {
-      setMapSelectedExhibit(null) // eslint-disable-line react-hooks/set-state-in-effect
-      setFlyToTarget(null)
-      setNavigateEnabled(false)
+      const pending = pendingSearchSelectRef.current
+      pendingSearchSelectRef.current = null
+      if (pending) {
+        setMapSelectedExhibit(toPreviewExhibit(pending))
+        setFlyToTarget(pending.id)
+        setNavigateEnabled(true)
+      } else {
+        setMapSelectedExhibit(null)
+        setFlyToTarget(null)
+        setNavigateEnabled(false)
+      }
     }
   }, [isExhibitPage])
+
+  // Map failed before exhibits loaded: fetch a trimmed list so search still works
+  useEffect(() => {
+    if (!mapFailed || exhibitsForSearch.length > 0) return
+    let cancelled = false
+    supabase
+      .from('exhibits')
+      .select('id, name, type, tier, status, gps_lng, gps_lat, exhibit_qr_codes(code)')
+      .eq('exhibit_qr_codes.status', 'active')
+      .not('gps_lat', 'is', null)
+      .not('gps_lng', 'is', null)
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        setExhibitsForSearch(
+          data.map((row) => ({
+            id: row.id,
+            name: row.name,
+            type: row.type,
+            tier: row.tier,
+            gps_lat: row.gps_lat,
+            gps_lng: row.gps_lng,
+            status: row.status ?? 'live',
+            qr_code: (row.exhibit_qr_codes as { code: string }[] | null)?.[0]?.code ?? null,
+            languages: [],
+          }))
+        )
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [mapFailed, exhibitsForSearch.length])
 
   // Fly to exhibit when page data arrives or changes
 
@@ -62,14 +119,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const sheetOnQuartile = isShowingCurrentExhibit ? exhibitPageData!.onQuartile : undefined
 
   const handlePinTap = (pin: MapExhibit) => {
-    setMapSelectedExhibit({
-      id: pin.id,
-      name: pin.name,
-      type: pin.type,
-      tier: pin.tier,
-      qr_code: pin.qr_code,
-      languages: pin.languages,
-    })
+    setMapSelectedExhibit(toPreviewExhibit(pin))
     setNavigateEnabled(true)
   }
 
@@ -89,6 +139,31 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     if (!isExhibitPage) setMapSelectedExhibit(null)
   }
 
+  const handleOpenSearch = () => {
+    if (mapFailed) {
+      setMapSelectedExhibit(null)
+    } else {
+      handleMapTap()
+    }
+    setSearchOpen(true)
+  }
+
+  const handleSearchSelect = (exhibit: MapExhibit) => {
+    setSearchOpen(false)
+    if (mapFailed) {
+      if (exhibit.qr_code) router.push(`/s/${exhibit.qr_code}`)
+      return
+    }
+    if (isExhibitPage) {
+      // handleOpenSearch's navigation hasn't resolved yet; the clear-on-leave effect applies this
+      pendingSearchSelectRef.current = exhibit
+      return
+    }
+    setMapSelectedExhibit(toPreviewExhibit(exhibit))
+    setFlyToTarget(exhibit.id)
+    setNavigateEnabled(true)
+  }
+
   const showClose = !isExhibitPage && mapSelectedExhibit !== null
 
   return (
@@ -101,6 +176,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           onPinTap={handlePinTap}
           flyToTarget={flyToTarget}
           onMapTap={handleMapTap}
+          onExhibitsLoaded={setExhibitsForSearch}
         />
       )}
 
@@ -134,7 +210,13 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         style={{ top: 60, zIndex: 20 }}
       >
         <div
-          className="flex-1 h-11 flex items-center gap-2 px-4 rounded-full font-semibold text-sm bg-ex-paper border border-ex-border text-ex-muted"
+          role="button"
+          tabIndex={0}
+          onClick={handleOpenSearch}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') handleOpenSearch()
+          }}
+          className="flex-1 h-11 flex items-center gap-2 px-4 rounded-full font-semibold text-sm bg-ex-paper border border-ex-border text-ex-muted cursor-pointer"
           style={{ boxShadow: 'var(--ex-shadow-soft)' }}
         >
           <SearchIcon size={17} strokeWidth={2.2} />
@@ -163,6 +245,17 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         onFirstPlay={sheetOnFirstPlay}
         onQuartile={sheetOnQuartile}
       />
+
+      {searchOpen && (
+        <SearchOverlay
+          exhibits={exhibitsForSearch}
+          nearbyExhibitIds={nearbyExhibitIds}
+          userPosition={userPosition}
+          mapFailed={mapFailed}
+          onClose={() => setSearchOpen(false)}
+          onSelect={handleSearchSelect}
+        />
+      )}
 
       <TabBar />
       {children}
