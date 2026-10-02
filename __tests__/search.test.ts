@@ -11,7 +11,7 @@ const ex = (id: string, name: string): MapExhibit => ({
   gps_lng: 0,
   qr_code: null,
   languages: ['en'],
-  status: 'active' as MapExhibit['status'],
+  status: 'live',
 })
 
 describe('matchesQuery', () => {
