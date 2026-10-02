@@ -17,6 +17,7 @@ interface ParkMapboxProps {
   onPinTap: (exhibit: MapExhibit) => void
   flyToTarget?: string | null
   onMapTap?: () => void
+  onExhibitsLoaded?: (exhibits: MapExhibit[]) => void
 }
 
 const ORTHO_ID = 'aravindmetku.nedour'
@@ -173,6 +174,7 @@ export default function ParkMapbox({
   onPinTap,
   flyToTarget,
   onMapTap,
+  onExhibitsLoaded,
 }: ParkMapboxProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
@@ -180,6 +182,7 @@ export default function ParkMapbox({
   const flyToTargetRef = useRef(flyToTarget)
   const onPinTapRef = useRef(onPinTap)
   const onMapTapRef = useRef(onMapTap)
+  const onExhibitsLoadedRef = useRef(onExhibitsLoaded)
   // Keep refs current so stale-closure handlers always call the latest callbacks
   // eslint-disable-next-line react-hooks/refs
   flyToTargetRef.current = flyToTarget
@@ -187,6 +190,8 @@ export default function ParkMapbox({
   onPinTapRef.current = onPinTap
   // eslint-disable-next-line react-hooks/refs
   onMapTapRef.current = onMapTap
+  // eslint-disable-next-line react-hooks/refs
+  onExhibitsLoadedRef.current = onExhibitsLoaded
   const [peekChips, setPeekChips] = useState<PeekChip[]>([])
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
@@ -250,6 +255,7 @@ export default function ParkMapbox({
             ?.filter((a) => a.status === 'published')
             .map((a) => a.language) ?? [],
       }))
+      onExhibitsLoadedRef.current?.(exhibitsRef.current)
 
       const visitedExhibits = useStore.getState().visitedExhibits
       const exhibitPinsGeoJson = {
