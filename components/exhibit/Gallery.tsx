@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LeafOutlineIcon } from '@/components/icons'
 
-const PLACEHOLDER = {
+export const PLACEHOLDER = {
   hero: 'linear-gradient(160deg, #6f9557, #456a3f)',
   blank: 'linear-gradient(160deg, #e8e5df, #d8d4cb)',
   blankIcon: '#b9b4a8',
