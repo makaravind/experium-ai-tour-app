@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { CheckIcon } from '@/components/icons'
-import MilestoneModal from '@/components/exhibit/MilestoneModal'
+import MilestoneCelebration from '@/components/exhibit/MilestoneCelebration'
 import { useStore } from '@/lib/store'
 import { TRAIL_MILESTONES, getCurrentSegment } from '@/lib/trail'
 
@@ -61,10 +61,7 @@ function Segment({ filled }: { filled: boolean }) {
 export default function TrailCard() {
   const totalDiscovered = useStore((s) => s.totalDiscovered)
   const segment = getCurrentSegment(totalDiscovered)
-  const [openMilestone, setOpenMilestone] = useState<{
-    milestone: number
-    achieved: boolean
-  } | null>(null)
+  const [openMilestone, setOpenMilestone] = useState<number | null>(null)
 
   const isFresh = totalDiscovered === 0
   const isComplete = segment.isComplete
@@ -131,13 +128,7 @@ export default function TrailCard() {
               variant={node.variant}
               label={node.label}
               onClick={
-                node.variant === 'hollow'
-                  ? undefined
-                  : () =>
-                      setOpenMilestone({
-                        milestone: node.label as number,
-                        achieved: node.variant === 'done',
-                      })
+                node.variant === 'done' ? () => setOpenMilestone(node.label as number) : undefined
               }
             />
             {i < nodes.length - 1 && (
@@ -148,10 +139,9 @@ export default function TrailCard() {
       </div>
       <div className="text-[13px] text-ex-muted font-semibold mt-3">{meta}</div>
 
-      {openMilestone && (
-        <MilestoneModal
-          milestone={openMilestone.milestone}
-          achieved={openMilestone.achieved}
+      {openMilestone !== null && (
+        <MilestoneCelebration
+          milestone={openMilestone}
           totalDiscovered={totalDiscovered}
           onClose={() => setOpenMilestone(null)}
         />
