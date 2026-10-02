@@ -105,6 +105,7 @@ export default function ExhibitPageClient({
 
   const handleFirstPlay = useCallback(async () => {
     setListenedCurrentExhibit(true)
+    const prevTotal = useStore.getState().totalDiscovered
     try {
       const res = await postScan({
         listened: true,
@@ -113,6 +114,10 @@ export default function ExhibitPageClient({
       })
       const data = await res.json()
       setTotalDiscovered(data.total_discovered ?? 0)
+      useMapStore.getState().setPendingDiscovery({
+        prevTotal,
+        newTotal: data.total_discovered ?? 0,
+      })
       markVisited(exhibitId)
     } catch {}
   }, [
