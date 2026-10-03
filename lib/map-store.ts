@@ -33,9 +33,18 @@ interface MapStoreState {
   setRecenterTrigger: (fn: (() => void) | null) => void
   retryGpsTrigger: (() => void) | null
   setRetryGpsTrigger: (fn: (() => void) | null) => void
-  pendingDiscovery: { exhibitId: string; prevTotal: number; newTotal: number } | null
-  setPendingDiscovery: (d: { exhibitId: string; prevTotal: number; newTotal: number }) => void
-  clearPendingDiscovery: () => void
+  // A promise rather than the resolved value: audio can finish playing before the
+  // scan request resolves, so handleAudioEnded awaits whatever is in flight instead
+  // of checking an already-settled value (which would silently drop the discovery).
+  pendingDiscoveryPromise: Promise<{
+    exhibitId: string
+    prevTotal: number
+    newTotal: number
+  } | null> | null
+  setPendingDiscoveryPromise: (
+    p: Promise<{ exhibitId: string; prevTotal: number; newTotal: number } | null>
+  ) => void
+  clearPendingDiscoveryPromise: () => void
 }
 
 export const useMapStore = create<MapStoreState>((set, get) => ({
@@ -62,7 +71,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   setRecenterTrigger: (fn) => set({ recenterTrigger: fn }),
   retryGpsTrigger: null,
   setRetryGpsTrigger: (fn) => set({ retryGpsTrigger: fn }),
-  pendingDiscovery: null,
-  setPendingDiscovery: (d) => set({ pendingDiscovery: d }),
-  clearPendingDiscovery: () => set({ pendingDiscovery: null }),
+  pendingDiscoveryPromise: null,
+  setPendingDiscoveryPromise: (p) => set({ pendingDiscoveryPromise: p }),
+  clearPendingDiscoveryPromise: () => set({ pendingDiscoveryPromise: null }),
 }))

@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
 import ParkMapbox from '@/components/map/ParkMapbox'
-import MilestoneCelebration from '@/components/exhibit/MilestoneCelebration'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
@@ -41,9 +40,9 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
   const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<{ total: number } | null>(null)
-  const [celebration, setCelebration] = useState<{ milestone: number; total: number } | null>(null)
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
+  const onboardingStep = useStore((s) => s.onboardingStep)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
   const recenterTrigger = useMapStore((s) => s.recenterTrigger)
   const followMode = useMapStore((s) => s.followMode)
@@ -109,9 +108,13 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     }
   }, [exhibitPageData?.exhibit.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Which exhibit and audio to show in sheet
-  const sheetExhibit =
-    mapSelectedExhibit ?? (isExhibitPage ? (exhibitPageData?.exhibit ?? null) : null)
+  // Which exhibit and audio to show in sheet. Hidden while the loading/info
+  // onboarding screens are up, so they don't render underneath the peeking
+  // preview sheet — it reappears once onboarding hands back to 'exhibit'.
+  const onboardingInProgress = onboardingStep === 'loading' || onboardingStep === 'info'
+  const sheetExhibit = onboardingInProgress
+    ? null
+    : (mapSelectedExhibit ?? (isExhibitPage ? (exhibitPageData?.exhibit ?? null) : null))
 
   // Drive the 3D marker layer's rise-and-spin: the sheet's exhibit is the map's "active" pin.
   useEffect(() => {
@@ -124,22 +127,24 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const sheetOnFirstPlay = isShowingCurrentExhibit ? exhibitPageData!.onFirstPlay : undefined
   const sheetOnQuartile = isShowingCurrentExhibit ? exhibitPageData!.onQuartile : undefined
 
-  const handleAudioEnded = () => {
-    const { pendingDiscovery, clearPendingDiscovery } = useMapStore.getState()
-    if (!pendingDiscovery) return
-    if (pendingDiscovery.exhibitId !== exhibitPageData?.exhibit.id) {
-      clearPendingDiscovery()
-      return
-    }
-    const { prevTotal, newTotal } = pendingDiscovery
+  const handleAudioEnded = async () => {
+    const currentExhibitId = exhibitPageData?.exhibit.id
+    const { pendingDiscoveryPromise, clearPendingDiscoveryPromise } = useMapStore.getState()
+    if (!pendingDiscoveryPromise) return
+    // The onsite page-land scan (ExhibitPageClient) is what actually flips "discovered"
+    // and can resolve well after this fires — await the same promise it stored instead
+    // of reading an already-settled value, which would silently miss the crossing.
+    const result = await pendingDiscoveryPromise
+    clearPendingDiscoveryPromise()
+    if (!result || result.exhibitId !== currentExhibitId) return
+    const { prevTotal, newTotal } = result
     if (audioEndTimerRef.current) clearTimeout(audioEndTimerRef.current)
     audioEndTimerRef.current = setTimeout(() => {
       if (newTotal > prevTotal) {
-        setToast({ total: newTotal })
         const crossed = getCrossedMilestone(prevTotal, newTotal)
-        if (crossed) setCelebration({ milestone: crossed, total: newTotal })
+        if (crossed) router.push(`/collection?reveal=${crossed}`)
+        else setToast({ total: newTotal })
       }
-      clearPendingDiscovery()
     }, 500)
   }
 
@@ -301,14 +306,6 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {celebration && (
-        <MilestoneCelebration
-          milestone={celebration.milestone}
-          totalDiscovered={celebration.total}
-          onClose={() => setCelebration(null)}
-        />
-      )}
 
       {searchOpen && (
         <SearchOverlay

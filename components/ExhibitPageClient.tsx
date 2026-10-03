@@ -93,11 +93,19 @@ export default function ExhibitPageClient({
   // Firing before that would send visitorId: null, which the server rejects, and the
   // resulting empty response would reset totalDiscovered to 0 for a returning visitor
   // on a new device/cleared storage.
+  //
+  // This is also where "discovered" actually flips server-side (p_discovered is true
+  // whenever scan_src === 'onsite', regardless of listened), since physically scanning
+  // the onsite marker — not finishing the audio — is the anti-fraud discovery trigger.
+  // So the prevTotal → newTotal delta that can cross a trail milestone happens here,
+  // not in handleFirstPlay; it's captured as a promise (not awaited) so handleAudioEnded
+  // in MapShell can await it once the user finishes listening, however long that takes.
   const pageLandSentRef = useRef(false)
   useEffect(() => {
     if (!visitorId || pageLandSentRef.current) return
     pageLandSentRef.current = true
-    postScan({
+    const prevTotal = useStore.getState().totalDiscovered
+    const discoveryPromise = postScan({
       listened: false,
       listen_duration_sec: 0,
       is_qr_scan: isQrScan,
@@ -105,28 +113,26 @@ export default function ExhibitPageClient({
       device_info: { language, ...deviceRef.current },
     })
       .then((res) => res.json())
-      .then((data) => setTotalDiscovered(data.total_discovered ?? 0))
-      .catch(() => {})
+      .then((data) => {
+        const newTotal = data.total_discovered ?? 0
+        setTotalDiscovered(newTotal)
+        return newTotal > prevTotal ? { exhibitId, prevTotal, newTotal } : null
+      })
+      .catch(() => null)
+    useMapStore.getState().setPendingDiscoveryPromise(discoveryPromise)
   }, [visitorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleFirstPlay = useCallback(async () => {
+  const handleFirstPlay = useCallback(() => {
     setListenedCurrentExhibit(true)
-    const prevTotal = useStore.getState().totalDiscovered
-    try {
-      const res = await postScan({
-        listened: true,
-        ...(scanSrc ? { scan_src: scanSrc } : {}),
-        device_info: { language, ...deviceRef.current },
-      })
-      const data = await res.json()
-      setTotalDiscovered(data.total_discovered ?? 0)
-      useMapStore.getState().setPendingDiscovery({
-        exhibitId,
-        prevTotal,
-        newTotal: data.total_discovered ?? 0,
-      })
-      markVisited(exhibitId)
-    } catch {}
+    postScan({
+      listened: true,
+      ...(scanSrc ? { scan_src: scanSrc } : {}),
+      device_info: { language, ...deviceRef.current },
+    })
+      .then((res) => res.json())
+      .then((data) => setTotalDiscovered(data.total_discovered ?? 0))
+      .catch(() => {})
+    markVisited(exhibitId)
   }, [
     language,
     postScan,
