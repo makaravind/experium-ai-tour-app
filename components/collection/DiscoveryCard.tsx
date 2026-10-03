@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
-import { getBadgeColor } from '@/lib/badge-placeholder'
+import { CARD_GRADIENT_STOPS, getBadgeColor } from '@/lib/badge-placeholder'
 
 const CARD_SIZE = 1080
 
@@ -18,9 +18,7 @@ function drawCard(canvas: HTMLCanvasElement, milestone: number, name: string) {
   const H = CARD_SIZE
 
   const grad = ctx.createLinearGradient(0, 0, W, H)
-  grad.addColorStop(0, '#6f8f56')
-  grad.addColorStop(0.55, '#4d6b46')
-  grad.addColorStop(1, '#b8834a')
+  for (const [pos, c] of CARD_GRADIENT_STOPS) grad.addColorStop(pos, c)
   ctx.fillStyle = grad
   ctx.fillRect(0, 0, W, H)
 
