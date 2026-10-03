@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import { CARD_GRADIENT_STOPS, getBadgeColor } from '@/lib/badge-placeholder'
 import ActionButton from '@/components/ui/action-button'
+import InfoModal from '@/components/exhibit/InfoModal'
 
 const CARD_SIZE = 1080
 
@@ -86,10 +87,10 @@ function drawCard(canvas: HTMLCanvasElement, milestone: number, name: string) {
 }
 
 export default function DiscoveryCard({ milestone, onBack }: Props) {
-  const name = useStore((s) => s.userInfo?.name ?? '')
+  const userInfo = useStore((s) => s.userInfo)
+  const name = userInfo?.name ?? ''
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [inputStyle, setInputStyle] = useState<React.CSSProperties | null>(null)
+  const [showInfoForm, setShowInfoForm] = useState(false)
   const [showRetry, setShowRetry] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -109,32 +110,12 @@ export default function DiscoveryCard({ milestone, onBack }: Props) {
     return () => clearTimeout(t)
   }, [toast])
 
-  useEffect(() => {
-    if (inputStyle) {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }
-  }, [inputStyle])
-
   function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
     const scale = rect.width / CARD_SIZE
     const yCanvas = (e.clientY - rect.top) / scale
     if (yCanvas < CARD_SIZE * 0.5 || yCanvas > CARD_SIZE * 0.63) return
-    setInputStyle({
-      left: rect.width * 0.15,
-      top: CARD_SIZE * 0.525 * scale,
-      width: rect.width * 0.7,
-      height: CARD_SIZE * 0.09 * scale,
-      fontSize: Math.max(12, CARD_SIZE * 0.044 * scale),
-    })
-  }
-
-  function commitName() {
-    const value = inputRef.current?.value ?? ''
-    const { userInfo, setUserInfo } = useStore.getState()
-    setUserInfo({ phone: '', email: '', ...userInfo, name: value })
-    setInputStyle(null)
+    setShowInfoForm(true)
   }
 
   function handleDownload() {
@@ -193,19 +174,6 @@ export default function DiscoveryCard({ milestone, onBack }: Props) {
             onClick={handleCanvasClick}
             className="block w-full h-auto"
           />
-          {inputStyle && (
-            <input
-              ref={inputRef}
-              defaultValue={name}
-              onBlur={commitName}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-              }}
-              aria-label="Your name"
-              className="absolute bg-transparent text-white text-center font-bold outline-none"
-              style={inputStyle}
-            />
-          )}
         </div>
         <ActionButton
           variant="ink"
@@ -229,6 +197,13 @@ export default function DiscoveryCard({ milestone, onBack }: Props) {
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-ex-ink text-white text-sm font-bold">
           {toast}
         </div>
+      )}
+      {showInfoForm && (
+        <InfoModal
+          initialValues={{ name, phone: userInfo?.phone ?? '', email: userInfo?.email ?? '' }}
+          onDone={() => setShowInfoForm(false)}
+          onCancel={() => setShowInfoForm(false)}
+        />
       )}
     </motion.div>
   )

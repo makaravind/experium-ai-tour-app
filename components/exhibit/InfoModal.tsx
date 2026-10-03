@@ -20,10 +20,19 @@ const inputStyle = {
 const labelClass = 'block text-xs font-extrabold uppercase tracking-wider mb-1.5 text-ex-muted'
 const labelStyle = { letterSpacing: '0.05em' }
 
-export default function InfoModal({ onDone }: { onDone: () => void }) {
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
+interface InfoModalProps {
+  onDone: () => void
+  /** Omit for first-time onboarding. When provided, the form opens pre-filled for
+   * editing — e.g. from the Discovery Card — and "Skip for now" discards instead
+   * of committing (onboarding's Skip still saves, since there's nothing to revert to). */
+  initialValues?: { name: string; phone: string; email: string }
+  onCancel?: () => void
+}
+
+export default function InfoModal({ onDone, initialValues, onCancel }: InfoModalProps) {
+  const [name, setName] = useState(initialValues?.name ?? '')
+  const [phone, setPhone] = useState(initialValues?.phone ?? '')
+  const [email, setEmail] = useState(initialValues?.email ?? '')
   const visitorId = useStore((s) => s.visitorId)
   const setUserInfo = useStore((s) => s.setUserInfo)
 
@@ -111,7 +120,7 @@ export default function InfoModal({ onDone }: { onDone: () => void }) {
           Continue →
         </button>
         <button
-          onClick={commit}
+          onClick={onCancel ?? commit}
           className="w-full mt-3.5 py-1.5 font-bold text-sm text-center text-ex-muted"
           style={{ background: 'none', border: 'none' }}
         >
