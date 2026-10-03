@@ -1,4 +1,4 @@
-import { getBadgeColor } from '@/lib/badge-placeholder'
+import { CARD_GRADIENT_CSS, getBadgeColor } from '@/lib/badge-placeholder'
 
 interface CardStackProps {
   milestones: number[]
@@ -20,7 +20,7 @@ export function CardStack({ milestones, onSelect }: CardStackProps) {
             onClick={() => onSelect(m)}
             className="absolute flex size-28 cursor-pointer items-center justify-center rounded-2xl shadow-[0_10px_20px_rgba(43,43,43,0.28)] transition-shadow hover:shadow-[0_14px_26px_rgba(43,43,43,0.36)]"
             style={{
-              background: 'linear-gradient(150deg,#6f8f56 0%,#4d6b46 55%,#b8834a 100%)',
+              background: CARD_GRADIENT_CSS,
               transform: `translate(${offset * 30}px,${Math.abs(offset) * 8}px) rotate(${offset * 7}deg)`,
               zIndex: i + 1,
             }}

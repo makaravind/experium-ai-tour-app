@@ -1,12 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getBadgeColor } from '@/lib/badge-placeholder'
+import { CARD_GRADIENT_CSS, getBadgeColor } from '@/lib/badge-placeholder'
 
 const CONFETTI_COLORS = ['#ffffff', '#dda15e', '#a3b18a', '#f8f7f4', '#b8834a']
 const AUTO_FLIP_MS = 2000
 const FLIP_MS = 650
-const CARD_GRADIENT = 'linear-gradient(150deg,#6f8f56 0%,#4d6b46 55%,#b8834a 100%)'
 
 export default function CardReveal({
   milestone,
@@ -64,7 +63,7 @@ export default function CardReveal({
     WebkitBackfaceVisibility: 'hidden',
     borderRadius: 20,
     overflow: 'hidden',
-    background: CARD_GRADIENT,
+    background: CARD_GRADIENT_CSS,
     boxShadow: '0 16px 32px rgba(0,0,0,.32)',
   }
 
