@@ -127,14 +127,17 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const sheetOnFirstPlay = isShowingCurrentExhibit ? exhibitPageData!.onFirstPlay : undefined
   const sheetOnQuartile = isShowingCurrentExhibit ? exhibitPageData!.onQuartile : undefined
 
-  const handleAudioEnded = () => {
-    const { pendingDiscovery, clearPendingDiscovery } = useMapStore.getState()
-    if (!pendingDiscovery) return
-    if (pendingDiscovery.exhibitId !== exhibitPageData?.exhibit.id) {
-      clearPendingDiscovery()
-      return
-    }
-    const { prevTotal, newTotal } = pendingDiscovery
+  const handleAudioEnded = async () => {
+    const currentExhibitId = exhibitPageData?.exhibit.id
+    const { pendingDiscoveryPromise, clearPendingDiscoveryPromise } = useMapStore.getState()
+    if (!pendingDiscoveryPromise) return
+    // The onsite page-land scan (ExhibitPageClient) is what actually flips "discovered"
+    // and can resolve well after this fires — await the same promise it stored instead
+    // of reading an already-settled value, which would silently miss the crossing.
+    const result = await pendingDiscoveryPromise
+    clearPendingDiscoveryPromise()
+    if (!result || result.exhibitId !== currentExhibitId) return
+    const { prevTotal, newTotal } = result
     if (audioEndTimerRef.current) clearTimeout(audioEndTimerRef.current)
     audioEndTimerRef.current = setTimeout(() => {
       if (newTotal > prevTotal) {
@@ -142,7 +145,6 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         if (crossed) router.push(`/collection?reveal=${crossed}`)
         else setToast({ total: newTotal })
       }
-      clearPendingDiscovery()
     }, 500)
   }
 
