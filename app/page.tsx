@@ -38,12 +38,14 @@ export default function Home() {
 
         <div className="mt-5">
           <TrailCard />
-          <Link
-            href="/collection"
-            className="flex items-center justify-center w-full h-[52px] mt-3.5 rounded-2xl border-[1.5px] border-ex-sage bg-ex-paper text-ex-ink font-extrabold text-sm active:translate-y-px"
-          >
-            🗂️ My Collection →
-          </Link>
+          {!isFresh && (
+            <Link
+              href="/collection"
+              className="flex items-center justify-center w-full h-[52px] mt-3.5 rounded-2xl border-[1.5px] border-ex-sage bg-ex-paper text-ex-ink font-extrabold text-sm active:translate-y-px"
+            >
+              🗂️ My Collection →
+            </Link>
+          )}
         </div>
 
         <div className="flex-1" />
