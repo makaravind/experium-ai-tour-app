@@ -42,6 +42,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<{ total: number } | null>(null)
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
+  const onboardingStep = useStore((s) => s.onboardingStep)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
   const recenterTrigger = useMapStore((s) => s.recenterTrigger)
   const followMode = useMapStore((s) => s.followMode)
@@ -107,9 +108,13 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     }
   }, [exhibitPageData?.exhibit.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Which exhibit and audio to show in sheet
-  const sheetExhibit =
-    mapSelectedExhibit ?? (isExhibitPage ? (exhibitPageData?.exhibit ?? null) : null)
+  // Which exhibit and audio to show in sheet. Hidden while the loading/info
+  // onboarding screens are up, so they don't render underneath the peeking
+  // preview sheet — it reappears once onboarding hands back to 'exhibit'.
+  const onboardingInProgress = onboardingStep === 'loading' || onboardingStep === 'info'
+  const sheetExhibit = onboardingInProgress
+    ? null
+    : (mapSelectedExhibit ?? (isExhibitPage ? (exhibitPageData?.exhibit ?? null) : null))
 
   // Drive the 3D marker layer's rise-and-spin: the sheet's exhibit is the map's "active" pin.
   useEffect(() => {
