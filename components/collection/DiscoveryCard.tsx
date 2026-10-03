@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import { CARD_GRADIENT_STOPS, getBadgeColor } from '@/lib/badge-placeholder'
+import ActionButton from '@/components/ui/action-button'
 
 const CARD_SIZE = 1080
 
@@ -169,7 +171,13 @@ export default function DiscoveryCard({ milestone, onBack }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-ex-paper">
+    <motion.div
+      className="fixed inset-0 z-50 flex flex-col bg-ex-bg"
+      initial={{ rotateY: 90, opacity: 0 }}
+      animate={{ rotateY: 0, opacity: 1 }}
+      transition={{ duration: 0.5, ease: [0.4, 0.1, 0.2, 1] }}
+      style={{ transformStyle: 'preserve-3d' }}
+    >
       <div className="flex items-center gap-3 px-4 h-14">
         <button onClick={onBack} aria-label="Back" className="text-ex-ink text-2xl font-extrabold">
           ‹
@@ -199,12 +207,15 @@ export default function DiscoveryCard({ milestone, onBack }: Props) {
             />
           )}
         </div>
-        <button
+        <ActionButton
+          variant="ink"
           onClick={handleDownload}
-          className="flex items-center justify-center w-full h-[52px] mt-4 rounded-2xl bg-ex-ink text-white font-extrabold text-sm active:translate-y-px"
+          height={52}
+          fontSize={14}
+          className="mt-4"
         >
           Download
-        </button>
+        </ActionButton>
         {showRetry && (
           <div className="flex items-center justify-between mt-3 px-4 py-3 rounded-xl bg-red-50 text-red-800 text-sm font-bold">
             <span>Couldn&apos;t save image.</span>
@@ -219,6 +230,6 @@ export default function DiscoveryCard({ milestone, onBack }: Props) {
           {toast}
         </div>
       )}
-    </div>
+    </motion.div>
   )
 }
