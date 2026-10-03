@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
 import ParkMapbox from '@/components/map/ParkMapbox'
-import MilestoneCelebration from '@/components/exhibit/MilestoneCelebration'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
@@ -41,7 +40,6 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
   const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<{ total: number } | null>(null)
-  const [celebration, setCelebration] = useState<{ milestone: number; total: number } | null>(null)
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
@@ -135,9 +133,9 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     if (audioEndTimerRef.current) clearTimeout(audioEndTimerRef.current)
     audioEndTimerRef.current = setTimeout(() => {
       if (newTotal > prevTotal) {
-        setToast({ total: newTotal })
         const crossed = getCrossedMilestone(prevTotal, newTotal)
-        if (crossed) setCelebration({ milestone: crossed, total: newTotal })
+        if (crossed) router.push(`/collection?reveal=${crossed}`)
+        else setToast({ total: newTotal })
       }
       clearPendingDiscovery()
     }, 500)
@@ -301,14 +299,6 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {celebration && (
-        <MilestoneCelebration
-          milestone={celebration.milestone}
-          totalDiscovered={celebration.total}
-          onClose={() => setCelebration(null)}
-        />
-      )}
 
       {searchOpen && (
         <SearchOverlay
