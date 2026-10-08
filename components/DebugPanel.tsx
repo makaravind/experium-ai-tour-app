@@ -21,7 +21,7 @@ export default function DebugPanel() {
     setMockGpsEnabled,
   } = useDebugStore()
   const cacheDebug = useDebugStore((s) => s.cacheDebug)
-  const { language, visitedExhibits, onboardingStep, totalDiscovered } = useStore()
+  const { language, visitedExhibits, totalDiscovered } = useStore()
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const completionByGroup = useStore((s) => s.completionByGroup)
   const assetFailures = useStore((s) => s.assetFailures)
@@ -94,7 +94,7 @@ export default function DebugPanel() {
 
   const copyAll = () => {
     const data = {
-      store: { language, visitedExhibits, onboardingStep, totalDiscovered },
+      store: { language, visitedExhibits, totalDiscovered },
       gps,
       apiLog,
     }
@@ -124,7 +124,7 @@ export default function DebugPanel() {
               <p className="text-stone-500 text-xs mb-1">STORE</p>
               <pre className="text-xs text-stone-300 bg-stone-950 rounded p-2 overflow-x-auto whitespace-pre-wrap">
                 {JSON.stringify(
-                  { language, visitedExhibits, onboardingStep, totalDiscovered },
+                  { language, visitedExhibits, totalDiscovered },
                   null,
                   2
                 )}
