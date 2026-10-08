@@ -35,10 +35,12 @@ export default function LanguageSelector({
   options,
   variant = 'chip',
   className = '',
+  onChange,
 }: {
   options: LanguageOption[]
   variant?: Variant
   className?: string
+  onChange?: (code: LanguageOption['code']) => void
 }) {
   const language = useStore((s) => s.language)
   const setLanguage = useStore((s) => s.setLanguage)
@@ -52,7 +54,10 @@ export default function LanguageSelector({
         return (
           <motion.button
             key={code}
-            onClick={() => setLanguage(code)}
+            onClick={() => {
+              setLanguage(code)
+              onChange?.(code)
+            }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             className={`${button} transition-colors ${

@@ -1,28 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import LanguageSelector from '@/components/common/LanguageSelector'
 import { LeafIcon } from '@/components/icons'
-import { LANGUAGES } from '@/lib/utils'
+import { LANGUAGES, type LanguageOption } from '@/lib/utils'
 
-export default function LoadingScreen({ onDone }: { onDone: () => void }) {
-  const [pct, setPct] = useState(0)
-
-  useEffect(() => {
-    const start = Date.now()
-    const duration = 1800
-    const tick = setInterval(() => {
-      const elapsed = Date.now() - start
-      const p = Math.min(100, Math.round((elapsed / duration) * 100))
-      setPct(p)
-      if (p >= 100) {
-        clearInterval(tick)
-        setTimeout(onDone, 200)
-      }
-    }, 30)
-    return () => clearInterval(tick)
-  }, [onDone])
-
+export default function LoadingScreen({
+  pct,
+  phase = 'Preparing your audio tour…',
+  onLanguageChange,
+}: {
+  /** 0–100, fetched/total from the precache progress callback */
+  pct: number
+  /** Status line under the title */
+  phase?: string
+  onLanguageChange?: (code: LanguageOption['code']) => void
+}) {
   return (
     <div className="fixed inset-0 overflow-hidden">
       {/* Matcha air gradient background */}
@@ -90,16 +82,18 @@ export default function LoadingScreen({ onDone }: { onDone: () => void }) {
         >
           Experium Park
         </h1>
-        <p className="mt-8 text-sm font-semibold text-ex-muted">Preparing your audio tour…</p>
+        <p className="mt-8 text-sm font-semibold text-ex-muted">{phase}</p>
 
         {/* Progress bar */}
         <div className="mt-3.5 w-full h-3 rounded-full overflow-hidden bg-ex-sage">
           <div
             className="h-full rounded-full transition-all bg-ex-forest"
-            style={{ width: `${pct}%`, transitionDuration: '80ms' }}
+            style={{ width: `${Math.min(100, Math.max(0, pct))}%`, transitionDuration: '80ms' }}
           />
         </div>
-        <p className="mt-2 self-start text-xs font-bold tabular-nums text-ex-muted">{pct}%</p>
+        <p className="mt-2 self-start text-xs font-bold tabular-nums text-ex-muted">
+          {Math.round(pct)}%
+        </p>
 
         {/* Language picker */}
         <div className="mt-auto w-full">
@@ -109,7 +103,7 @@ export default function LoadingScreen({ onDone }: { onDone: () => void }) {
           >
             Choose your language
           </p>
-          <LanguageSelector options={LANGUAGES} variant="block" />
+          <LanguageSelector options={LANGUAGES} variant="block" onChange={onLanguageChange} />
         </div>
       </div>
     </div>
