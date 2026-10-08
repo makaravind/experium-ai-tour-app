@@ -1,51 +1,23 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
+import {
+  FAKE_AUDIO_URL,
+  mockPrecacheDataset,
+  passLanguageGate,
+  seedAudioCache,
+} from './gate-helpers'
 
 // "Baobab Forest" — the only active QR code seeded in Supabase
 const QR_CODE = 'baobab-forest'
 
-// Audio URL used for the seeded returning-visitor cache. Never fetched: AppGate only compares keys.
-const FAKE_AUDIO_URL = 'https://example.test/audio/baobab-forest-en.mp3'
-
-/**
- * AppGate's bulk dataset query (lib/precache.ts fetchCachedExhibits) is the only browser-side
- * /rest/v1/exhibits call that selects `audio_url`. Mock it with one audio-less exhibit so the
- * precache finishes instantly with nothing to download, instead of fetching real audio.
- */
-async function mockPrecacheDataset(page: Page) {
-  await page.route('**/rest/v1/exhibits?*', async (route) => {
-    if (!decodeURIComponent(route.request().url()).includes('audio_url')) return route.fallback()
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          id: 'e2e-baobab',
-          name: 'Baobab Forest',
-          type: null,
-          tier: 'free',
-          facts: [],
-          exhibit_qr_codes: [{ code: QR_CODE, status: 'active' }],
-          exhibit_audio: [],
-        },
-      ]),
-    })
-  })
-}
-
-/** Fresh visitor: AppGate waits for a language tap before precache starts, then shows the info modal. */
-async function passLanguageGate(page: Page) {
-  await expect(page.getByText('Choose your language to begin')).toBeVisible()
-  await page.getByRole('button', { name: 'English' }).click()
-}
-
 test.describe('Visitor flow — golden path', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock the scan API so we don't write test data to production DB
+    // Mock the scan API so we don't write test data to production DB. total_discovered stays at the
+    // fresh-visitor 0 so no trail milestone card interrupts the sheet-collapse assertions.
     await page.route('/api/scan', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ total_discovered: 3 }),
+        body: JSON.stringify({ total_discovered: 0 }),
       })
     })
 
@@ -88,25 +60,27 @@ test.describe('Visitor flow — golden path', () => {
     await page.getByRole('button', { name: 'Skip for now' }).click()
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
 
+    // First play records the scan (listened: true) — arm the listener before clicking Listen
+    const scanRequest = page.waitForRequest(
+      (req) =>
+        req.url().includes('/api/scan') &&
+        req.method() === 'POST' &&
+        req.postDataJSON()?.listened === true
+    )
+
     // Listen takes the sheet fullscreen and morphs the button into the ring player
     await page.getByRole('button', { name: /listen/i }).click()
     await expect(page.getByRole('button', { name: 'Close' })).toBeVisible()
     await expect(page.getByRole('button', { name: /listen/i })).toBeHidden()
 
-    // Reaching the end records the scan — arm the listener before dispatching
-    const scanRequest = page.waitForRequest(
-      (req) => req.url().includes('/api/scan') && req.method() === 'POST'
-    )
+    const body = (await scanRequest).postDataJSON()
+    expect(body.visitorId).toBeTruthy()
+    expect(body.code).toBe(QR_CODE)
 
     // Simulate audio ending — the sheet owns the only <audio> element
     await page.evaluate(() => {
       document.querySelector('audio')?.dispatchEvent(new Event('ended'))
     })
-
-    const body = (await scanRequest).postDataJSON()
-    expect(body.exhibitId).toBeTruthy()
-    expect(body.qrCodeId).toBeTruthy()
-    expect(typeof body.listenDurationSec).toBe('number')
 
     // Sheet collapses back to peek, so Listen returns
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
@@ -131,11 +105,7 @@ test.describe('Visitor flow — returning visitor', () => {
     // every URL in the stored dataset. Seed the flag, the persisted store (dataset + completion),
     // and the matching Cache Storage entry. Cache is seeded from a throwaway page first so it
     // exists before AppGate's mount check runs.
-    await page.goto('/manifest.json')
-    await page.evaluate(async (url) => {
-      const cache = await caches.open('audio-cache')
-      await cache.put(url, new Response('fake-audio', { status: 200 }))
-    }, FAKE_AUDIO_URL)
+    await seedAudioCache(page)
 
     await page.addInitScript(
       ({ url, code }) => {
