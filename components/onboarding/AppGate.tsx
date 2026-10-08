@@ -33,6 +33,12 @@ async function waitForServiceWorker() {
   await Promise.race([controlling, new Promise((r) => setTimeout(r, SW_WAIT_MS))])
 }
 
+// Cached dataset was built for a different language than the one now selected.
+const languageIsStale = () => {
+  const { completionByGroup, language } = useStore.getState()
+  return Object.values(completionByGroup).some((c) => c.language && c.language !== language)
+}
+
 const nextAfterClear = (): GatePhase => (localStorage.getItem(ONBOARDED_KEY) ? 'clear' : 'info')
 
 function Screen({ title, body, children }: { title: string; body?: string; children: ReactNode }) {
@@ -65,6 +71,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const [phase, setPhaseState] = useState<GatePhase>('checking')
   const [pct, setPct] = useState(0)
   const [label, setLabel] = useState<string | undefined>()
+  const language = useStore((s) => s.language)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const assetFailures = useStore((s) => s.assetFailures)
   const phaseRef = useRef<GatePhase>('checking')
@@ -147,10 +154,12 @@ export default function AppGate({ children }: { children: ReactNode }) {
         }),
         idPromise,
       ])
-      finish(result)
+      // A language change mid-run queued a restart: this result is for the stale language, so
+      // surfacing it (clear/info/error) would flash wrong-language content. The finally block re-runs.
+      if (!restartRef.current) finish(result)
     } catch {
       // handshake or dataset query failed: treat as network failure
-      setPhase('blocked-offline')
+      if (!restartRef.current) setPhase('blocked-offline')
     } finally {
       runningRef.current = false
       if (restartRef.current) {
@@ -166,9 +175,16 @@ export default function AppGate({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void run()
     return onForeground(() => {
-      if (phaseRef.current === 'loading' || phaseRef.current === 'blocked-offline') void run()
+      const p = phaseRef.current
+      // 'clear' + stale language = a switch made offline; retry now that we're back
+      if (p === 'loading' || p === 'blocked-offline' || (p === 'clear' && languageIsStale())) void run()
     })
   }, [run])
+
+  // Catches any language change after the gate (e.g. PreviewSheet's chip), whoever made it.
+  useEffect(() => {
+    if (phaseRef.current === 'clear' && languageIsStale()) void run()
+  }, [language, run])
 
   const handleLanguageChange = useCallback(
     (_code: Language) => {
