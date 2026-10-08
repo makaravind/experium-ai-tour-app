@@ -13,6 +13,18 @@ export interface Fact {
   fact: string
 }
 
+/** One exhibit row in the upfront-precached dataset (gh-64), for the selected language. */
+export interface CachedExhibit {
+  id: string
+  code: string | null // exhibit_qr_codes.code; null if no active QR yet
+  status: 'active' | 'coming_soon'
+  name: string
+  type: string | null
+  tier: string
+  facts: Fact[]
+  audioUrl: string | null // null if not published yet
+}
+
 export interface ExhibitData {
   name: string
   type: string | null
