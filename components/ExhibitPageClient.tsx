@@ -1,8 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import InfoModal from '@/components/onboarding/InfoModal'
-import LoadingScreen from '@/components/exhibit/LoadingScreen'
+import { useCallback, useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
 import { getDeviceInfo } from '@/lib/utils'
@@ -25,9 +23,6 @@ export default function ExhibitPageClient({
   exhibit: ExhibitData
   audio: ExhibitAudio[]
 }) {
-  const onboardingStep = useStore((s) => s.onboardingStep)
-  const setOnboardingStep = useStore((s) => s.setOnboardingStep)
-  const setVisitorId = useStore((s) => s.setVisitorId)
   const visitorId = useStore((s) => s.visitorId)
   const language = useStore((s) => s.language)
   const setListenedCurrentExhibit = useStore((s) => s.setListenedCurrentExhibit)
@@ -35,49 +30,6 @@ export default function ExhibitPageClient({
   const markVisited = useStore((s) => s.markVisited)
   const { setExhibitPageData, clearExhibitPageData } = useMapStore()
   const deviceRef = useRef(getDeviceInfo())
-
-  const [fpReady, setFpReady] = useState(
-    () => typeof window !== 'undefined' && !!localStorage.getItem('experium_visitor_id')
-  )
-  const [appLoadingComplete, setAppLoadingComplete] = useState(false)
-
-  const handleLoadingDone = useCallback(() => setAppLoadingComplete(true), [])
-
-  // Visitor ID + onboarding setup
-  useEffect(() => {
-    const onboarded = localStorage.getItem('experium_onboarded')
-    setOnboardingStep(onboarded ? 'exhibit' : 'loading')
-
-    const cachedId = localStorage.getItem('experium_visitor_id')
-    if (cachedId) {
-      setVisitorId(cachedId)
-      return
-    }
-
-    import('@fingerprintjs/fingerprintjs')
-      .then((FingerprintJS) => FingerprintJS.load())
-      .then((fp) => fp.get())
-      .then((result) =>
-        fetch('/api/user/handshake', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fingerprintHint: result.visitorId }),
-        })
-      )
-      .then((res) => res.json())
-      .then(({ visitorId: id }) => {
-        if (id) {
-          setVisitorId(id)
-          localStorage.setItem('experium_visitor_id', id)
-        }
-        setFpReady(true)
-      })
-      .catch(() => setFpReady(true))
-  }, [setOnboardingStep, setVisitorId])
-
-  useEffect(() => {
-    if (fpReady && appLoadingComplete) setOnboardingStep('info')
-  }, [fpReady, appLoadingComplete, setOnboardingStep])
 
   const postScan = useCallback(
     (fields: object) =>
@@ -162,9 +114,8 @@ export default function ExhibitPageClient({
   const handleQuartileRef = useRef(handleQuartile)
   handleQuartileRef.current = handleQuartile // eslint-disable-line react-hooks/refs
 
-  // Register exhibit data with the persistent map layout once onboarding is done
+  // Register exhibit data with the persistent map layout
   useEffect(() => {
-    if (onboardingStep !== 'exhibit') return
     const previewExhibit: PreviewExhibit = {
       id: exhibitId,
       name: exhibit.name,
@@ -182,17 +133,7 @@ export default function ExhibitPageClient({
       onQuartile: (sec, q) => handleQuartileRef.current(sec, q),
     })
     return () => clearExhibitPageData()
-  }, [exhibitId, onboardingStep]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (onboardingStep === null) return null
-
-  if (onboardingStep === 'loading') {
-    return <LoadingScreen onDone={handleLoadingDone} />
-  }
-
-  if (onboardingStep === 'info') {
-    return <InfoModal onDone={() => setOnboardingStep('exhibit')} />
-  }
+  }, [exhibitId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null
 }
