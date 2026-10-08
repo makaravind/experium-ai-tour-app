@@ -2,6 +2,7 @@ const ID_KEY = 'experium_visitor_id'
 const LOCK_KEY = 'experium_handshake_lock'
 const LOCK_STALE_MS = 10_000
 const POLL_MS = 250
+const REFRESH_MS = LOCK_STALE_MS / 3
 
 function lockIsHeld(): boolean {
   try {
@@ -12,6 +13,23 @@ function lockIsHeld(): boolean {
   } catch {
     return false // corrupt lock → treat as free
   }
+}
+
+function readLock(): { ts: number; owner?: string } | null {
+  try {
+    const raw = localStorage.getItem(LOCK_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+// Only ever touches a lock this call wrote; a tab that took over after ours went stale keeps its own.
+function writeLock(owner: string) {
+  localStorage.setItem(LOCK_KEY, JSON.stringify({ ts: Date.now(), owner }))
+}
+function releaseLock(owner: string) {
+  if (readLock()?.owner === owner) localStorage.removeItem(LOCK_KEY)
 }
 
 async function handshake(): Promise<string> {
@@ -53,13 +71,19 @@ export async function getOrCreateVisitorId(): Promise<string> {
     if (cached) return cached
 
     if (!lockIsHeld()) {
-      localStorage.setItem(LOCK_KEY, JSON.stringify({ ts: Date.now() }))
+      const owner = crypto.randomUUID()
+      writeLock(owner)
+      // keep a slow-but-live handshake from looking stale to other tabs
+      const heartbeat = setInterval(() => {
+        if (readLock()?.owner === owner) writeLock(owner)
+      }, REFRESH_MS)
       try {
         const id = await handshake()
         localStorage.setItem(ID_KEY, id)
         return id
       } finally {
-        localStorage.removeItem(LOCK_KEY)
+        clearInterval(heartbeat)
+        releaseLock(owner)
       }
     }
 

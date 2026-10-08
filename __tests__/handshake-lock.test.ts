@@ -60,4 +60,60 @@ describe('getOrCreateVisitorId', () => {
     await expect(getOrCreateVisitorId()).rejects.toThrow('net')
     expect(localStorage.getItem('experium_handshake_lock')).toBeNull()
   })
+
+  describe('slow handshake / lock ownership', () => {
+    const LOCK = 'experium_handshake_lock'
+    let resolveFetch: (v: unknown) => void
+    const realSleep = (ms: number) => new Promise((r) => setTimeout(r, ms)) // setTimeout isn't faked
+    const deferFetch = () =>
+      fetchMock.mockReturnValue(new Promise((r) => (resolveFetch = r)))
+
+    it('refreshes the lock so a handshake past LOCK_STALE_MS never lets a 2nd tab in', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+      deferFetch()
+      const a = getOrCreateVisitorId()
+      await realSleep(50) // let A reach fetch
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(25_000) // well past 10s stale threshold
+      const b = getOrCreateVisitorId() // "second tab"
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      resolveFetch({ json: async () => ({ visitorId: 'slow-id' }) })
+      await realSleep(20)
+      await vi.advanceTimersByTimeAsync(500) // B's poll sees the id
+      expect(await Promise.all([a, b])).toEqual(['slow-id', 'slow-id'])
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(localStorage.getItem(LOCK)).toBeNull()
+    })
+
+    it("cleanup never clears a lock it doesn't own", async () => {
+      deferFetch()
+      const a = getOrCreateVisitorId()
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      // another tab took over (e.g. A was frozen past stale) and holds its own lock
+      const foreign = JSON.stringify({ ts: Date.now(), owner: 'tab-b' })
+      localStorage.setItem(LOCK, foreign)
+
+      resolveFetch({ json: async () => ({ visitorId: 'a-id' }) })
+      await a
+      expect(localStorage.getItem(LOCK)).toBe(foreign)
+    })
+
+    it('does not refresh a lock it no longer owns', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+      deferFetch()
+      const a = getOrCreateVisitorId()
+      await realSleep(50)
+      const foreign = JSON.stringify({ ts: Date.now(), owner: 'tab-b' })
+      localStorage.setItem(LOCK, foreign)
+
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(localStorage.getItem(LOCK)).toBe(foreign)
+
+      resolveFetch({ json: async () => ({ visitorId: 'a-id' }) })
+      await a
+    })
+  })
 })
