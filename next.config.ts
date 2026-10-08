@@ -1,7 +1,16 @@
 import type { NextConfig } from 'next'
 import withSerwist from '@serwist/next'
 
-const nextConfig: NextConfig = {}
+const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [{ key: 'Cache-Control', value: 'no-cache' }],
+      },
+    ]
+  },
+}
 
 export default withSerwist({
   swSrc: 'app/sw.ts',
