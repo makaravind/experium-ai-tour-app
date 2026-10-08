@@ -1,5 +1,5 @@
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
-import { CacheFirst, Serwist } from 'serwist'
+import { CacheFirst, NetworkFirst, Serwist } from 'serwist'
 import { ExpirationPlugin } from 'serwist'
 import { CacheableResponsePlugin } from 'serwist'
 import { RangeRequestsPlugin } from 'serwist'
@@ -33,10 +33,17 @@ const serwist = new Serwist({
       handler: new CacheFirst({
         cacheName: 'audio-cache',
         plugins: [
-          new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 }),
+          new ExpirationPlugin({ maxEntries: 170, maxAgeSeconds: 60 * 60 * 24 * 30 }),
           new RangeRequestsPlugin(),
           new CacheableResponsePlugin({ statuses: [0, 200, 206] }),
         ],
+      }),
+    },
+    {
+      matcher: ({ request, url }) => request.mode === 'navigate' && url.pathname.startsWith('/s/'),
+      handler: new NetworkFirst({
+        cacheName: 'exhibit-shell-cache',
+        plugins: [new ExpirationPlugin({ maxEntries: 1 })],
       }),
     },
   ],
