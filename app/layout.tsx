@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import DebugPanel from '@/components/DebugPanel'
+import AppGate from '@/components/onboarding/AppGate'
+import { SerwistProvider } from '@serwist/next/react'
 
 export const metadata: Metadata = {
   title: 'Nature Audio Tour',
@@ -26,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-body antialiased">
-        {children}
+        <SerwistProvider swUrl="/sw.js" register cacheOnNavigation={false} reloadOnOnline={false}>
+          <AppGate>{children}</AppGate>
+        </SerwistProvider>
         <Analytics />
         {process.env.NEXT_PUBLIC_DEBUG_ENABLED === 'true' && <DebugPanel />}
       </body>
