@@ -46,12 +46,12 @@ export default function ExhibitPage() {
   const [mounted, setMounted] = useState(false)
   const [live, setLive] = useState<Live>({ state: 'loading' })
 
-  useEffect(() => setMounted(true), [])
+  useEffect(() => setMounted(true), []) // eslint-disable-line react-hooks/set-state-in-effect
 
   useEffect(() => {
     if (!mounted || cached) return
     if (!navigator.onLine) {
-      setLive({ state: 'offline' })
+      setLive({ state: 'offline' }) // eslint-disable-line react-hooks/set-state-in-effect
       return
     }
     let cancelled = false
@@ -100,7 +100,11 @@ export default function ExhibitPage() {
     case 'loading':
       return null
     case 'offline':
-      return <Message>Can&apos;t verify this code right now. Connect to the internet and try again.</Message>
+      return (
+        <Message>
+          Can&apos;t verify this code right now. Connect to the internet and try again.
+        </Message>
+      )
     case 'missing':
       return <Message>Exhibit not found.</Message>
     case 'coming_soon':
@@ -114,7 +118,12 @@ export default function ExhibitPage() {
           isQrScan={isQrScan}
           scanSrc={scanSrc}
           autoPlay={autoPlay}
-          exhibit={{ name: exhibit.name, type: exhibit.type, tier: exhibit.tier, facts: exhibit.facts ?? [] }}
+          exhibit={{
+            name: exhibit.name,
+            type: exhibit.type,
+            tier: exhibit.tier,
+            facts: exhibit.facts ?? [],
+          }}
           audio={exhibit.exhibit_audio.filter((a) => a.status === 'published' && a.audio_url)}
         />
       )
