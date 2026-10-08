@@ -10,8 +10,11 @@ test.describe('Nature Audio Tour — smoke', () => {
   })
 
   test('exhibit page loads real data from Supabase', async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('experium_onboarded', '1'))
+    // Fresh visitor must pass AppGate: tap a language, let the real precache finish, then skip
+    // the info modal. Real run (not mocked) so this stays an end-to-end Supabase check.
     await page.goto(`/s/${QR_CODE}`)
+    await page.getByRole('button', { name: 'English' }).click()
+    await page.getByRole('button', { name: 'Skip for now' }).click({ timeout: 30000 })
 
     // exhibit name visible in BottomSheet
     await expect(page.getByText('Baobab Forest')).toBeVisible({ timeout: 6000 })
