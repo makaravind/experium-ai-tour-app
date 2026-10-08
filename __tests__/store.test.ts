@@ -5,7 +5,9 @@ beforeEach(() => {
   useStore.setState({
     language: 'en',
     visitedExhibits: [],
-    onboardingStep: null,
+    cachedExhibits: [],
+    completionByGroup: {},
+    assetFailures: {},
     visitorId: null,
     totalDiscovered: 0,
   })
@@ -35,14 +37,26 @@ describe('visitedExhibits', () => {
   })
 })
 
-describe('onboardingStep', () => {
-  it('defaults to null (uninitialized)', () => {
-    expect(useStore.getState().onboardingStep).toBe(null)
+describe('precache slice', () => {
+  it('defaults empty', () => {
+    const s = useStore.getState()
+    expect(s.cachedExhibits).toEqual([])
+    expect(s.completionByGroup).toEqual({})
+    expect(s.assetFailures).toEqual({})
   })
 
-  it('advances to exhibit', () => {
-    useStore.getState().setOnboardingStep('exhibit')
-    expect(useStore.getState().onboardingStep).toBe('exhibit')
+  it('sets completion per group without clobbering others', () => {
+    useStore.getState().setCompletionByGroup('audio-cache', { language: 'en', complete: true })
+    useStore.getState().setCompletionByGroup('image-cache', { complete: false })
+    expect(useStore.getState().completionByGroup).toEqual({
+      'audio-cache': { language: 'en', complete: true },
+      'image-cache': { complete: false },
+    })
+  })
+
+  it('stores asset failures', () => {
+    useStore.getState().setAssetFailures({ 'https://x/a.mp3': { count: 3 } })
+    expect(useStore.getState().assetFailures['https://x/a.mp3'].count).toBe(3)
   })
 })
 
