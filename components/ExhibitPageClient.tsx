@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import InfoModal from '@/components/exhibit/InfoModal'
+import InfoModal from '@/components/onboarding/InfoModal'
 import LoadingScreen from '@/components/exhibit/LoadingScreen'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
