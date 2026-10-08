@@ -1,16 +1,23 @@
 import { test, expect } from '@playwright/test'
+import {
+  FAKE_AUDIO_URL,
+  mockPrecacheDataset,
+  passLanguageGate,
+  seedAudioCache,
+} from './gate-helpers'
 
 // "Baobab Forest" — the only active QR code seeded in Supabase
 const QR_CODE = 'baobab-forest'
 
 test.describe('Visitor flow — golden path', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock the scan API so we don't write test data to production DB
+    // Mock the scan API so we don't write test data to production DB. total_discovered stays at the
+    // fresh-visitor 0 so no trail milestone card interrupts the sheet-collapse assertions.
     await page.route('/api/scan', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ total_discovered: 3 }),
+        body: JSON.stringify({ total_discovered: 0 }),
       })
     })
 
@@ -21,15 +28,17 @@ test.describe('Visitor flow — golden path', () => {
       localStorage.removeItem('experium-store')
     })
 
+    await mockPrecacheDataset(page)
     await page.goto(`/s/${QR_CODE}`)
   })
 
   test('loading screen → info modal → exhibit view', async ({ page }) => {
     // 1. Loading screen
     await expect(page.getByText('Experium Park')).toBeVisible()
-    await expect(page.getByText('Preparing your audio tour…')).toBeVisible()
+    await expect(page.getByText('Choose your language to begin')).toBeVisible()
 
-    // 2. Info modal appears after loading completes (~2.5s)
+    // 2. Language tap starts precache; info modal appears once it completes
+    await passLanguageGate(page)
     await expect(page.getByText('Personalize your experience')).toBeVisible({
       timeout: 6000,
     })
@@ -46,29 +55,32 @@ test.describe('Visitor flow — golden path', () => {
     page,
   }) => {
     // Fast-forward through loading + info modal
+    await passLanguageGate(page)
     await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 6000 })
     await page.getByRole('button', { name: 'Skip for now' }).click()
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
+
+    // First play records the scan (listened: true) — arm the listener before clicking Listen
+    const scanRequest = page.waitForRequest(
+      (req) =>
+        req.url().includes('/api/scan') &&
+        req.method() === 'POST' &&
+        req.postDataJSON()?.listened === true
+    )
 
     // Listen takes the sheet fullscreen and morphs the button into the ring player
     await page.getByRole('button', { name: /listen/i }).click()
     await expect(page.getByRole('button', { name: 'Close' })).toBeVisible()
     await expect(page.getByRole('button', { name: /listen/i })).toBeHidden()
 
-    // Reaching the end records the scan — arm the listener before dispatching
-    const scanRequest = page.waitForRequest(
-      (req) => req.url().includes('/api/scan') && req.method() === 'POST'
-    )
+    const body = (await scanRequest).postDataJSON()
+    expect(body.visitorId).toBeTruthy()
+    expect(body.code).toBe(QR_CODE)
 
     // Simulate audio ending — the sheet owns the only <audio> element
     await page.evaluate(() => {
       document.querySelector('audio')?.dispatchEvent(new Event('ended'))
     })
-
-    const body = (await scanRequest).postDataJSON()
-    expect(body.exhibitId).toBeTruthy()
-    expect(body.qrCodeId).toBeTruthy()
-    expect(typeof body.listenDurationSec).toBe('number')
 
     // Sheet collapses back to peek, so Listen returns
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
@@ -76,6 +88,7 @@ test.describe('Visitor flow — golden path', () => {
   })
 
   test('info modal — Continue saves user info and proceeds', async ({ page }) => {
+    await passLanguageGate(page)
     await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 6000 })
 
     await page.getByPlaceholder('Your name').fill('Test User')
@@ -88,17 +101,42 @@ test.describe('Visitor flow — golden path', () => {
 
 test.describe('Visitor flow — returning visitor', () => {
   test('skips loading + info modal when already onboarded', async ({ page }) => {
-    // Simulate a returning visitor (already onboarded)
-    await page.addInitScript(() => {
-      localStorage.setItem('experium_onboarded', '1')
-      localStorage.setItem(
-        'experium-store',
-        JSON.stringify({
-          state: { language: 'en', visitedExhibits: [], totalDiscovered: 2 },
-          version: 0,
-        })
-      )
-    })
+    // Cache Storage is authoritative: AppGate ignores `experium_onboarded` unless audio-cache holds
+    // every URL in the stored dataset. Seed the flag, the persisted store (dataset + completion),
+    // and the matching Cache Storage entry. Cache is seeded from a throwaway page first so it
+    // exists before AppGate's mount check runs.
+    await seedAudioCache(page)
+
+    await page.addInitScript(
+      ({ url, code }) => {
+        localStorage.setItem('experium_onboarded', '1')
+        localStorage.setItem(
+          'experium-store',
+          JSON.stringify({
+            state: {
+              language: 'en',
+              visitedExhibits: [],
+              totalDiscovered: 2,
+              completionByGroup: { 'audio-cache': { language: 'en', complete: true } },
+              cachedExhibits: [
+                {
+                  id: 'e2e-baobab',
+                  code,
+                  status: 'active',
+                  name: 'Baobab Forest',
+                  type: null,
+                  tier: 'free',
+                  facts: [],
+                  audioUrl: url,
+                },
+              ],
+            },
+            version: 0,
+          })
+        )
+      },
+      { url: FAKE_AUDIO_URL, code: QR_CODE }
+    )
 
     await page.route('/api/scan', async (route) => {
       await route.fulfill({
