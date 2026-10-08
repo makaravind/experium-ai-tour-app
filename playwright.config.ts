@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const PORT = process.env.E2E_PORT ?? '3000'
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -8,7 +10,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'dot' : 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
   },
   projects: [
@@ -17,9 +19,12 @@ export default defineConfig({
     { name: 'mobile-safari', use: { ...devices['iPhone 14'] } },
   ],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
+    // E2E_PROD=1 serves a production build so the service worker is active
+    command: process.env.E2E_PROD
+      ? `npx next build --no-lint && npm run start -- -p ${PORT}`
+      : `npm run dev -- -p ${PORT}`,
+    url: `http://localhost:${PORT}`,
     reuseExistingServer: true,
-    timeout: 30000,
+    timeout: process.env.E2E_PROD ? 180000 : 30000,
   },
 })

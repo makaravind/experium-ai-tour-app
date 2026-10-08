@@ -1,0 +1,73 @@
+import { test, expect } from '@playwright/test'
+
+// "Baobab Forest" — the only active QR code seeded in Supabase (and its only published audio row,
+// so the real upfront precache is a single small mp3 — no mocking needed)
+const QR_CODE = 'baobab-forest'
+
+// The service worker is disabled under `next dev`, so offline reloads only work against a
+// production build: `npm run build && E2E_PROD=1 npx playwright test e2e/offline-precache.spec.ts`
+test.describe('Offline after upfront precache', () => {
+  test.skip(!process.env.E2E_PROD, 'needs a production build (service worker is off in dev)')
+
+  test('fresh visitor precaches on language pick, then exhibit works offline', async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'offline + service worker is only reliable in chromium')
+
+    await page.route('/api/scan', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ total_discovered: 3 }),
+      })
+    )
+
+    // Fresh visitor: only on the first navigation, so the reloads below keep their state
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('e2e-seeded')) return
+      sessionStorage.setItem('e2e-seeded', '1')
+      localStorage.removeItem('experium_onboarded')
+      localStorage.removeItem('experium_user_info')
+      localStorage.removeItem('experium-store')
+    })
+
+    await page.goto(`/s/${QR_CODE}`)
+
+    // AppGate waits for an explicit language pick before downloading anything
+    await expect(page.getByText('Choose your language to begin')).toBeVisible({ timeout: 15000 })
+    await page.getByRole('button', { name: 'English' }).click()
+
+    // Precache finishes -> gate hands off to onboarding; skip it
+    await page.getByRole('button', { name: 'Skip for now' }).click({ timeout: 30000 })
+    await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
+
+    // Audio really landed in Cache Storage
+    const cachedAudio = await page.evaluate(async () =>
+      (await (await caches.open('audio-cache')).keys()).map((r) => r.url)
+    )
+    expect(cachedAudio.some((u) => u.endsWith('.mp3'))).toBe(true)
+
+    // The first load wasn't SW-controlled; reload online so exhibit-shell-cache stores the shell
+    await page.reload()
+    await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
+    await page.evaluate(() => navigator.serviceWorker.ready)
+
+    await context.setOffline(true)
+    await page.reload()
+
+    // Cache Storage is authoritative: straight to content, no offline wall
+    await expect(page.getByText('Connect to the internet')).toBeHidden()
+    await expect(page.getByText('Baobab Forest')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
+
+    // Playing needs a usable audio src, served from the cache
+    await page.getByRole('button', { name: /listen/i }).click()
+    await expect(page.getByRole('button', { name: 'Close' })).toBeVisible()
+    const src = await page.evaluate(() => document.querySelector('audio')?.src ?? '')
+    expect(src).toMatch(/\.mp3$/)
+    const status = await page.evaluate(async (u) => (await fetch(u)).status, src)
+    expect(status).toBe(200)
+  })
+})
