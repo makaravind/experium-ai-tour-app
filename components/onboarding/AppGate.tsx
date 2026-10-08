@@ -138,9 +138,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
         return
       }
 
-      // Already past the gate (in-app language switch): refetch quietly so open audio/UI isn't
-      // unmounted. finish() still blocks if the refetch ends offline or with capped assets.
-      if (phaseRef.current !== 'clear') setPhase('loading')
+      setPhase('loading')
       // first-ever run: wait for the visitor to pick a language on the LoadingScreen
       if (!store.completionByGroup['audio-cache'] && !pickedRef.current) {
         setPct(0)
