@@ -30,8 +30,13 @@ test.describe('Nature Audio Tour — smoke', () => {
   })
 
   test('unknown exhibit code renders not-found message', async ({ page }) => {
+    // AppGate still gates this route for a fresh visitor; the code just isn't in the mocked
+    // dataset, so the page falls through to its live-Supabase cache-miss lookup (case 3/4).
+    await mockPrecacheDataset(page)
     const res = await page.goto('/s/nonexistent-code-xyz')
     expect(res?.status()).toBe(200)
+    await passLanguageGate(page)
+    await page.getByRole('button', { name: 'Skip for now' }).click()
     await expect(page.getByText('Exhibit not found.')).toBeVisible({ timeout: 15_000 })
   })
 })
