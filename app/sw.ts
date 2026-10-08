@@ -29,7 +29,7 @@ const serwist = new Serwist({
       }),
     },
     {
-      matcher: /\.mp3$/i,
+      matcher: ({ url }) => url.pathname.toLowerCase().endsWith('.mp3'),
       handler: new CacheFirst({
         cacheName: 'audio-cache',
         plugins: [
