@@ -20,8 +20,9 @@ test.describe('Nature Audio Tour — smoke', () => {
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
   })
 
-  test('unknown exhibit code returns 404', async ({ page }) => {
+  test('unknown exhibit code renders not-found message', async ({ page }) => {
     const res = await page.goto('/s/nonexistent-code-xyz')
-    expect(res?.status()).toBe(404)
+    expect(res?.status()).toBe(200)
+    await expect(page.getByText('Exhibit not found.')).toBeVisible({ timeout: 15_000 })
   })
 })
