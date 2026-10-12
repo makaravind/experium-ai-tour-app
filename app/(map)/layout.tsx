@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
-import ParkMapbox from '@/components/map/ParkMapbox'
+import ParkMap from '@/components/map/ParkMap'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
@@ -214,7 +214,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       {mapFailed ? (
         <MapStub discovered={isExhibitPage ? listenedCurrentExhibit : false} />
       ) : (
-        <ParkMapbox
+        <ParkMap
           onLoadError={() => setMapFailed(true)}
           onPinTap={handlePinTap}
           flyToTarget={flyToTarget}

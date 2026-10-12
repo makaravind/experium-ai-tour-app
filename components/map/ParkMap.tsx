@@ -2,8 +2,9 @@
 
 import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
-import mapboxgl from 'mapbox-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
+import maplibregl from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import { Protocol } from 'pmtiles'
 import { useDebugStore } from '@/lib/debug-store'
 import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
@@ -12,7 +13,7 @@ import { classifyGeoError, lerpPosition, type LatLng } from '@/lib/gps'
 import { nearestWithin, pinPixelHeight } from '@/lib/nearby'
 import type { ExhibitStatus, MapExhibit } from '@/lib/types'
 
-interface ParkMapboxProps {
+interface ParkMapProps {
   onLoadError: () => void
   onPinTap: (exhibit: MapExhibit) => void
   flyToTarget?: string | null
@@ -20,7 +21,6 @@ interface ParkMapboxProps {
   onExhibitsLoaded?: (exhibits: MapExhibit[]) => void
 }
 
-const ORTHO_ID = 'aravindmetku.nedour'
 const ORTHO_BOUNDS: [number, number, number, number] = [
   78.45778053580075, 17.934780490162368, 78.46515161551673, 17.940598787066882,
 ]
@@ -48,7 +48,7 @@ const HIT_CIRCLE_RADIUS_MIN = 0.5 * pinPixelHeight(14, STARTING_CENTER[1])
 const HIT_CIRCLE_RADIUS_START = 0.5 * pinPixelHeight(STARTING_ZOOM, STARTING_CENTER[1])
 const HIT_CIRCLE_RADIUS_MAX = 0.5 * pinPixelHeight(22, STARTING_CENTER[1])
 
-function isOutOfOrthoBounds(center: mapboxgl.LngLat): boolean {
+function isOutOfOrthoBounds(center: maplibregl.LngLat): boolean {
   return (
     center.lng < ORTHO_BOUNDS[0] ||
     center.lat < ORTHO_BOUNDS[1] ||
@@ -68,7 +68,7 @@ type PeekChip = {
 export type { PeekChip }
 
 export function calcPeekChips(
-  map: mapboxgl.Map,
+  map: maplibregl.Map,
   exhibits: MapExhibit[],
   visitedIds: string[]
 ): PeekChip[] {
@@ -169,16 +169,16 @@ function PeekChipEl({ chip }: { chip: PeekChip }) {
   )
 }
 
-export default function ParkMapbox({
+export default function ParkMap({
   onLoadError,
   onPinTap,
   flyToTarget,
   onMapTap,
   onExhibitsLoaded,
-}: ParkMapboxProps) {
+}: ParkMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
-  const mapRef = useRef<mapboxgl.Map | null>(null)
+  const mapRef = useRef<maplibregl.Map | null>(null)
   const flyToTargetRef = useRef(flyToTarget)
   const onPinTapRef = useRef(onPinTap)
   const onMapTapRef = useRef(onMapTap)
@@ -196,7 +196,6 @@ export default function ParkMapbox({
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
   useEffect(() => {
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
     let cancelled = false
     let watchId: number | null = null
     let mockFrame: number | null = null
@@ -204,9 +203,27 @@ export default function ParkMapbox({
     let unsubscribeMock: (() => void) | null = null
 
     const savedViewport = useStore.getState().mapViewport
-    const map = new mapboxgl.Map({
+    const protocol = new Protocol()
+    maplibregl.addProtocol('pmtiles', protocol.tile.bind(protocol))
+
+    const map = new maplibregl.Map({
       container: containerRef.current!,
-      style: 'mapbox://styles/mapbox/satellite-v9',
+      style: {
+        version: 8,
+        sources: {
+          park: {
+            type: 'raster',
+            url: 'pmtiles:///park.pmtiles',
+            tileSize: 256,
+            minzoom: 14,
+            maxzoom: 19,
+          },
+        },
+        layers: [
+          { id: 'bg', type: 'background', paint: { 'background-color': '#0f172a' } },
+          { id: 'park', type: 'raster', source: 'park' },
+        ],
+      },
       center: savedViewport?.center ?? STARTING_CENTER,
       zoom: savedViewport?.zoom ?? STARTING_ZOOM,
       maxBounds: MAX_BOUNDS,
@@ -217,21 +234,6 @@ export default function ParkMapbox({
 
     map.on('load', async () => {
       if (cancelled) return
-      map.addSource('ortho', {
-        type: 'raster',
-        url: `mapbox://${ORTHO_ID}`,
-        tileSize: 256,
-      })
-      map.addLayer({
-        id: 'ortho-layer',
-        type: 'raster',
-        source: 'ortho',
-        paint: {
-          'raster-opacity': 1,
-          'raster-resampling': 'linear',
-        },
-      })
-
       const { data } = await supabase
         .from('exhibits')
         .select(
@@ -335,7 +337,7 @@ export default function ParkMapbox({
 
       const youDot = document.createElement('div')
       youDot.className = 'you-dot'
-      const youMarker = new mapboxgl.Marker({ element: youDot, anchor: 'center' })
+      const youMarker = new maplibregl.Marker({ element: youDot, anchor: 'center' })
       let markerAdded = false
       let hasFix = false
 
@@ -501,6 +503,7 @@ export default function ParkMapbox({
       stopWatcherRef?.()
       map.off('error', onLoadError)
       map.remove()
+      maplibregl.removeProtocol('pmtiles')
       useMapStore.getState().setRecenterTrigger(null)
       useMapStore.getState().setRetryGpsTrigger(null)
     }
