@@ -20,7 +20,7 @@ function mockMap({
     }),
     getCanvas: () => ({ width: W, height: H }),
     project: projectFn,
-  } as unknown as import('mapbox-gl').Map
+  } as unknown as import('maplibre-gl').Map
 }
 
 function exhibit(
