@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { MapExhibit } from '@/lib/types'
 
-vi.mock('mapbox-gl/dist/mapbox-gl.css', () => ({}))
+vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}))
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 
-const { calcPeekChips } = await import('@/components/map/ParkMapbox')
+const { calcPeekChips } = await import('@/components/map/ParkMap')
 
 function mockMap({
   sw = { lng: 0, lat: 0 },
