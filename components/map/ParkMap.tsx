@@ -503,6 +503,7 @@ export default function ParkMap({
       stopWatcherRef?.()
       map.off('error', onLoadError)
       map.remove()
+      maplibregl.removeProtocol('pmtiles')
       useMapStore.getState().setRecenterTrigger(null)
       useMapStore.getState().setRetryGpsTrigger(null)
     }
