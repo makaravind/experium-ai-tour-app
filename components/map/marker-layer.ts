@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type mapboxgl from 'mapbox-gl'
+import type maplibregl from 'maplibre-gl'
 import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
 import { useDebugStore } from '@/lib/debug-store'
@@ -276,9 +276,9 @@ type MarkerEntry = {
 }
 
 export function createMarkerLayer(opts: {
-  map: mapboxgl.Map
+  map: maplibregl.Map
   getExhibits: () => MarkerInput[]
-}): mapboxgl.CustomLayerInterface {
+}): maplibregl.CustomLayerInterface {
   const { map, getExhibits } = opts
 
   let renderer: THREE.WebGLRenderer
@@ -331,7 +331,7 @@ export function createMarkerLayer(opts: {
     entry.sparkle.material.dispose()
   }
 
-  const layer: mapboxgl.CustomLayerInterface = {
+  const layer: maplibregl.CustomLayerInterface = {
     id: 'exhibit-pins-3d',
     type: 'custom',
     renderingMode: '2d',
