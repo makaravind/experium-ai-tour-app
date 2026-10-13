@@ -77,7 +77,6 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const phaseRef = useRef<GatePhase>('checking')
   const runningRef = useRef(false)
   const restartRef = useRef(false)
-  const pickedRef = useRef(false)
   const runRef = useRef<() => Promise<void>>(async () => {})
 
   const setPhase = useCallback((p: GatePhase) => {
@@ -139,13 +138,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
       }
 
       setPhase('loading')
-      // first-ever run: wait for the visitor to pick a language on the LoadingScreen
-      if (!store.completionByGroup['audio-cache'] && !pickedRef.current) {
-        setPct(0)
-        setLabel('Choose your language to begin')
-        return
-      }
-
+      setPct(0)
       setLabel(undefined)
       const [result] = await Promise.all([
         runPrecache(useStore.getState().language, (fetched, total) => {
@@ -177,7 +170,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
     return onForeground(() => {
       const p = phaseRef.current
       // 'clear' + stale language = a switch made offline; retry now that we're back
-      if (p === 'loading' || p === 'blocked-offline' || (p === 'clear' && languageIsStale())) void run()
+      if (p === 'loading' || p === 'blocked-offline' || (p === 'clear' && languageIsStale()))
+        void run()
     })
   }, [run])
 
@@ -188,7 +182,6 @@ export default function AppGate({ children }: { children: ReactNode }) {
 
   const handleLanguageChange = useCallback(
     (_code: Language) => {
-      pickedRef.current = true
       void run()
     },
     [run]
