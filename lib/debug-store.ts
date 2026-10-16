@@ -21,6 +21,9 @@ interface MapDebug {
   lng: number
 }
 
+export type GatePhase =
+  'checking' | 'blocked-offline' | 'loading' | 'asset-error' | 'info' | 'clear'
+
 export type ForcedMarkerState = 'unvisited' | 'visited' | 'coming_soon' | 'nearby' | 'active'
 
 interface DebugStore {
@@ -33,6 +36,8 @@ interface DebugStore {
   clearApiLog: () => void
   mapDebug: MapDebug | null
   setMapDebug: (m: MapDebug) => void
+  cacheDebug: GatePhase | null
+  setCacheDebug: (p: GatePhase) => void
   forcedMarkerState: ForcedMarkerState | null
   setForcedMarkerState: (v: ForcedMarkerState | null) => void
   mockGpsEnabled: boolean
@@ -52,6 +57,8 @@ export const useDebugStore = create<DebugStore>((set) => ({
   clearApiLog: () => set({ apiLog: [] }),
   mapDebug: null,
   setMapDebug: (mapDebug) => set({ mapDebug }),
+  cacheDebug: null,
+  setCacheDebug: (cacheDebug) => set({ cacheDebug }),
   forcedMarkerState: null,
   setForcedMarkerState: (forcedMarkerState) => set({ forcedMarkerState }),
   mockGpsEnabled: false,

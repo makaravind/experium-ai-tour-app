@@ -1,8 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { NO_PRECACHE_KEY } from '@/components/onboarding/AppGate'
 import { useStore } from '@/lib/store'
 import { useDebugStore } from '@/lib/debug-store'
+import { MAX_ATTEMPTS, fetchCachedExhibits, findMissing, getAssetGroups } from '@/lib/precache'
+
+const PRECACHE_CACHE_NAMES = ['audio-cache', 'map-tiles-cache', 'exhibit-shell-cache']
 
 export default function DebugPanel() {
   const [open, setOpen] = useState(false)
@@ -19,7 +23,13 @@ export default function DebugPanel() {
     mockGpsEnabled,
     setMockGpsEnabled,
   } = useDebugStore()
-  const { language, visitedExhibits, onboardingStep, totalDiscovered } = useStore()
+  const cacheDebug = useDebugStore((s) => s.cacheDebug)
+  const { language, visitedExhibits, totalDiscovered } = useStore()
+  const cachedExhibits = useStore((s) => s.cachedExhibits)
+  const completionByGroup = useStore((s) => s.completionByGroup)
+  const assetFailures = useStore((s) => s.assetFailures)
+  const [cacheCounts, setCacheCounts] = useState<Record<string, number> | null>(null)
+  const [missingUrls, setMissingUrls] = useState<string[]>([])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -46,9 +56,64 @@ export default function DebugPanel() {
     )
   }
 
+  const refreshCache = async () => {
+    const groups = getAssetGroups()
+    const counts: Record<string, number> = {}
+    for (const g of groups)
+      counts[g.cacheName] = (await (await caches.open(g.cacheName)).keys()).length
+    setCacheCounts(counts)
+    setMissingUrls(Object.values(await findMissing(groups)).flat())
+  }
+
+  const resetCache = async () => {
+    await Promise.all(PRECACHE_CACHE_NAMES.map((n) => caches.delete(n)))
+    useStore.setState({
+      completionByGroup: {},
+      assetFailures: {},
+      cachedExhibits: [],
+      visitorId: null,
+      userInfo: null,
+      visitedExhibits: [],
+    })
+    location.reload()
+  }
+
+  const noPrecache =
+    typeof window !== 'undefined' && sessionStorage.getItem(NO_PRECACHE_KEY) === '1'
+
+  const toggleNoPrecache = async () => {
+    if (noPrecache) {
+      sessionStorage.removeItem(NO_PRECACHE_KEY)
+    } else {
+      sessionStorage.setItem(NO_PRECACHE_KEY, '1')
+      await Promise.all(PRECACHE_CACHE_NAMES.map((n) => caches.delete(n)))
+      useStore.setState({ completionByGroup: {}, assetFailures: {}, cachedExhibits: [] })
+    }
+    location.reload()
+  }
+
+  const failRandomExhibit = async () => {
+    let pool = cachedExhibits
+    if (pool.length === 0) pool = await fetchCachedExhibits(language)
+    const withAudio = pool.filter((e) => e.audioUrl)
+    if (withAudio.length === 0) return
+    const url = withAudio[Math.floor(Math.random() * withAudio.length)].audioUrl as string
+    useStore.setState({ assetFailures: { ...assetFailures, [url]: { count: MAX_ATTEMPTS } } })
+    location.reload()
+  }
+
+  const failedExhibitNames = cachedExhibits
+    .filter(
+      (e) =>
+        e.audioUrl &&
+        ((assetFailures[e.audioUrl]?.count ?? 0) >= MAX_ATTEMPTS ||
+          missingUrls.includes(e.audioUrl))
+    )
+    .map((e) => e.name)
+
   const copyAll = () => {
     const data = {
-      store: { language, visitedExhibits, onboardingStep, totalDiscovered },
+      store: { language, visitedExhibits, totalDiscovered },
       gps,
       apiLog,
     }
@@ -77,11 +142,7 @@ export default function DebugPanel() {
             <section>
               <p className="text-stone-500 text-xs mb-1">STORE</p>
               <pre className="text-xs text-stone-300 bg-stone-950 rounded p-2 overflow-x-auto whitespace-pre-wrap">
-                {JSON.stringify(
-                  { language, visitedExhibits, onboardingStep, totalDiscovered },
-                  null,
-                  2
-                )}
+                {JSON.stringify({ language, visitedExhibits, totalDiscovered }, null, 2)}
               </pre>
             </section>
 
@@ -153,6 +214,55 @@ export default function DebugPanel() {
               <pre className="text-xs text-stone-300 bg-stone-950 rounded p-2 overflow-x-auto whitespace-pre-wrap">
                 {JSON.stringify(gps, null, 2)}
               </pre>
+            </section>
+
+            <section>
+              <div className="flex justify-between items-center mb-1">
+                <p className="text-stone-500 text-xs">CACHE</p>
+                <button onClick={refreshCache} className="text-emerald-400 text-xs">
+                  Refresh
+                </button>
+              </div>
+              <pre className="text-xs text-stone-300 bg-stone-950 rounded p-2 overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(
+                  {
+                    phase: cacheDebug,
+                    language,
+                    noPrecache,
+                    swControlling: navigator.serviceWorker?.controller != null,
+                    completionByGroup,
+                    cacheKeyCounts: cacheCounts,
+                    failedAssets: Object.keys(assetFailures).length,
+                    failedExhibits: failedExhibitNames,
+                  },
+                  null,
+                  2
+                )}
+              </pre>
+              <div className="flex gap-1 mt-1">
+                <button
+                  onClick={resetCache}
+                  className="text-xs px-2 py-1 rounded font-mono bg-stone-800 text-stone-300"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={failRandomExhibit}
+                  className="text-xs px-2 py-1 rounded font-mono bg-stone-800 text-stone-300"
+                >
+                  Fail random exhibit
+                </button>
+                <button
+                  onClick={toggleNoPrecache}
+                  className={`text-xs px-2 py-1 rounded font-mono ${
+                    noPrecache
+                      ? 'bg-emerald-500 text-black font-bold'
+                      : 'bg-stone-800 text-stone-300'
+                  }`}
+                >
+                  No precache: {noPrecache ? 'ON' : 'OFF'}
+                </button>
+              </div>
             </section>
 
             <section>

@@ -2,9 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Language, User } from '@/lib/types'
-
-type OnboardingStep = 'loading' | 'info' | 'exhibit' | null
+import type { CachedExhibit, Language, User } from '@/lib/types'
 
 interface Store {
   // persisted
@@ -17,10 +15,18 @@ interface Store {
   mapViewport: { center: [number, number]; zoom: number } | null
   setMapViewport: (v: { center: [number, number]; zoom: number }) => void
 
-  // session only
-  onboardingStep: OnboardingStep
-  setOnboardingStep: (s: OnboardingStep) => void
+  cachedExhibits: CachedExhibit[]
+  setCachedExhibits: (e: CachedExhibit[]) => void
 
+  // keyed by Cache Storage cache name, e.g. 'audio-cache'
+  completionByGroup: Record<string, { language?: Language; complete: boolean }>
+  setCompletionByGroup: (cacheName: string, c: { language?: Language; complete: boolean }) => void
+
+  // keyed by raw asset URL
+  assetFailures: Record<string, { count: number }>
+  setAssetFailures: (f: Record<string, { count: number }>) => void
+
+  // session only
   visitorId: string | null
   setVisitorId: (id: string) => void
 
@@ -51,8 +57,15 @@ export const useStore = create<Store>()(
       mapViewport: null,
       setMapViewport: (mapViewport) => set({ mapViewport }),
 
-      onboardingStep: null,
-      setOnboardingStep: (onboardingStep) => set({ onboardingStep }),
+      cachedExhibits: [],
+      setCachedExhibits: (cachedExhibits) => set({ cachedExhibits }),
+
+      completionByGroup: {},
+      setCompletionByGroup: (cacheName, c) =>
+        set((s) => ({ completionByGroup: { ...s.completionByGroup, [cacheName]: c } })),
+
+      assetFailures: {},
+      setAssetFailures: (assetFailures) => set({ assetFailures }),
 
       visitorId: null,
       setVisitorId: (visitorId) => set({ visitorId }),
@@ -75,6 +88,9 @@ export const useStore = create<Store>()(
         visitorId: s.visitorId,
         userInfo: s.userInfo,
         mapViewport: s.mapViewport,
+        cachedExhibits: s.cachedExhibits,
+        completionByGroup: s.completionByGroup,
+        assetFailures: s.assetFailures,
       }),
     }
   )

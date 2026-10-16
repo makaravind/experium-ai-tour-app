@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import { CARD_GRADIENT_STOPS, getBadgeColor } from '@/lib/badge-placeholder'
 import ActionButton from '@/components/ui/action-button'
-import InfoModal from '@/components/exhibit/InfoModal'
+import InfoModal from '@/components/onboarding/InfoModal'
 
 const CARD_SIZE = 1080
 
