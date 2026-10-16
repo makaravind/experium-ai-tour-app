@@ -8,7 +8,7 @@ import ParkMap from '@/components/map/ParkMap'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
-import { CompassIcon, SearchIcon } from '@/components/icons'
+import { CompassIcon, HomeIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
 import { getCrossedMilestone } from '@/lib/trail'
@@ -108,7 +108,8 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   }, [exhibitPageData?.exhibit.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Which exhibit and audio to show in sheet.
-  const sheetExhibit = mapSelectedExhibit ?? (isExhibitPage ? (exhibitPageData?.exhibit ?? null) : null)
+  const sheetExhibit =
+    mapSelectedExhibit ?? (isExhibitPage ? (exhibitPageData?.exhibit ?? null) : null)
 
   // Drive the 3D marker layer's rise-and-spin: the sheet's exhibit is the map's "active" pin.
   useEffect(() => {
@@ -246,6 +247,15 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         className="absolute left-4 right-4 flex gap-2.5 items-center"
         style={{ top: 60, zIndex: 20 }}
       >
+        <button
+          type="button"
+          onClick={() => router.push('/')}
+          className="w-11 h-11 rounded-full flex items-center justify-center border bg-ex-paper border-ex-border text-ex-forest"
+          style={{ boxShadow: 'var(--ex-shadow-soft)' }}
+          aria-label="Home"
+        >
+          <HomeIcon size={20} strokeWidth={2.2} />
+        </button>
         <div
           role="button"
           tabIndex={0}
