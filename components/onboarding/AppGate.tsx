@@ -17,6 +17,7 @@ import { useStore } from '@/lib/store'
 import type { Language } from '@/lib/types'
 
 const ONBOARDED_KEY = 'experium_onboarded'
+export const NO_PRECACHE_KEY = 'experium_debug_no_precache'
 const SW_WAIT_MS = 4000
 
 // Fetches issued before the SW controls the page bypass its CacheFirst rules and never get cached.
@@ -102,6 +103,11 @@ export default function AppGate({ children }: { children: ReactNode }) {
     }
     runningRef.current = true
     try {
+      // Debug escape hatch: skip the gate entirely, no bulk download, no offline guarantee.
+      if (sessionStorage.getItem(NO_PRECACHE_KEY)) {
+        setPhase('clear')
+        return
+      }
       await waitForServiceWorker()
       const online = navigator.onLine
       const store = useStore.getState()

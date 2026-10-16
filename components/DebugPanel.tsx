@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { NO_PRECACHE_KEY } from '@/components/onboarding/AppGate'
 import { useStore } from '@/lib/store'
 import { useDebugStore } from '@/lib/debug-store'
 import { MAX_ATTEMPTS, fetchCachedExhibits, findMissing, getAssetGroups } from '@/lib/precache'
+
+const PRECACHE_CACHE_NAMES = ['audio-cache', 'map-tiles-cache', 'exhibit-shell-cache']
 
 export default function DebugPanel() {
   const [open, setOpen] = useState(false)
@@ -56,13 +59,14 @@ export default function DebugPanel() {
   const refreshCache = async () => {
     const groups = getAssetGroups()
     const counts: Record<string, number> = {}
-    for (const g of groups) counts[g.cacheName] = (await (await caches.open(g.cacheName)).keys()).length
+    for (const g of groups)
+      counts[g.cacheName] = (await (await caches.open(g.cacheName)).keys()).length
     setCacheCounts(counts)
     setMissingUrls(Object.values(await findMissing(groups)).flat())
   }
 
   const resetCache = async () => {
-    await Promise.all(['audio-cache', 'exhibit-shell-cache'].map((n) => caches.delete(n)))
+    await Promise.all(PRECACHE_CACHE_NAMES.map((n) => caches.delete(n)))
     useStore.setState({
       completionByGroup: {},
       assetFailures: {},
@@ -71,6 +75,20 @@ export default function DebugPanel() {
       userInfo: null,
       visitedExhibits: [],
     })
+    location.reload()
+  }
+
+  const noPrecache =
+    typeof window !== 'undefined' && sessionStorage.getItem(NO_PRECACHE_KEY) === '1'
+
+  const toggleNoPrecache = async () => {
+    if (noPrecache) {
+      sessionStorage.removeItem(NO_PRECACHE_KEY)
+    } else {
+      sessionStorage.setItem(NO_PRECACHE_KEY, '1')
+      await Promise.all(PRECACHE_CACHE_NAMES.map((n) => caches.delete(n)))
+      useStore.setState({ completionByGroup: {}, assetFailures: {}, cachedExhibits: [] })
+    }
     location.reload()
   }
 
@@ -88,7 +106,8 @@ export default function DebugPanel() {
     .filter(
       (e) =>
         e.audioUrl &&
-        ((assetFailures[e.audioUrl]?.count ?? 0) >= MAX_ATTEMPTS || missingUrls.includes(e.audioUrl))
+        ((assetFailures[e.audioUrl]?.count ?? 0) >= MAX_ATTEMPTS ||
+          missingUrls.includes(e.audioUrl))
     )
     .map((e) => e.name)
 
@@ -123,11 +142,7 @@ export default function DebugPanel() {
             <section>
               <p className="text-stone-500 text-xs mb-1">STORE</p>
               <pre className="text-xs text-stone-300 bg-stone-950 rounded p-2 overflow-x-auto whitespace-pre-wrap">
-                {JSON.stringify(
-                  { language, visitedExhibits, totalDiscovered },
-                  null,
-                  2
-                )}
+                {JSON.stringify({ language, visitedExhibits, totalDiscovered }, null, 2)}
               </pre>
             </section>
 
@@ -213,6 +228,7 @@ export default function DebugPanel() {
                   {
                     phase: cacheDebug,
                     language,
+                    noPrecache,
                     swControlling: navigator.serviceWorker?.controller != null,
                     completionByGroup,
                     cacheKeyCounts: cacheCounts,
@@ -235,6 +251,16 @@ export default function DebugPanel() {
                   className="text-xs px-2 py-1 rounded font-mono bg-stone-800 text-stone-300"
                 >
                   Fail random exhibit
+                </button>
+                <button
+                  onClick={toggleNoPrecache}
+                  className={`text-xs px-2 py-1 rounded font-mono ${
+                    noPrecache
+                      ? 'bg-emerald-500 text-black font-bold'
+                      : 'bg-stone-800 text-stone-300'
+                  }`}
+                >
+                  No precache: {noPrecache ? 'ON' : 'OFF'}
                 </button>
               </div>
             </section>
