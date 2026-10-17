@@ -46,7 +46,7 @@ test.describe('Offline after upfront precache', () => {
     )
     expect(cachedAudio.some((u) => u.endsWith('.mp3'))).toBe(true)
 
-    // The first load wasn't SW-controlled; reload online so exhibit-shell-cache stores the shell
+    // The SW install cached the /s/ shell in pages-cache; this online reload refreshes it
     await page.reload()
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
     await page.evaluate(() => navigator.serviceWorker.ready)
