@@ -42,11 +42,6 @@ test.describe('Offline pages', () => {
   )
 
   test.beforeEach(async ({ page }) => {
-    // setOffline also fires stray `online` events during navigations, and @serwist/next's injected
-    // register script reloads on `online`, aborting them. Swallow them before page listeners run.
-    await page.addInitScript(() =>
-      addEventListener('online', (e) => e.stopImmediatePropagation(), true)
-    )
     await page.route('/api/scan', (route) =>
       route.fulfill({
         status: 200,
