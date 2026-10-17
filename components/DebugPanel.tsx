@@ -28,6 +28,7 @@ export default function DebugPanel() {
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const completionByGroup = useStore((s) => s.completionByGroup)
   const assetFailures = useStore((s) => s.assetFailures)
+  const precacheLanguage = useStore((s) => s.precacheLanguage)
   const [cacheCounts, setCacheCounts] = useState<Record<string, number> | null>(null)
   const [missingUrls, setMissingUrls] = useState<string[]>([])
 
@@ -71,6 +72,7 @@ export default function DebugPanel() {
       completionByGroup: {},
       assetFailures: {},
       cachedExhibits: [],
+      precacheLanguage: null,
       visitorId: null,
       userInfo: null,
       visitedExhibits: [],
@@ -87,28 +89,35 @@ export default function DebugPanel() {
     } else {
       sessionStorage.setItem(NO_PRECACHE_KEY, '1')
       await Promise.all(PRECACHE_CACHE_NAMES.map((n) => caches.delete(n)))
-      useStore.setState({ completionByGroup: {}, assetFailures: {}, cachedExhibits: [] })
+      useStore.setState({
+        completionByGroup: {},
+        assetFailures: {},
+        cachedExhibits: [],
+        precacheLanguage: null,
+      })
     }
     location.reload()
   }
 
+  const audioLanguage = precacheLanguage ?? language
+
   const failRandomExhibit = async () => {
     let pool = cachedExhibits
-    if (pool.length === 0) pool = await fetchCachedExhibits(language)
-    const withAudio = pool.filter((e) => e.audioUrl)
+    if (pool.length === 0) pool = await fetchCachedExhibits()
+    const withAudio = pool.filter((e) => e.audio[audioLanguage])
     if (withAudio.length === 0) return
-    const url = withAudio[Math.floor(Math.random() * withAudio.length)].audioUrl as string
+    const url = withAudio[Math.floor(Math.random() * withAudio.length)].audio[
+      audioLanguage
+    ] as string
     useStore.setState({ assetFailures: { ...assetFailures, [url]: { count: MAX_ATTEMPTS } } })
     location.reload()
   }
 
   const failedExhibitNames = cachedExhibits
-    .filter(
-      (e) =>
-        e.audioUrl &&
-        ((assetFailures[e.audioUrl]?.count ?? 0) >= MAX_ATTEMPTS ||
-          missingUrls.includes(e.audioUrl))
-    )
+    .filter((e) => {
+      const url = e.audio[audioLanguage]
+      return url && ((assetFailures[url]?.count ?? 0) >= MAX_ATTEMPTS || missingUrls.includes(url))
+    })
     .map((e) => e.name)
 
   const copyAll = () => {
