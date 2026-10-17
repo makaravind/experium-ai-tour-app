@@ -22,14 +22,23 @@ function harness(urls: string[], preCached: string[] = [], bad: string[] = []) {
 }
 
 describe('getAssetGroups', () => {
-  it('returns one audio group, deduped, skipping null urls', () => {
-    const ex = [
-      { audioUrl: u(1) },
-      { audioUrl: null },
-      { audioUrl: u(1) },
-      { audioUrl: u(2) },
-    ] as CachedExhibit[]
-    expect(getAssetGroups(ex)).toEqual([{ cacheName: 'audio-cache', urls: [u(1), u(2)] }])
+  const ex = [
+    { audio: { en: u(1), hi: u(10) } },
+    { audio: { hi: u(11) } },
+    { audio: { en: u(1) } },
+    { audio: { en: u(2), hi: u(12) } },
+    { audio: {} },
+  ] as CachedExhibit[]
+
+  it('picks one language, deduped, skipping exhibits with no audio in it', () => {
+    expect(getAssetGroups(ex, 'en')).toEqual([{ cacheName: 'audio-cache', urls: [u(1), u(2)] }])
+    expect(getAssetGroups(ex, 'hi')).toEqual([
+      { cacheName: 'audio-cache', urls: [u(10), u(11), u(12)] },
+    ])
+  })
+
+  it('returns an empty audio group when no exhibit has the language', () => {
+    expect(getAssetGroups(ex, 'te')).toEqual([{ cacheName: 'audio-cache', urls: [] }])
   })
 })
 
@@ -106,11 +115,40 @@ describe('precacheGroups', () => {
   })
 })
 
+describe('precacheGroups cancellation', () => {
+  it('stops scheduling new fetches once isCancelled flips', async () => {
+    const urls = Array.from({ length: 10 }, (_, i) => u(i))
+    const h = harness(urls)
+    let cancelled = false
+    const r = await precacheGroups(h.groups, {
+      ...h.deps,
+      failures: {},
+      concurrency: 1,
+      isCancelled: () => cancelled,
+      fetchAsset: async (url) => {
+        await h.deps.fetchAsset(url)
+        if (url === u(2)) cancelled = true
+      },
+    })
+    expect(Object.keys(h.attempts)).toEqual([u(0), u(1), u(2)])
+    expect(r.groups[0].complete).toBe(false)
+  })
+
+  it('fetches nothing when already cancelled', async () => {
+    const h = harness([u(1), u(2)])
+    await precacheGroups(h.groups, { ...h.deps, failures: {}, isCancelled: () => true })
+    expect(h.attempts).toEqual({})
+  })
+})
+
 describe('findMissing', () => {
   it('compares normalized urls', async () => {
-    const m = await findMissing([{ cacheName: 'c', urls: ['https://x.test/a.mp3', 'https://x.test/b.mp3'] }], {
-      listCached: async () => ['https://x.test/a.mp3'],
-    })
+    const m = await findMissing(
+      [{ cacheName: 'c', urls: ['https://x.test/a.mp3', 'https://x.test/b.mp3'] }],
+      {
+        listCached: async () => ['https://x.test/a.mp3'],
+      }
+    )
     expect(m).toEqual({ c: ['https://x.test/b.mp3'] })
   })
 })
