@@ -79,5 +79,6 @@ export async function flushScanQueue(): Promise<void> {
     }
   } finally {
     flushing = false
+    if (useStore.getState().scanQueue.length > 0) void flushScanQueue()
   }
 }
