@@ -18,12 +18,14 @@ export interface LanguageOption {
   label: string
   /** Full native name, e.g. "English" */
   nativeLabel: string
+  /** English name, e.g. "Hindi" */
+  name: string
 }
 
 export const LANGUAGES: LanguageOption[] = [
-  { code: 'en', label: 'EN', nativeLabel: 'English' },
-  { code: 'hi', label: 'हि', nativeLabel: 'हिंदी' },
-  { code: 'te', label: 'తె', nativeLabel: 'తెలుగు' },
+  { code: 'en', label: 'EN', nativeLabel: 'English', name: 'English' },
+  { code: 'hi', label: 'हि', nativeLabel: 'हिंदी', name: 'Hindi' },
+  { code: 'te', label: 'తె', nativeLabel: 'తెలుగు', name: 'Telugu' },
 ]
 
 /** Languages that actually have audio among the given rows. */

@@ -13,7 +13,7 @@ export interface Fact {
   fact: string
 }
 
-/** One exhibit row in the upfront-precached dataset (gh-64), for the selected language. */
+/** One exhibit row in the upfront-precached dataset (gh-64), with audio for every published language. */
 export interface CachedExhibit {
   id: string
   code: string | null // exhibit_qr_codes.code; null if no active QR yet
@@ -22,7 +22,7 @@ export interface CachedExhibit {
   type: string | null
   tier: string
   facts: Fact[]
-  audioUrl: string | null // null if not published yet
+  audio: Partial<Record<Language, string>> // published audio_url per language
 }
 
 export interface ExhibitData {
