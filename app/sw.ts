@@ -1,3 +1,4 @@
+/// <reference lib="webworker" />
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
 import { CacheFirst, NetworkFirst, Serwist } from 'serwist'
 import { ExpirationPlugin } from 'serwist'
@@ -12,6 +13,19 @@ declare global {
 }
 
 declare const self: ServiceWorkerGlobalScope
+
+// Every page document, fetched at install so any route opens offline. Not precached: Serwist's
+// precache route answers cache-first, so online visitors would get the previous deploy's pages.
+const PAGES_CACHE = 'pages-cache'
+const PAGES = ['/', '/map', '/scan', '/collection', '/s/_shell']
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches
+      .open(PAGES_CACHE)
+      .then((c) => c.addAll(PAGES.map((u) => new Request(u, { cache: 'reload' }))))
+  )
+})
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
@@ -41,10 +55,19 @@ const serwist = new Serwist({
       }),
     },
     {
-      matcher: ({ request, url }) => request.mode === 'navigate' && url.pathname.startsWith('/s/'),
+      // Every /s/<code> shares one cached shell; the exhibit page reads its code from the URL
+      matcher: ({ request }) => request.mode === 'navigate',
       handler: new NetworkFirst({
-        cacheName: 'exhibit-shell-cache',
-        plugins: [new ExpirationPlugin({ maxEntries: 1 })],
+        cacheName: PAGES_CACHE,
+        networkTimeoutSeconds: 3,
+        plugins: [
+          {
+            cacheKeyWillBeUsed: ({ request }) => {
+              const { pathname } = new URL(request.url)
+              return pathname.startsWith('/s/') ? '/s/_shell' : pathname
+            },
+          },
+        ],
       }),
     },
     {
