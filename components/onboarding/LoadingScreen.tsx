@@ -8,12 +8,15 @@ export default function LoadingScreen({
   pct,
   phase = 'Preparing your audio tour…',
   onLanguageChange,
+  activeLanguage,
 }: {
   /** 0–100, fetched/total from the precache progress callback */
   pct: number
   /** Status line under the title */
   phase?: string
   onLanguageChange?: (code: LanguageOption['code']) => void
+  /** Language to highlight in the picker; defaults to the store language */
+  activeLanguage?: LanguageOption['code']
 }) {
   return (
     <div className="fixed inset-0 overflow-hidden">
@@ -103,7 +106,12 @@ export default function LoadingScreen({
           >
             Choose your language
           </p>
-          <LanguageSelector options={LANGUAGES} variant="block" onChange={onLanguageChange} />
+          <LanguageSelector
+            options={LANGUAGES}
+            variant="block"
+            value={activeLanguage}
+            onChange={onLanguageChange}
+          />
         </div>
       </div>
     </div>
