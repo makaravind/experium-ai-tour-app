@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
 import { getDeviceInfo } from '@/lib/utils'
+import { enqueueScan } from '@/lib/scan-queue'
 import type { ExhibitAudio, ExhibitData, PreviewExhibit } from '@/lib/types'
 
 export default function ExhibitPageClient({
@@ -31,73 +32,47 @@ export default function ExhibitPageClient({
   const { setExhibitPageData, clearExhibitPageData } = useMapStore()
   const deviceRef = useRef(getDeviceInfo())
 
-  const postScan = useCallback(
-    (fields: object) =>
-      fetch('/api/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visitorId, code: qrCode, ...fields }),
-      }),
-    [visitorId, qrCode]
-  )
-
-  // Page land analytics — fires once visitorId has resolved (cached or via handshake).
-  // Firing before that would send visitorId: null, which the server rejects, and the
-  // resulting empty response would reset totalDiscovered to 0 for a returning visitor
-  // on a new device/cleared storage.
+  // Page land — fires once visitorId has resolved (cached or via handshake); the queue
+  // flush needs it to send.
   //
-  // This is also where "discovered" actually flips server-side (p_discovered is true
-  // whenever scan_src === 'onsite', regardless of listened), since physically scanning
-  // the onsite marker — not finishing the audio — is the anti-fraud discovery trigger.
-  // So the prevTotal → newTotal delta that can cross a trail milestone happens here,
-  // not in handleFirstPlay; it's captured as a promise (not awaited) so handleAudioEnded
-  // in MapShell can await it once the user finishes listening, however long that takes.
+  // Discovery is local-first: scanning the onsite marker (not finishing the audio) is the
+  // anti-fraud discovery trigger, so for scan_src === 'onsite' we mark the code discovered
+  // locally and publish the prevTotal → newTotal delta as pendingDiscovery for MapShell's
+  // handleAudioEnded to read synchronously. The scan is then enqueued; the flush reconciles
+  // the server total when it drains.
   const pageLandSentRef = useRef(false)
   useEffect(() => {
     if (!visitorId || pageLandSentRef.current) return
     pageLandSentRef.current = true
-    const prevTotal = useStore.getState().totalDiscovered
-    const discoveryPromise = postScan({
+    if (scanSrc === 'onsite') {
+      const result = useStore.getState().discoverCode(qrCode)
+      if (result) {
+        useMapStore.getState().setPendingDiscovery({ exhibitId, ...result })
+        setTotalDiscovered(result.newTotal)
+      }
+    }
+    enqueueScan(qrCode, {
       listened: false,
       listen_duration_sec: 0,
       is_qr_scan: isQrScan,
       ...(scanSrc ? { scan_src: scanSrc } : {}),
       device_info: { language, ...deviceRef.current },
     })
-      .then((res) => res.json())
-      .then((data) => {
-        const newTotal = data.total_discovered ?? 0
-        setTotalDiscovered(newTotal)
-        return newTotal > prevTotal ? { exhibitId, prevTotal, newTotal } : null
-      })
-      .catch(() => null)
-    useMapStore.getState().setPendingDiscoveryPromise(discoveryPromise)
   }, [visitorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFirstPlay = useCallback(() => {
     setListenedCurrentExhibit(true)
-    postScan({
+    enqueueScan(qrCode, {
       listened: true,
       ...(scanSrc ? { scan_src: scanSrc } : {}),
       device_info: { language, ...deviceRef.current },
     })
-      .then((res) => res.json())
-      .then((data) => setTotalDiscovered(data.total_discovered ?? 0))
-      .catch(() => {})
     markVisited(exhibitId)
-  }, [
-    language,
-    postScan,
-    exhibitId,
-    scanSrc,
-    setListenedCurrentExhibit,
-    setTotalDiscovered,
-    markVisited,
-  ])
+  }, [language, qrCode, exhibitId, scanSrc, setListenedCurrentExhibit, markVisited])
 
   const handleQuartile = useCallback(
     (sec: number, quartile: number) => {
-      postScan({
+      enqueueScan(qrCode, {
         listened: true,
         listen_duration_sec: sec,
         listen_quartile: quartile,
@@ -105,7 +80,7 @@ export default function ExhibitPageClient({
         device_info: { language, ...deviceRef.current },
       })
     },
-    [language, postScan, scanSrc]
+    [language, qrCode, scanSrc]
   )
 
   // Refs so the store always calls the latest callback
