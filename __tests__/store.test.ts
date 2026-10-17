@@ -6,6 +6,7 @@ beforeEach(() => {
     language: 'en',
     visitedExhibits: [],
     cachedExhibits: [],
+    precacheLanguage: null,
     completionByGroup: {},
     assetFailures: {},
     visitorId: null,
@@ -68,5 +69,41 @@ describe('totalDiscovered', () => {
   it('updates', () => {
     useStore.getState().setTotalDiscovered(5)
     expect(useStore.getState().totalDiscovered).toBe(5)
+  })
+})
+
+describe('precacheLanguage', () => {
+  it('defaults to null', () => {
+    expect(useStore.getState().precacheLanguage).toBeNull()
+  })
+
+  it('updates on setPrecacheLanguage', () => {
+    useStore.getState().setPrecacheLanguage('hi')
+    expect(useStore.getState().precacheLanguage).toBe('hi')
+  })
+})
+
+describe('persist migration v0 -> v1', () => {
+  const migrate = (state: object) => {
+    const fn = useStore.persist.getOptions().migrate!
+    return fn(state, 0) as unknown as Record<string, unknown>
+  }
+
+  it('drops cachedExhibits and seeds precacheLanguage from the audio-cache completion', () => {
+    const out = migrate({
+      language: 'en',
+      cachedExhibits: [{ id: 'x' }],
+      completionByGroup: { 'audio-cache': { language: 'hi', complete: true } },
+      visitedExhibits: ['a'],
+    })
+    expect(out.cachedExhibits).toEqual([])
+    expect(out.precacheLanguage).toBe('hi')
+    expect(out.visitedExhibits).toEqual(['a'])
+  })
+
+  it('falls back to language when there is no completion record', () => {
+    const out = migrate({ language: 'hi', cachedExhibits: [{ id: 'x' }] })
+    expect(out.cachedExhibits).toEqual([])
+    expect(out.precacheLanguage).toBe('hi')
   })
 })
