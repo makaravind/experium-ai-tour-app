@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/lib/store'
 import ExhibitPageClient from '@/components/ExhibitPageClient'
-import type { ExhibitAudio, Fact } from '@/lib/types'
+import type { ExhibitAudio, Fact, Language } from '@/lib/types'
 
 interface Exhibit {
   id: string
@@ -38,7 +38,6 @@ export default function ExhibitPage() {
   const scanSrc = sp.get('scansrc')
   const autoPlay = sp.get('autoplay') === '1'
 
-  const language = useStore((s) => s.language)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const cached = cachedExhibits.find((e) => e.code === code)
 
@@ -80,9 +79,9 @@ export default function ExhibitPage() {
 
   if (cached) {
     if (cached.status !== 'active') return <Message>Content coming soon.</Message>
-    const audio: ExhibitAudio[] = cached.audioUrl
-      ? [{ language, audio_url: cached.audioUrl, status: 'published' }]
-      : []
+    const audio: ExhibitAudio[] = (Object.entries(cached.audio) as [Language, string][]).map(
+      ([language, audio_url]) => ({ language, audio_url, status: 'published' })
+    )
     return (
       <ExhibitPageClient
         exhibitId={cached.id}
