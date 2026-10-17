@@ -24,6 +24,8 @@ export default function DebugPanel() {
     setMockGpsEnabled,
   } = useDebugStore()
   const cacheDebug = useDebugStore((s) => s.cacheDebug)
+  const scanQueueDebug = useDebugStore((s) => s.scanQueueDebug)
+  const scanQueueLength = useStore((s) => s.scanQueue.length)
   const { language, visitedExhibits, totalDiscovered } = useStore()
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const completionByGroup = useStore((s) => s.completionByGroup)
@@ -76,6 +78,9 @@ export default function DebugPanel() {
       visitorId: null,
       userInfo: null,
       visitedExhibits: [],
+      totalDiscovered: 0,
+      discoveredCodes: [],
+      scanQueue: [],
     })
     location.reload()
   }
@@ -272,6 +277,21 @@ export default function DebugPanel() {
                   No precache: {noPrecache ? 'ON' : 'OFF'}
                 </button>
               </div>
+            </section>
+
+            <section>
+              <p className="text-stone-500 text-xs mb-1">QUEUE</p>
+              <pre className="text-xs text-stone-300 bg-stone-950 rounded p-2 overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(
+                  {
+                    length: scanQueueLength,
+                    lastResult: scanQueueDebug?.lastResult ?? null,
+                    at: scanQueueDebug ? new Date(scanQueueDebug.at).toISOString() : null,
+                  },
+                  null,
+                  2
+                )}
+              </pre>
             </section>
 
             <section>
