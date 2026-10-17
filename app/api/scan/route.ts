@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     p_discovered: scan_src === 'onsite',
     p_device_info: device_info ?? {},
     p_scanned_at:
-      typeof scanned_at === 'string' && !Number.isNaN(Date.parse(scanned_at))
+      typeof scanned_at === 'string' && Date.parse(scanned_at) > 0
         ? new Date(scanned_at).toISOString()
         : null,
   })

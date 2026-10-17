@@ -27,7 +27,6 @@ export default function ExhibitPageClient({
   const visitorId = useStore((s) => s.visitorId)
   const language = useStore((s) => s.language)
   const setListenedCurrentExhibit = useStore((s) => s.setListenedCurrentExhibit)
-  const setTotalDiscovered = useStore((s) => s.setTotalDiscovered)
   const markVisited = useStore((s) => s.markVisited)
   const { setExhibitPageData, clearExhibitPageData } = useMapStore()
   const deviceRef = useRef(getDeviceInfo())
@@ -48,7 +47,6 @@ export default function ExhibitPageClient({
       const result = useStore.getState().discoverCode(qrCode)
       if (result) {
         useMapStore.getState().setPendingDiscovery({ exhibitId, ...result })
-        setTotalDiscovered(result.newTotal)
       }
     }
     enqueueScan(qrCode, {
