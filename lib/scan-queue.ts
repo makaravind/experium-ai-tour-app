@@ -27,6 +27,7 @@ export async function flushScanQueue(): Promise<void> {
   if (navigator.onLine === false) return
 
   flushing = true
+  let stoppedOnError = false
   try {
     for (;;) {
       const { scanQueue, visitorId, removeScan, setTotalDiscovered } = useStore.getState()
@@ -50,6 +51,7 @@ export async function flushScanQueue(): Promise<void> {
         })
       } catch (err) {
         report(controller.signal.aborted ? 'timeout' : `network error: ${String(err)}`)
+        stoppedOnError = true
         return
       } finally {
         clearTimeout(timer)
@@ -75,10 +77,13 @@ export async function flushScanQueue(): Promise<void> {
       }
 
       report(`kept ${res.status}`)
+      stoppedOnError = true
       return
     }
   } finally {
     flushing = false
-    if (useStore.getState().scanQueue.length > 0) void flushScanQueue()
+    // Re-trigger only for entries that arrived while this flush was in flight,
+    // not for the same stuck entry that caused a keep+stop.
+    if (!stoppedOnError && useStore.getState().scanQueue.length > 0) void flushScanQueue()
   }
 }
