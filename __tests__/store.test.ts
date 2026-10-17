@@ -11,6 +11,8 @@ beforeEach(() => {
     assetFailures: {},
     visitorId: null,
     totalDiscovered: 0,
+    discoveredCodes: [],
+    scanQueue: [],
   })
 })
 
@@ -105,5 +107,68 @@ describe('persist migration v0 -> v1', () => {
     const out = migrate({ language: 'hi', cachedExhibits: [{ id: 'x' }] })
     expect(out.cachedExhibits).toEqual([])
     expect(out.precacheLanguage).toBe('hi')
+  })
+})
+
+describe('discoverCode', () => {
+  it('defaults discoveredCodes and scanQueue to []', () => {
+    expect(useStore.getState().discoveredCodes).toEqual([])
+    expect(useStore.getState().scanQueue).toEqual([])
+  })
+
+  it('increments once per code and returns prev/new totals', () => {
+    useStore.setState({ totalDiscovered: 2 })
+    expect(useStore.getState().discoverCode('a')).toEqual({ prevTotal: 2, newTotal: 3 })
+    expect(useStore.getState().totalDiscovered).toBe(3)
+    expect(useStore.getState().discoveredCodes).toEqual(['a'])
+  })
+
+  it('returns null and changes nothing on rescan', () => {
+    useStore.getState().discoverCode('a')
+    expect(useStore.getState().discoverCode('a')).toBeNull()
+    expect(useStore.getState().totalDiscovered).toBe(1)
+    expect(useStore.getState().discoveredCodes).toEqual(['a'])
+  })
+})
+
+describe('scanQueue persistence', () => {
+  const entry = { id: 'q1', code: 'a', scanned_at: '2026-10-17T10:00:00.000Z', fields: {} }
+
+  it('partialize includes discoveredCodes and scanQueue', () => {
+    useStore.setState({ discoveredCodes: ['a'], scanQueue: [entry] })
+    const out = useStore.persist.getOptions().partialize!(useStore.getState()) as Record<
+      string,
+      unknown
+    >
+    expect(out.discoveredCodes).toEqual(['a'])
+    expect(out.scanQueue).toEqual([entry])
+  })
+
+  it('old persisted state without the new fields hydrates with []', async () => {
+    localStorage.setItem(
+      'experium-store',
+      JSON.stringify({ state: { language: 'hi', totalDiscovered: 4 }, version: 1 })
+    )
+    await useStore.persist.rehydrate()
+    expect(useStore.getState().language).toBe('hi')
+    expect(useStore.getState().totalDiscovered).toBe(4)
+    expect(useStore.getState().discoveredCodes).toEqual([])
+    expect(useStore.getState().scanQueue).toEqual([])
+  })
+
+  it("a storage event + rehydrate picks up another tab's queue", async () => {
+    localStorage.setItem(
+      'experium-store',
+      JSON.stringify({
+        state: { discoveredCodes: ['a'], scanQueue: [entry], totalDiscovered: 1 },
+        version: 1,
+      })
+    )
+    window.dispatchEvent(new StorageEvent('storage', { key: 'experium-store' }))
+    // ScanQueueSync's storage handler is `rehydrate()`; the event itself carries no state
+    await useStore.persist.rehydrate()
+    expect(useStore.getState().scanQueue).toEqual([entry])
+    expect(useStore.getState().discoveredCodes).toEqual(['a'])
+    expect(useStore.getState().totalDiscovered).toBe(1)
   })
 })
