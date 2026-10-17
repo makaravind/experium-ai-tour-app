@@ -33,18 +33,13 @@ interface MapStoreState {
   setRecenterTrigger: (fn: (() => void) | null) => void
   retryGpsTrigger: (() => void) | null
   setRetryGpsTrigger: (fn: (() => void) | null) => void
-  // A promise rather than the resolved value: audio can finish playing before the
-  // scan request resolves, so handleAudioEnded awaits whatever is in flight instead
-  // of checking an already-settled value (which would silently drop the discovery).
-  pendingDiscoveryPromise: Promise<{
-    exhibitId: string
-    prevTotal: number
-    newTotal: number
-  } | null> | null
-  setPendingDiscoveryPromise: (
-    p: Promise<{ exhibitId: string; prevTotal: number; newTotal: number } | null>
+  // Set at page land by ExhibitPageClient (local-first discovery), read synchronously
+  // by handleAudioEnded.
+  pendingDiscovery: { exhibitId: string; prevTotal: number; newTotal: number } | null
+  setPendingDiscovery: (
+    v: { exhibitId: string; prevTotal: number; newTotal: number } | null
   ) => void
-  clearPendingDiscoveryPromise: () => void
+  clearPendingDiscovery: () => void
 }
 
 export const useMapStore = create<MapStoreState>((set, get) => ({
@@ -71,7 +66,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   setRecenterTrigger: (fn) => set({ recenterTrigger: fn }),
   retryGpsTrigger: null,
   setRetryGpsTrigger: (fn) => set({ retryGpsTrigger: fn }),
-  pendingDiscoveryPromise: null,
-  setPendingDiscoveryPromise: (p) => set({ pendingDiscoveryPromise: p }),
-  clearPendingDiscoveryPromise: () => set({ pendingDiscoveryPromise: null }),
+  pendingDiscovery: null,
+  setPendingDiscovery: (v) => set({ pendingDiscovery: v }),
+  clearPendingDiscovery: () => set({ pendingDiscovery: null }),
 }))

@@ -39,7 +39,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [exhibitsForSearch, setExhibitsForSearch] = useState<MapExhibit[]>([])
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
   const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [toast, setToast] = useState<{ total: number } | null>(null)
+  const [toast, setToast] = useState<{ total: number; saved: boolean } | null>(null)
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
@@ -122,23 +122,24 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const sheetOnFirstPlay = isShowingCurrentExhibit ? exhibitPageData!.onFirstPlay : undefined
   const sheetOnQuartile = isShowingCurrentExhibit ? exhibitPageData!.onQuartile : undefined
 
-  const handleAudioEnded = async () => {
-    const currentExhibitId = exhibitPageData?.exhibit.id
-    const { pendingDiscoveryPromise, clearPendingDiscoveryPromise } = useMapStore.getState()
-    if (!pendingDiscoveryPromise) return
-    // The onsite page-land scan (ExhibitPageClient) is what actually flips "discovered"
-    // and can resolve well after this fires — await the same promise it stored instead
-    // of reading an already-settled value, which would silently miss the crossing.
-    const result = await pendingDiscoveryPromise
-    clearPendingDiscoveryPromise()
-    if (!result || result.exhibitId !== currentExhibitId) return
-    const { prevTotal, newTotal } = result
+  const handleAudioEnded = () => {
+    const currentExhibit = exhibitPageData?.exhibit
+    const { pendingDiscovery, clearPendingDiscovery } = useMapStore.getState()
+    if (!pendingDiscovery) return
+    clearPendingDiscovery()
+    if (pendingDiscovery.exhibitId !== currentExhibit?.id) return
+    const { prevTotal, newTotal } = pendingDiscovery
     if (audioEndTimerRef.current) clearTimeout(audioEndTimerRef.current)
     audioEndTimerRef.current = setTimeout(() => {
       if (newTotal > prevTotal) {
         const crossed = getCrossedMilestone(prevTotal, newTotal)
         if (crossed) router.push(`/collection?reveal=${crossed}`)
-        else setToast({ total: newTotal })
+        else {
+          const saved = useStore
+            .getState()
+            .scanQueue.some((e) => e.code === currentExhibit?.qr_code)
+          setToast({ total: newTotal, saved })
+        }
       }
     }, 500)
   }
@@ -306,7 +307,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
             className="absolute left-1/2 px-4 py-2 rounded-full text-sm font-semibold bg-ex-forest text-white"
             style={{ top: 60, x: '-50%', zIndex: 55, boxShadow: 'var(--ex-shadow-soft)' }}
           >
-            {`+1 🌿 · ${toast.total}/50 discovered`}
+            {`+1 🌿 · ${toast.total}/50 discovered${toast.saved ? ' · saved offline' : ''}`}
           </motion.div>
         )}
       </AnimatePresence>
