@@ -118,6 +118,8 @@ export default function PreviewSheet({
     playIntent.current = true
     if (startTimer.current) clearTimeout(startTimer.current)
     startTimer.current = setTimeout(() => fallbackRef.current('timeout'), START_TIMEOUT)
+    // A failed src load leaves `el.error` set and play() rejects without refetching; load() restarts selection.
+    if (el.error) el.load()
     el.play().catch((err) => {
       // AbortError: src swapped mid-start. Other failures surface via the `error` event.
       if (err?.name === 'NotAllowedError') stopPlayback()
@@ -350,6 +352,8 @@ export default function PreviewSheet({
           onError={(e) => {
             const err = e.currentTarget.error
             if (!err || err.code === MediaError.MEDIA_ERR_ABORTED) return
+            // The element keeps the previous exhibit's src while a pin without audio is selected.
+            if (!hasAudio) return
             fallbackRef.current('error')
           }}
         />
