@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
     is_qr_scan,
     scan_src,
     device_info,
+    scanned_at,
   } = body
 
   if (!visitorId || !code) {
@@ -39,6 +40,10 @@ export async function POST(req: NextRequest) {
     p_scan_src: scan_src ?? null,
     p_discovered: scan_src === 'onsite',
     p_device_info: device_info ?? {},
+    p_scanned_at:
+      typeof scanned_at === 'string' && !Number.isNaN(Date.parse(scanned_at))
+        ? new Date(scanned_at).toISOString()
+        : null,
   })
 
   if (error) {
