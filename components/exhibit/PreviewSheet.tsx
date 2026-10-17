@@ -15,7 +15,7 @@ import {
 } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { LANGUAGES, formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
-import type { ExhibitAudio, PreviewExhibit } from '@/lib/types'
+import type { ExhibitAudio, Language, PreviewExhibit } from '@/lib/types'
 
 const SPRING = { duration: 0.3, ease: [0.4, 0, 0.2, 1] } as const
 const SHEET_SPRING = { type: 'spring', stiffness: 400, damping: 40, restDelta: 0.5 } as const
@@ -24,6 +24,12 @@ const TAB_BAR_CLEARANCE = 108
 const RING_R = 43
 const RING_C = 2 * Math.PI * RING_R
 const MORPH_DELAY = 280
+const START_TIMEOUT = 8000
+const TOAST_MS = 3000
+
+type FallbackReason = 'error' | 'timeout' | 'missing'
+
+const langName = (code: Language) => LANGUAGES.find((l) => l.code === code)?.name ?? code
 
 export default function PreviewSheet({
   exhibit,
@@ -46,10 +52,13 @@ export default function PreviewSheet({
 }) {
   const router = useRouter()
   const language = useStore((s) => s.language)
+  const setLanguage = useStore((s) => s.setLanguage)
+  const precacheLanguage = useStore((s) => s.precacheLanguage)
   const [expanded, setExpanded] = useState(false)
   const [started, setStarted] = useState(false)
   const [popping, setPopping] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [duration, setDuration] = useState(0)
   const [peekH, setPeekH] = useState<number | undefined>(undefined)
@@ -64,12 +73,88 @@ export default function PreviewSheet({
   const firedQuartiles = useRef<Set<number>>(new Set())
   const prevExhibitId = useRef<string | null>(null)
   const autoPlayFired = useRef(false)
+  const playIntent = useRef(false)
+  const startTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadedSrc = useRef<string | null>(null)
+  const fallbackRef = useRef<(reason: FallbackReason) => string | null>(() => null)
   const dragControls = useDragControls()
 
   const currentSrc = audio.find((a) => a.language === language)?.audio_url ?? null
   const hasAudio = audio.length > 0
 
-  useEffect(() => () => clearTimeout(morphTimer.current ?? undefined), [])
+  const clearIntent = () => {
+    playIntent.current = false
+    if (startTimer.current) clearTimeout(startTimer.current)
+    startTimer.current = null
+  }
+
+  useEffect(
+    () => () => {
+      clearTimeout(morphTimer.current ?? undefined)
+      clearTimeout(startTimer.current ?? undefined)
+      clearTimeout(toastTimer.current ?? undefined)
+    },
+    []
+  )
+
+  const showToast = (msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast(msg)
+    toastTimer.current = setTimeout(() => setToast(null), TOAST_MS)
+  }
+
+  // Back to the Play state: no fake "playing" ring after a failed start.
+  const stopPlayback = () => {
+    clearIntent()
+    if (morphTimer.current) clearTimeout(morphTimer.current)
+    audioRef.current?.pause()
+    setIsPlaying(false)
+    setStarted(false)
+    setPopping(false)
+  }
+
+  const startPlayback = (el: HTMLAudioElement) => {
+    playIntent.current = true
+    if (startTimer.current) clearTimeout(startTimer.current)
+    startTimer.current = setTimeout(() => fallbackRef.current('timeout'), START_TIMEOUT)
+    el.play().catch((err) => {
+      // AbortError: src swapped mid-start. Other failures surface via the `error` event.
+      if (err?.name === 'NotAllowedError') stopPlayback()
+    })
+  }
+
+  // Returns the revert src (when one exists) so `listen()` can carry on with it before the re-render.
+  const fallback = (reason: FallbackReason) => {
+    const from = language
+    const to = precacheLanguage
+    const toUrl =
+      to && to !== from ? (audio.find((a) => a.language === to)?.audio_url ?? null) : null
+    console.log('[audio] fallback', { from, to: toUrl ? to : null, reason })
+    const fromName = langName(from)
+    if (startTimer.current) clearTimeout(startTimer.current)
+    startTimer.current = null
+    if (to && toUrl) {
+      const msg =
+        reason === 'missing'
+          ? `Not available in ${fromName}. Switched to ${langName(to)}.`
+          : `${fromName} needs internet. Switched to ${langName(to)}.`
+      showToast(msg)
+      setLanguage(to) // src-swap effect plays it if playIntent is set
+      return toUrl
+    }
+    showToast(
+      reason === 'missing'
+        ? `Not available in ${fromName}.`
+        : "Couldn't play audio. Check your connection."
+    )
+    stopPlayback()
+    return null
+  }
+
+  useEffect(() => {
+    fallbackRef.current = fallback
+  })
 
   useEffect(() => {
     setFullH(window.innerHeight) // eslint-disable-line react-hooks/set-state-in-effect
@@ -91,6 +176,7 @@ export default function PreviewSheet({
     if (!exhibit) {
       if (morphTimer.current) clearTimeout(morphTimer.current)
       audioRef.current?.pause()
+      clearIntent()
       setStarted(false) // eslint-disable-line react-hooks/set-state-in-effect
       setPopping(false)
       setExpanded(false)
@@ -98,6 +184,7 @@ export default function PreviewSheet({
     } else if (exhibit.id !== prevExhibitId.current || y.get() > fullH - peekH - 5) {
       if (morphTimer.current) clearTimeout(morphTimer.current)
       audioRef.current?.pause()
+      clearIntent()
       setStarted(false)
       setPopping(false)
       setExpanded(false)
@@ -113,13 +200,15 @@ export default function PreviewSheet({
 
   useEffect(() => {
     const el = audioRef.current
-    if (!el || !currentSrc) return
-    const wasPlaying = !el.paused
+    if (!el || !currentSrc || loadedSrc.current === currentSrc) return
+    // playIntent covers a revert after a failed start, where `paused` is browser-dependent.
+    const resume = playIntent.current || !el.paused
+    loadedSrc.current = currentSrc
     el.src = currentSrc
     el.currentTime = 0
     setElapsed(0)
-    if (wasPlaying) el.play()
-  }, [currentSrc])
+    if (resume) startPlayback(el)
+  }, [currentSrc]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const expand = (velocity = 0) => {
     setExpanded(true)
@@ -130,6 +219,7 @@ export default function PreviewSheet({
     if (morphTimer.current) clearTimeout(morphTimer.current)
     if (sheetRef.current) sheetRef.current.scrollTop = 0
     audioRef.current?.pause()
+    clearIntent()
     setStarted(false)
     setPopping(false)
     setExpanded(false)
@@ -148,13 +238,20 @@ export default function PreviewSheet({
     }
     const el = audioRef.current
     if (!el) return
+    let src = currentSrc
+    if (!src) {
+      src = fallbackRef.current('missing')
+      if (!src) return
+      el.src = src
+      loadedSrc.current = src
+    }
     firedQuartiles.current = new Set()
     expand()
     setIsPlaying(true)
     setPopping(true)
     el.currentTime = 0
     setElapsed(0)
-    el.play()
+    startPlayback(el)
     onFirstPlay?.()
     morphTimer.current = setTimeout(() => setStarted(true), MORPH_DELAY)
   }
@@ -172,6 +269,7 @@ export default function PreviewSheet({
       el.pause()
       setIsPlaying(false)
     } else {
+      playIntent.current = true
       el.play()
       setIsPlaying(true)
     }
@@ -239,7 +337,21 @@ export default function PreviewSheet({
             onAudioEnded?.()
           }}
           onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
+          onPlaying={() => {
+            if (startTimer.current) clearTimeout(startTimer.current)
+            startTimer.current = null
+          }}
+          onPause={(e) => {
+            // A src swap while playing can fire `pause`, but play() has already re-run.
+            if (!e.currentTarget.paused) return
+            clearIntent()
+            setIsPlaying(false)
+          }}
+          onError={(e) => {
+            const err = e.currentTarget.error
+            if (!err || err.code === MediaError.MEDIA_ERR_ABORTED) return
+            fallbackRef.current('error')
+          }}
         />
 
         <div ref={contentRef}>
@@ -476,6 +588,23 @@ export default function PreviewSheet({
           <div style={{ height: TAB_BAR_CLEARANCE }} />
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="fallback-toast"
+            role="status"
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -40, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed left-1/2 px-4 py-2 rounded-full text-sm font-semibold bg-ex-forest text-white"
+            style={{ top: 60, x: '-50%', zIndex: 55, boxShadow: 'var(--ex-shadow-soft)' }}
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }
