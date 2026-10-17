@@ -38,6 +38,8 @@ interface DebugStore {
   setMapDebug: (m: MapDebug) => void
   cacheDebug: GatePhase | null
   setCacheDebug: (p: GatePhase) => void
+  scanQueueDebug: { lastResult: string; at: number } | null
+  setScanQueueDebug: (v: { lastResult: string; at: number } | null) => void
   forcedMarkerState: ForcedMarkerState | null
   setForcedMarkerState: (v: ForcedMarkerState | null) => void
   mockGpsEnabled: boolean
@@ -59,6 +61,8 @@ export const useDebugStore = create<DebugStore>((set) => ({
   setMapDebug: (mapDebug) => set({ mapDebug }),
   cacheDebug: null,
   setCacheDebug: (cacheDebug) => set({ cacheDebug }),
+  scanQueueDebug: null,
+  setScanQueueDebug: (scanQueueDebug) => set({ scanQueueDebug }),
   forcedMarkerState: null,
   setForcedMarkerState: (forcedMarkerState) => set({ forcedMarkerState }),
   mockGpsEnabled: false,
