@@ -34,12 +34,6 @@ async function waitForServiceWorker() {
   await Promise.race([controlling, new Promise((r) => setTimeout(r, SW_WAIT_MS))])
 }
 
-// Cached dataset was built for a different language than the one now selected.
-const languageIsStale = () => {
-  const { completionByGroup, language } = useStore.getState()
-  return Object.values(completionByGroup).some((c) => c.language && c.language !== language)
-}
-
 const nextAfterClear = (): GatePhase => (localStorage.getItem(ONBOARDED_KEY) ? 'clear' : 'info')
 
 function Screen({ title, body, children }: { title: string; body?: string; children: ReactNode }) {
@@ -72,7 +66,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const [phase, setPhaseState] = useState<GatePhase>('checking')
   const [pct, setPct] = useState(0)
   const [label, setLabel] = useState<string | undefined>()
-  const language = useStore((s) => s.language)
+  const precacheLanguage = useStore((s) => s.precacheLanguage)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const assetFailures = useStore((s) => s.assetFailures)
   const phaseRef = useRef<GatePhase>('checking')
@@ -98,7 +92,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
 
   const run = useCallback(async () => {
     if (runningRef.current) {
-      restartRef.current = true // e.g. language changed mid-download
+      restartRef.current = true // e.g. picker re-targeted the precache mid-download
       return
     }
     runningRef.current = true
@@ -114,26 +108,21 @@ export default function AppGate({ children }: { children: ReactNode }) {
       const idPromise = getOrCreateVisitorId().then((id) => store.setVisitorId(id))
       idPromise.catch(() => {}) // handled where it matters; avoids unhandled rejection on early-exit paths
 
-      const { hasDataset, missing } = await checkFresh()
+      // A fresh visitor's first run seeds the precache language from their current selection.
+      const target = store.precacheLanguage ?? store.language
+      if (!store.precacheLanguage) store.setPrecacheLanguage(target)
+
+      const { hasDataset, missing } = await checkFresh(target)
       const gaps = Object.values(missing).flat()
-      const staleLanguage = Object.values(store.completionByGroup).some(
-        (c) => c.language && c.language !== store.language
-      )
-      const complete = hasDataset && gaps.length === 0
 
       // Cache Storage is authoritative both ways: full cache skips onboarding regardless of flags.
-      // Offline + language switched: old-language cache still plays, so don't strand the visitor.
-      if (complete && (!staleLanguage || !online)) {
+      if (hasDataset && gaps.length === 0) {
         setPhase('clear')
         return
       }
 
       // Only capped assets left: nothing to fetch, go straight to the error list.
-      if (
-        hasDataset &&
-        !staleLanguage &&
-        gaps.every((u) => (store.assetFailures[u]?.count ?? 0) >= MAX_ATTEMPTS)
-      ) {
+      if (hasDataset && gaps.every((u) => (store.assetFailures[u]?.count ?? 0) >= MAX_ATTEMPTS)) {
         setPhase('asset-error')
         return
       }
@@ -147,13 +136,17 @@ export default function AppGate({ children }: { children: ReactNode }) {
       setPct(0)
       setLabel(undefined)
       const [result] = await Promise.all([
-        runPrecache(useStore.getState().language, (fetched, total) => {
-          setPct(total ? (fetched / total) * 100 : 0)
-          setLabel(total ? `Downloading ${fetched} of ${total}` : undefined)
-        }),
+        runPrecache(
+          target,
+          (fetched, total) => {
+            setPct(total ? (fetched / total) * 100 : 0)
+            setLabel(total ? `Downloading ${fetched} of ${total}` : undefined)
+          },
+          () => restartRef.current
+        ),
         idPromise,
       ])
-      // A language change mid-run queued a restart: this result is for the stale language, so
+      // A picker re-target mid-run queued a restart: this result is for the stale language, so
       // surfacing it (clear/info/error) would flash wrong-language content. The finally block re-runs.
       if (!restartRef.current) finish(result)
     } catch {
@@ -175,32 +168,37 @@ export default function AppGate({ children }: { children: ReactNode }) {
     void run()
     return onForeground(() => {
       const p = phaseRef.current
-      // 'clear' + stale language = a switch made offline; retry now that we're back
-      if (p === 'loading' || p === 'blocked-offline' || (p === 'clear' && languageIsStale()))
-        void run()
+      if (p === 'loading' || p === 'blocked-offline') void run()
     })
   }, [run])
 
-  // Catches any language change after the gate (e.g. PreviewSheet's chip), whoever made it.
-  useEffect(() => {
-    if (phaseRef.current === 'clear' && languageIsStale()) void run()
-  }, [language, run])
-
   const handleLanguageChange = useCallback(
-    (_code: Language) => {
+    (code: Language) => {
+      if (code === useStore.getState().precacheLanguage) return
+      useStore.getState().setPrecacheLanguage(code)
       void run()
     },
     [run]
   )
 
-  const cappedExhibits = cachedExhibits.filter(
-    (e) => e.audioUrl && (assetFailures[e.audioUrl]?.count ?? 0) >= MAX_ATTEMPTS
-  )
+  const audioUrlOf = (e: (typeof cachedExhibits)[number]) =>
+    precacheLanguage ? e.audio[precacheLanguage] : undefined
+  const cappedExhibits = cachedExhibits.filter((e) => {
+    const url = audioUrlOf(e)
+    return url && (assetFailures[url]?.count ?? 0) >= MAX_ATTEMPTS
+  })
 
   if (phase === 'clear') return <>{children}</>
 
   if (phase === 'loading') {
-    return <LoadingScreen pct={pct} phase={label} onLanguageChange={handleLanguageChange} />
+    return (
+      <LoadingScreen
+        pct={pct}
+        phase={label}
+        activeLanguage={precacheLanguage ?? undefined}
+        onLanguageChange={handleLanguageChange}
+      />
+    )
   }
 
   if (phase === 'info') {
@@ -230,7 +228,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   }
 
   if (phase === 'asset-error') {
-    const urls = cappedExhibits.flatMap((e) => (e.audioUrl ? [e.audioUrl] : []))
+    const urls = cappedExhibits.flatMap((e) => audioUrlOf(e) ?? [])
     return (
       <Screen
         title="Some audio couldn't be downloaded"
