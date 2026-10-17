@@ -18,6 +18,10 @@ interface Store {
   cachedExhibits: CachedExhibit[]
   setCachedExhibits: (e: CachedExhibit[]) => void
 
+  // language the offline dataset/audio is downloaded for
+  precacheLanguage: Language | null
+  setPrecacheLanguage: (l: Language | null) => void
+
   // keyed by Cache Storage cache name, e.g. 'audio-cache'
   completionByGroup: Record<string, { language?: Language; complete: boolean }>
   setCompletionByGroup: (cacheName: string, c: { language?: Language; complete: boolean }) => void
@@ -60,6 +64,9 @@ export const useStore = create<Store>()(
       cachedExhibits: [],
       setCachedExhibits: (cachedExhibits) => set({ cachedExhibits }),
 
+      precacheLanguage: null,
+      setPrecacheLanguage: (precacheLanguage) => set({ precacheLanguage }),
+
       completionByGroup: {},
       setCompletionByGroup: (cacheName, c) =>
         set((s) => ({ completionByGroup: { ...s.completionByGroup, [cacheName]: c } })),
@@ -81,6 +88,19 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'experium-store',
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<Store>
+        if (version === 0) {
+          return {
+            ...state,
+            cachedExhibits: [],
+            precacheLanguage:
+              state.completionByGroup?.['audio-cache']?.language ?? state.language ?? 'en',
+          } as Store
+        }
+        return state as Store
+      },
       partialize: (s) => ({
         language: s.language,
         visitedExhibits: s.visitedExhibits,
@@ -89,6 +109,7 @@ export const useStore = create<Store>()(
         userInfo: s.userInfo,
         mapViewport: s.mapViewport,
         cachedExhibits: s.cachedExhibits,
+        precacheLanguage: s.precacheLanguage,
         completionByGroup: s.completionByGroup,
         assetFailures: s.assetFailures,
       }),
