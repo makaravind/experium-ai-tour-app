@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/lib/store'
 import ExhibitPageClient from '@/components/ExhibitPageClient'
@@ -32,7 +32,8 @@ function Message({ children }: { children: React.ReactNode }) {
 }
 
 export default function ExhibitPage() {
-  const { code } = useParams<{ code: string }>()
+  // The SW serves one cached shell for every /s/<code>, so useParams() can hold another code
+  const code = decodeURIComponent(usePathname().split('/')[2])
   const sp = useSearchParams()
   const isQrScan = sp.get('scan') === '1'
   const scanSrc = sp.get('scansrc')

@@ -45,4 +45,7 @@ export default withSerwist({
   swDest: 'public/sw.js',
   disable: process.env.NODE_ENV === 'development',
   additionalPrecacheEntries,
+  // The plugin injects its own register script, which reloads the page on every `online` event by
+  // default; SerwistProvider's reloadOnOnline={false} doesn't reach it
+  reloadOnOnline: false,
 })(nextConfig)

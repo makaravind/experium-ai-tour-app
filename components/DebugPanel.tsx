@@ -6,7 +6,7 @@ import { useStore } from '@/lib/store'
 import { useDebugStore } from '@/lib/debug-store'
 import { MAX_ATTEMPTS, fetchCachedExhibits, findMissing, getAssetGroups } from '@/lib/precache'
 
-const PRECACHE_CACHE_NAMES = ['audio-cache', 'map-tiles-cache', 'exhibit-shell-cache']
+const PRECACHE_CACHE_NAMES = ['audio-cache', 'map-tiles-cache']
 
 export default function DebugPanel() {
   const [open, setOpen] = useState(false)
