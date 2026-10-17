@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test'
-import { mockPrecacheDataset, passLanguageGate } from './gate-helpers'
+import { mockPrecacheDataset, passLoadingGate } from './gate-helpers'
 
 const QR_CODE = 'baobab-forest'
 
 test.describe('Nature Audio Tour — smoke', () => {
   test('home page renders', async ({ page }) => {
-    // AppGate gates Home too: fresh visitor taps a language, waits for precache, skips the info modal
+    // AppGate gates Home too: fresh visitor waits for precache, skips the info modal
     await mockPrecacheDataset(page)
     await page.goto('/')
-    await passLanguageGate(page)
+    await passLoadingGate(page)
     await page.getByRole('button', { name: 'Skip for now' }).click()
     await expect(page.getByText('Welcome to Experium')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Scan Now' })).toBeVisible()
@@ -19,7 +19,7 @@ test.describe('Nature Audio Tour — smoke', () => {
     // still loaded for real from Supabase by the page.
     await mockPrecacheDataset(page)
     await page.goto(`/s/${QR_CODE}`)
-    await passLanguageGate(page)
+    await passLoadingGate(page)
     await page.getByRole('button', { name: 'Skip for now' }).click()
 
     // exhibit name visible in BottomSheet
@@ -35,7 +35,7 @@ test.describe('Nature Audio Tour — smoke', () => {
     await mockPrecacheDataset(page)
     const res = await page.goto('/s/nonexistent-code-xyz')
     expect(res?.status()).toBe(200)
-    await passLanguageGate(page)
+    await passLoadingGate(page)
     await page.getByRole('button', { name: 'Skip for now' }).click()
     await expect(page.getByText('Exhibit not found.')).toBeVisible({ timeout: 15_000 })
   })

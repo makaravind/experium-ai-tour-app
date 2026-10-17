@@ -9,7 +9,7 @@ const QR_CODE = 'baobab-forest'
 test.describe('Offline after upfront precache', () => {
   test.skip(!process.env.E2E_PROD, 'needs a production build (service worker is off in dev)')
 
-  test('fresh visitor precaches on language pick, then exhibit works offline', async ({
+  test('fresh visitor precaches on load, then exhibit works offline', async ({
     page,
     context,
     browserName,
@@ -35,10 +35,7 @@ test.describe('Offline after upfront precache', () => {
 
     await page.goto(`/s/${QR_CODE}`)
 
-    // AppGate waits for an explicit language pick before downloading anything
-    await expect(page.getByText('Choose your language to begin')).toBeVisible({ timeout: 15000 })
-    await page.getByRole('button', { name: 'English' }).click()
-
+    // AppGate starts downloading the visitor's language straight away
     // Precache finishes -> gate hands off to onboarding; skip it
     await page.getByRole('button', { name: 'Skip for now' }).click({ timeout: 30000 })
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
