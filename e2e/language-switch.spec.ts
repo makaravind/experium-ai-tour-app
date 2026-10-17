@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type Route } from '@playwright/test'
 import {
   FAKE_AUDIO_URL,
   FAKE_HI_AUDIO_URL,
@@ -85,6 +85,19 @@ const pickHindi = (page: Page) =>
 const audioSrc = (page: Page) => page.evaluate(() => document.querySelector('audio')?.src ?? '')
 const listen = (page: Page) => page.getByRole('button', { name: /listen/i })
 const toast = (page: Page) => page.getByRole('status')
+const isPlaying = (page: Page) =>
+  page.evaluate(() => {
+    const a = document.querySelector('audio')
+    return !!a && !a.paused && a.currentTime > 0
+  })
+const expectPlaying = (page: Page) =>
+  expect.poll(() => isPlaying(page), { timeout: 10000 }).toBe(true)
+const mockAudio = (page: Page, url: string) =>
+  page.route(url, (route) =>
+    route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
+  )
+const mockHindi = (page: Page) => mockAudio(page, FAKE_HI_AUDIO_URL)
+const mockEnglish = (page: Page) => mockAudio(page, FAKE_AUDIO_URL)
 
 test.describe('Language switch from the sheet', () => {
   test.beforeEach(async ({ page }) => {
@@ -94,6 +107,7 @@ test.describe('Language switch from the sheet', () => {
 
   test('HI chip: no loading screen, no second page-land scan', async ({ page }) => {
     const hits = await trackPageLandScans(page)
+    await mockHindi(page)
     await seedVisitor(page, { language: 'en', precacheLanguage: 'en' })
     await page.goto(`/s/${QR_CODE}`)
 
@@ -111,11 +125,9 @@ test.describe('Language switch from the sheet', () => {
     expect(hits).toHaveLength(1)
   })
 
-  test('HI fulfilled: Listen plays the HI src', async ({ page }) => {
+  test('HI fulfilled: Listen plays the HI src, no revert', async ({ page }) => {
     await trackPageLandScans(page)
-    await page.route(FAKE_HI_AUDIO_URL, (route) =>
-      route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
-    )
+    await mockHindi(page)
     await seedVisitor(page, { language: 'en', precacheLanguage: 'en' })
     await page.goto(`/s/${QR_CODE}`)
     await expect(listen(page)).toBeVisible({ timeout: 10000 })
@@ -124,27 +136,43 @@ test.describe('Language switch from the sheet', () => {
     await listen(page).click()
 
     await expect(page.getByRole('button', { name: 'Close' })).toBeVisible()
+    await expectPlaying(page)
     expect(await audioSrc(page)).toBe(FAKE_HI_AUDIO_URL)
+
+    // past the 8s start timeout: `playing` must have cleared the timer
+    await page.waitForTimeout(9000)
     await expect(toast(page)).toBeHidden()
+    await expect(chip(page, 'हि')).toHaveAttribute('aria-pressed', 'true')
+    expect(await audioSrc(page)).toBe(FAKE_HI_AUDIO_URL)
   })
 
-  test('HI aborted: toast, EN chip selected, EN src', async ({ page }) => {
+  test('HI aborted while playing: toast, EN chip selected, EN plays', async ({ page }) => {
     await trackPageLandScans(page)
-    await page.route(FAKE_HI_AUDIO_URL, (route) => route.abort('failed'))
+    await mockEnglish(page)
+    // hold the HI request until Listen is tapped so the failure happens with play intent
+    let failHindi!: () => void
+    const hindiHeld = new Promise<void>((resolve) => (failHindi = resolve))
+    await page.route(FAKE_HI_AUDIO_URL, async (route) => {
+      await hindiHeld
+      await route.abort('failed')
+    })
     await seedVisitor(page, { language: 'en', precacheLanguage: 'en' })
     await page.goto(`/s/${QR_CODE}`)
     await expect(listen(page)).toBeVisible({ timeout: 10000 })
 
     await pickHindi(page)
     await listen(page).click()
+    failHindi()
 
     await expect(toast(page)).toHaveText('Hindi needs internet. Switched to English.')
     await expect(chip(page, 'EN')).toHaveAttribute('aria-pressed', 'true')
     expect(await audioSrc(page)).toBe(FAKE_AUDIO_URL)
+    await expectPlaying(page)
   })
 
   test('HI never answered: reverts after the 8s start timeout', async ({ page }) => {
     await trackPageLandScans(page)
+    await mockEnglish(page)
     await page.route(FAKE_HI_AUDIO_URL, () => {}) // hangs
     await seedVisitor(page, { language: 'en', precacheLanguage: 'en' })
     await page.goto(`/s/${QR_CODE}`)
@@ -160,10 +188,12 @@ test.describe('Language switch from the sheet', () => {
     })
     await expect(chip(page, 'EN')).toHaveAttribute('aria-pressed', 'true')
     expect(await audioSrc(page)).toBe(FAKE_AUDIO_URL)
+    await expectPlaying(page)
   })
 
   test('language without audio: Listen reverts with "Not available"', async ({ page }) => {
     await trackPageLandScans(page)
+    await mockEnglish(page)
     await seedVisitor(page, { language: 'te', precacheLanguage: 'en' })
     await page.goto(`/s/${QR_CODE}`)
     await expect(listen(page)).toBeVisible({ timeout: 10000 })
@@ -173,6 +203,36 @@ test.describe('Language switch from the sheet', () => {
     await expect(toast(page)).toHaveText('Not available in Telugu. Switched to English.')
     await expect(chip(page, 'EN')).toHaveAttribute('aria-pressed', 'true')
     expect(await audioSrc(page)).toBe(FAKE_AUDIO_URL)
+    await expectPlaying(page)
+  })
+
+  test('no revert target: toast, back to Play, retry plays once the network is back', async ({
+    page,
+  }) => {
+    await trackPageLandScans(page)
+    // registered after mockPrecacheDataset, so it takes precedence
+    const failEnglish = (route: Route) => route.abort('failed')
+    await page.route(FAKE_AUDIO_URL, failEnglish)
+    await seedVisitor(page, { language: 'en', precacheLanguage: 'en' })
+    await page.goto(`/s/${QR_CODE}`)
+    await expect(listen(page)).toBeVisible({ timeout: 10000 })
+
+    await listen(page).click()
+
+    await expect(toast(page)).toHaveText("Couldn't play audio. Check your connection.")
+    await expect(listen(page)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeHidden()
+    expect(await isPlaying(page)).toBe(false)
+    await expect(toast(page)).toBeHidden({ timeout: 5000 })
+
+    await page.unroute(FAKE_AUDIO_URL, failEnglish)
+    await mockEnglish(page)
+    await listen(page).click()
+
+    await expectPlaying(page)
+    // past the 8s start timeout: no second toast
+    await page.waitForTimeout(9000)
+    await expect(toast(page)).toBeHidden()
   })
 })
 
