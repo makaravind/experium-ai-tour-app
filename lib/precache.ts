@@ -44,8 +44,8 @@ const norm = (u: string) => {
   }
 }
 
-/** Bulk dataset query for the selected language. Mirrors the map layout's exhibits query. */
-export async function fetchCachedExhibits(language: Language): Promise<CachedExhibit[]> {
+/** Bulk dataset query, every published audio language. Mirrors the map layout's exhibits query. */
+export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
   const { data, error } = await supabase
     .from('exhibits')
     .select(
@@ -55,9 +55,11 @@ export async function fetchCachedExhibits(language: Language): Promise<CachedExh
 
   return data.map((row) => {
     const qr = (row.exhibit_qr_codes as { code: string; status: string }[] | null)?.[0]
-    const audio = (
-      row.exhibit_audio as { language: string; audio_url: string | null; status: string }[] | null
-    )?.find((a) => a.language === language && a.status === 'published' && a.audio_url)
+    const audio: CachedExhibit['audio'] = {}
+    for (const a of (row.exhibit_audio as
+      { language: string; audio_url: string | null; status: string }[] | null) ?? []) {
+      if (a.status === 'published' && a.audio_url) audio[a.language as Language] = a.audio_url
+    }
     return {
       id: row.id,
       code: qr?.code ?? null,
@@ -66,16 +68,20 @@ export async function fetchCachedExhibits(language: Language): Promise<CachedExh
       type: row.type,
       tier: row.tier,
       facts: (row.facts as Fact[] | null) ?? [],
-      audioUrl: audio?.audio_url ?? null,
+      audio,
     }
   })
 }
 
-/** One group today (audio). Add future asset types by returning more entries here. */
+/**
+ * One group today (audio, one language). Add future asset types by returning more entries here.
+ * Defaults to the precache language, falling back to the playback language.
+ */
 export function getAssetGroups(
-  exhibits: CachedExhibit[] = useStore.getState().cachedExhibits
+  exhibits: CachedExhibit[] = useStore.getState().cachedExhibits,
+  language: Language = useStore.getState().precacheLanguage ?? useStore.getState().language
 ): AssetGroup[] {
-  const audio = exhibits.flatMap((e) => (e.audioUrl ? [e.audioUrl] : []))
+  const audio = exhibits.flatMap((e) => (e.audio[language] ? [e.audio[language]!] : []))
   return [{ cacheName: 'audio-cache', urls: [...new Set(audio)] }]
 }
 
@@ -116,6 +122,8 @@ export async function precacheGroups(
     onProgress?: (fetched: number, total: number) => void
     concurrency?: number
     maxAttempts?: number
+    /** checked before each fetch; once true no new urls are taken and no retry rounds run */
+    isCancelled?: () => boolean
   } & Partial<PrecacheDeps>
 ): Promise<PrecacheResult> {
   const deps = { ...realDeps, ...opts }
@@ -136,11 +144,13 @@ export async function precacheGroups(
     .flat()
     .filter((u) => (failures[u]?.count ?? 0) < max)
 
-  while (todo.length > 0 && !offline) {
+  const cancelled = () => opts.isCancelled?.() ?? false
+
+  while (todo.length > 0 && !offline && !cancelled()) {
     const retry: string[] = []
     const queue = [...todo]
     const worker = async () => {
-      for (let url = queue.shift(); url && !offline; url = queue.shift()) {
+      for (let url = queue.shift(); url && !offline && !cancelled(); url = queue.shift()) {
         try {
           await deps.fetchAsset(url)
           delete failures[url]
@@ -178,34 +188,42 @@ export async function precacheGroups(
 }
 
 /**
- * Full run for AppGate: query dataset, fill gaps, persist to the store.
+ * Full run for AppGate: query dataset, fill gaps for `language`, persist to the store.
  * Throws if the dataset query fails (caller treats as network failure).
  */
 export async function runPrecache(
   language: Language,
-  onProgress?: (fetched: number, total: number) => void
+  onProgress?: (fetched: number, total: number) => void,
+  isCancelled?: () => boolean
 ): Promise<PrecacheResult> {
-  const store = useStore.getState()
-  store.setCachedExhibits(await fetchCachedExhibits(language))
-  const result = await precacheGroups(getAssetGroups(), {
+  const exhibits = await fetchCachedExhibits()
+  useStore.getState().setCachedExhibits(exhibits)
+  const result = await precacheGroups(getAssetGroups(exhibits, language), {
     failures: useStore.getState().assetFailures,
     onProgress,
+    isCancelled,
   })
   const s = useStore.getState()
   s.setAssetFailures(result.failures)
-  for (const g of result.groups) s.setCompletionByGroup(g.cacheName, { language, complete: g.complete })
+  for (const g of result.groups)
+    s.setCompletionByGroup(g.cacheName, { language, complete: g.complete })
   return result
 }
 
 /**
- * Fresh-check for mount: Cache Storage vs the stored dataset. Never reads the
+ * Fresh-check for mount: Cache Storage vs the stored dataset, for `language`. Never reads the
  * completion flag. Empty dataset (e.g. localStorage cleared) counts as missing
  * everything, so the caller must run `runPrecache` — which skips whatever is
  * already cached, so a cache-intact visitor only pays for the dataset query.
  */
-export async function checkFresh(): Promise<{ hasDataset: boolean; missing: Record<string, string[]> }> {
+export async function checkFresh(
+  language: Language
+): Promise<{ hasDataset: boolean; missing: Record<string, string[]> }> {
   const exhibits = useStore.getState().cachedExhibits
-  return { hasDataset: exhibits.length > 0, missing: await findMissing(getAssetGroups(exhibits)) }
+  return {
+    hasDataset: exhibits.length > 0,
+    missing: await findMissing(getAssetGroups(exhibits, language)),
+  }
 }
 
 /** Calls `resume` whenever the tab returns to the foreground. Returns unsubscribe. */

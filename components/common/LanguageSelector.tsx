@@ -30,19 +30,23 @@ const VARIANTS: Record<Variant, { wrapper: string; button: string; useNativeLabe
 /**
  * Single source of truth for language selection. Writes straight to the Zustand
  * store, which persists `language` — so the choice carries to the next scan.
+ * The highlight follows the store unless `value` overrides it.
  */
 export default function LanguageSelector({
   options,
   variant = 'chip',
   className = '',
+  value,
   onChange,
 }: {
   options: LanguageOption[]
   variant?: Variant
   className?: string
+  value?: LanguageOption['code']
   onChange?: (code: LanguageOption['code']) => void
 }) {
-  const language = useStore((s) => s.language)
+  const storeLanguage = useStore((s) => s.language)
+  const language = value ?? storeLanguage
   const setLanguage = useStore((s) => s.setLanguage)
 
   const { wrapper, button, useNativeLabel } = VARIANTS[variant]

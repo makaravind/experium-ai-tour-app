@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test'
 import {
   FAKE_AUDIO_URL,
+  FAKE_HI_AUDIO_URL,
   mockPrecacheDataset,
-  passLanguageGate,
+  passLoadingGate,
   seedAudioCache,
 } from './gate-helpers'
 
@@ -35,10 +36,9 @@ test.describe('Visitor flow — golden path', () => {
   test('loading screen → info modal → exhibit view', async ({ page }) => {
     // 1. Loading screen
     await expect(page.getByText('Experium Park')).toBeVisible()
-    await expect(page.getByText('Choose your language to begin')).toBeVisible()
 
-    // 2. Language tap starts precache; info modal appears once it completes
-    await passLanguageGate(page)
+    // 2. Precache starts on its own; info modal appears once it completes
+    await passLoadingGate(page)
     await expect(page.getByText('Personalize your experience')).toBeVisible({
       timeout: 6000,
     })
@@ -55,7 +55,7 @@ test.describe('Visitor flow — golden path', () => {
     page,
   }) => {
     // Fast-forward through loading + info modal
-    await passLanguageGate(page)
+    await passLoadingGate(page)
     await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 6000 })
     await page.getByRole('button', { name: 'Skip for now' }).click()
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
@@ -88,7 +88,7 @@ test.describe('Visitor flow — golden path', () => {
   })
 
   test('info modal — Continue saves user info and proceeds', async ({ page }) => {
-    await passLanguageGate(page)
+    await passLoadingGate(page)
     await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 6000 })
 
     await page.getByPlaceholder('Your name').fill('Test User')
@@ -108,7 +108,7 @@ test.describe('Visitor flow — returning visitor', () => {
     await seedAudioCache(page)
 
     await page.addInitScript(
-      ({ url, code }) => {
+      ({ url, hiUrl, code }) => {
         localStorage.setItem('experium_onboarded', '1')
         localStorage.setItem(
           'experium-store',
@@ -117,6 +117,7 @@ test.describe('Visitor flow — returning visitor', () => {
               language: 'en',
               visitedExhibits: [],
               totalDiscovered: 2,
+              precacheLanguage: 'en',
               completionByGroup: { 'audio-cache': { language: 'en', complete: true } },
               cachedExhibits: [
                 {
@@ -127,15 +128,15 @@ test.describe('Visitor flow — returning visitor', () => {
                   type: null,
                   tier: 'free',
                   facts: [],
-                  audioUrl: url,
+                  audio: { en: url, hi: hiUrl },
                 },
               ],
             },
-            version: 0,
+            version: 1,
           })
         )
       },
-      { url: FAKE_AUDIO_URL, code: QR_CODE }
+      { url: FAKE_AUDIO_URL, hiUrl: FAKE_HI_AUDIO_URL, code: QR_CODE }
     )
 
     await page.route('/api/scan', async (route) => {
