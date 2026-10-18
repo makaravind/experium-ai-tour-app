@@ -5,6 +5,7 @@ import Link from 'next/link'
 import ExploreParkLink from '@/components/exhibit/ExploreParkLink'
 import ScanNowButton from '@/components/exhibit/ScanNowButton'
 import TabBar from '@/components/exhibit/TabBar'
+import UserMenu from '@/components/more/UserMenu'
 import TrailCard from '@/components/exhibit/TrailCard'
 import { LeafIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
@@ -67,6 +68,7 @@ export default function Home() {
       </div>
 
       <TabBar />
+      <UserMenu />
     </div>
   )
 }
