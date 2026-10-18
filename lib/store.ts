@@ -62,6 +62,9 @@ interface Store {
 
   refreshRequested: boolean
   setRefreshRequested: (v: boolean) => void
+
+  moreMenuOpen: boolean
+  setMoreMenuOpen: (v: boolean) => void
 }
 
 export const useStore = create<Store>()(
@@ -122,6 +125,9 @@ export const useStore = create<Store>()(
 
       refreshRequested: false,
       setRefreshRequested: (refreshRequested) => set({ refreshRequested }),
+
+      moreMenuOpen: false,
+      setMoreMenuOpen: (moreMenuOpen) => set({ moreMenuOpen }),
     }),
     {
       name: 'experium-store',
