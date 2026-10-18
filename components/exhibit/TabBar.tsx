@@ -13,7 +13,7 @@ export default function TabBar() {
 
   return (
     <nav
-      className="absolute left-4 right-4 bottom-6 h-16 flex items-center rounded-[28px] bg-ex-paper border border-ex-border pr-[52px]"
+      className="absolute left-4 right-4 bottom-6 h-16 flex items-center rounded-[28px] bg-ex-paper border border-ex-border px-[52px]"
       style={{
         boxShadow: 'var(--ex-shadow-nav)',
         zIndex: 40,
