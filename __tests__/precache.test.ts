@@ -3,7 +3,14 @@ import { createElement } from 'react'
 import { render, waitFor } from '@testing-library/react'
 import AppGate from '@/components/onboarding/AppGate'
 import { useDebugStore } from '@/lib/debug-store'
-import { getAssetGroups, precacheGroups, findMissing, checkFresh } from '@/lib/precache'
+import {
+  getAssetGroups,
+  precacheGroups,
+  findMissing,
+  checkFresh,
+  runPrecache,
+} from '@/lib/precache'
+import { useStore } from '@/lib/store'
 import type { CachedExhibit } from '@/lib/types'
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
@@ -194,5 +201,34 @@ describe('AppGate offline with gaps', () => {
     const { findByText } = render(gate())
     await findByText('Connect to the internet')
     expect(useDebugStore.getState().cacheDebug).toBe('blocked-offline')
+  })
+})
+
+describe('AppGate Refresh content', () => {
+  it('clears cachedExhibits and cachedAmenities, then re-runs the precache', async () => {
+    localStorage.clear()
+    localStorage.setItem('experium_onboarded', '1')
+    Object.defineProperty(navigator, 'onLine', { value: true, writable: true, configurable: true })
+    vi.mocked(checkFresh)
+      .mockResolvedValueOnce({ hasDataset: true, missing: {} })
+      .mockResolvedValue({ hasDataset: false, missing: {} })
+    vi.mocked(runPrecache).mockResolvedValue({
+      groups: [],
+      failures: {},
+      fetched: 0,
+      total: 0,
+      offline: false,
+    })
+    useStore.setState({
+      cachedExhibits: [{ id: 'e1', audio: {} } as CachedExhibit],
+      cachedAmenities: [{ id: 'a1' } as never],
+    })
+    render(createElement(AppGate, null, 'app'))
+    await waitFor(() => expect(useDebugStore.getState().cacheDebug).toBe('clear'))
+
+    useStore.getState().setRefreshRequested(true)
+    await waitFor(() => expect(runPrecache).toHaveBeenCalled())
+    expect(useStore.getState().cachedExhibits).toEqual([])
+    expect(useStore.getState().cachedAmenities).toEqual([])
   })
 })

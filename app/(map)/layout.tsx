@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
@@ -14,7 +14,7 @@ import { CompassIcon, HomeIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
 import { getCrossedMilestone } from '@/lib/trail'
-import { supabase } from '@/lib/supabase'
+import { toMapExhibits } from '@/lib/map-exhibits'
 import type { MapExhibit, PreviewExhibit } from '@/lib/types'
 
 function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
@@ -38,13 +38,14 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [navigateEnabled, setNavigateEnabled] = useState(false)
   const [mapFailed, setMapFailed] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [exhibitsForSearch, setExhibitsForSearch] = useState<MapExhibit[]>([])
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
   const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<{ total: number; saved: boolean } | null>(null)
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
   const userInfo = useStore((s) => s.userInfo)
+  const cachedExhibits = useStore((s) => s.cachedExhibits)
+  const mapExhibits = useMemo(() => toMapExhibits(cachedExhibits), [cachedExhibits])
   const profileModalOpen = useStore((s) => s.profileModalOpen)
   const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
@@ -72,37 +73,6 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       }
     }
   }, [isExhibitPage])
-
-  // Map failed before exhibits loaded: fetch a trimmed list so search still works
-  useEffect(() => {
-    if (!mapFailed || exhibitsForSearch.length > 0) return
-    let cancelled = false
-    supabase
-      .from('exhibits')
-      .select('id, name, type, tier, status, gps_lng, gps_lat, exhibit_qr_codes(code)')
-      .eq('exhibit_qr_codes.status', 'active')
-      .not('gps_lat', 'is', null)
-      .not('gps_lng', 'is', null)
-      .then(({ data }) => {
-        if (cancelled || !data) return
-        setExhibitsForSearch(
-          data.map((row) => ({
-            id: row.id,
-            name: row.name,
-            type: row.type,
-            tier: row.tier,
-            gps_lat: row.gps_lat,
-            gps_lng: row.gps_lng,
-            status: row.status ?? 'live',
-            qr_code: (row.exhibit_qr_codes as { code: string }[] | null)?.[0]?.code ?? null,
-            languages: [],
-          }))
-        )
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [mapFailed, exhibitsForSearch.length])
 
   // Fly to exhibit when page data arrives or changes
 
@@ -220,7 +190,6 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           onPinTap={handlePinTap}
           flyToTarget={flyToTarget}
           onMapTap={handleMapTap}
-          onExhibitsLoaded={setExhibitsForSearch}
         />
       )}
 
@@ -319,7 +288,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
 
       {searchOpen && (
         <SearchOverlay
-          exhibits={exhibitsForSearch}
+          exhibits={mapExhibits}
           nearbyExhibitIds={nearbyExhibitIds}
           userPosition={userPosition}
           mapFailed={mapFailed}

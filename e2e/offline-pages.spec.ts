@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { FAKE_AUDIO_URL, seedAudioCache } from './gate-helpers'
+import { FAKE_AUDIO_URL, mockAmenities, seedAudioCache } from './gate-helpers'
 
 const tabBar = (page: Page) => page.getByRole('navigation', { name: 'Primary' })
 // Screens render only once AppGate clears, so a visible marker means the app itself loaded
@@ -12,6 +12,9 @@ const exhibitRow = (code: string, name: string) => ({
   type: null,
   tier: 'free',
   facts: [],
+  status: 'live',
+  gps_lat: 17.937484,
+  gps_lng: 78.460897,
   exhibit_qr_codes: [{ code, status: 'active' }],
   exhibit_audio: [{ language: 'en', audio_url: FAKE_AUDIO_URL, status: 'published' }],
 })
@@ -42,6 +45,7 @@ test.describe('Offline pages', () => {
   )
 
   test.beforeEach(async ({ page }) => {
+    await mockAmenities(page)
     await page.route('/api/scan', (route) =>
       route.fulfill({
         status: 200,

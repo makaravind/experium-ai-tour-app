@@ -8,7 +8,7 @@ import { Protocol } from 'pmtiles'
 import { useDebugStore } from '@/lib/debug-store'
 import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
-import { supabase } from '@/lib/supabase'
+import { toMapExhibits } from '@/lib/map-exhibits'
 import { classifyGeoError, lerpPosition, type LatLng } from '@/lib/gps'
 import { nearestWithin, pinPixelHeight } from '@/lib/nearby'
 import type { ExhibitStatus, MapExhibit } from '@/lib/types'
@@ -18,7 +18,6 @@ interface ParkMapProps {
   onPinTap: (exhibit: MapExhibit) => void
   flyToTarget?: string | null
   onMapTap?: () => void
-  onExhibitsLoaded?: (exhibits: MapExhibit[]) => void
 }
 
 const ORTHO_BOUNDS: [number, number, number, number] = [
@@ -174,7 +173,6 @@ export default function ParkMap({
   onPinTap,
   flyToTarget,
   onMapTap,
-  onExhibitsLoaded,
 }: ParkMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
@@ -182,7 +180,6 @@ export default function ParkMap({
   const flyToTargetRef = useRef(flyToTarget)
   const onPinTapRef = useRef(onPinTap)
   const onMapTapRef = useRef(onMapTap)
-  const onExhibitsLoadedRef = useRef(onExhibitsLoaded)
   // Keep refs current so stale-closure handlers always call the latest callbacks
   // eslint-disable-next-line react-hooks/refs
   flyToTargetRef.current = flyToTarget
@@ -190,8 +187,6 @@ export default function ParkMap({
   onPinTapRef.current = onPinTap
   // eslint-disable-next-line react-hooks/refs
   onMapTapRef.current = onMapTap
-  // eslint-disable-next-line react-hooks/refs
-  onExhibitsLoadedRef.current = onExhibitsLoaded
   const [peekChips, setPeekChips] = useState<PeekChip[]>([])
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
@@ -234,30 +229,7 @@ export default function ParkMap({
 
     map.on('load', async () => {
       if (cancelled) return
-      const { data } = await supabase
-        .from('exhibits')
-        .select(
-          'id, name, type, tier, status, gps_lng, gps_lat, exhibit_qr_codes(code), exhibit_audio(language, status)'
-        )
-        .eq('exhibit_qr_codes.status', 'active')
-        .not('gps_lat', 'is', null)
-        .not('gps_lng', 'is', null)
-
-      exhibitsRef.current = (data ?? []).map((row) => ({
-        id: row.id,
-        name: row.name,
-        type: row.type,
-        tier: row.tier,
-        gps_lat: row.gps_lat,
-        gps_lng: row.gps_lng,
-        status: row.status ?? 'live',
-        qr_code: (row.exhibit_qr_codes as { code: string }[] | null)?.[0]?.code ?? null,
-        languages:
-          (row.exhibit_audio as { language: string; status: string }[] | null)
-            ?.filter((a) => a.status === 'published')
-            .map((a) => a.language) ?? [],
-      }))
-      onExhibitsLoadedRef.current?.(exhibitsRef.current)
+      exhibitsRef.current = toMapExhibits(useStore.getState().cachedExhibits)
 
       const visitedExhibits = useStore.getState().visitedExhibits
       const exhibitPinsGeoJson = {

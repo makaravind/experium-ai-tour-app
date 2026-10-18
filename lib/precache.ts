@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/lib/store'
-import type { CachedExhibit, Fact, Language } from '@/lib/types'
+import type { AmenityType, CachedAmenity, CachedExhibit, ExhibitStatus, Fact, Language } from '@/lib/types'
 
 export const MAX_ATTEMPTS = 3
 export const CONCURRENCY = 6
@@ -49,7 +49,7 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
   const { data, error } = await supabase
     .from('exhibits')
     .select(
-      'id, name, type, tier, facts, exhibit_qr_codes(code, status), exhibit_audio(language, audio_url, status)'
+      'id, name, type, tier, facts, status, gps_lat, gps_lng, exhibit_qr_codes(code, status), exhibit_audio(language, audio_url, status)'
     )
   if (error || !data) throw new Error(error?.message ?? 'exhibits query returned no data')
 
@@ -69,8 +69,29 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
       tier: row.tier,
       facts: (row.facts as Fact[] | null) ?? [],
       audio,
+      gps_lat: row.gps_lat,
+      gps_lng: row.gps_lng,
+      exhibitStatus: (row.status as ExhibitStatus | null) ?? 'live',
     }
   })
+}
+
+/** Bulk amenities query (public-read RLS), same path as exhibits. */
+export async function fetchCachedAmenities(): Promise<CachedAmenity[]> {
+  const { data, error } = await supabase
+    .from('amenities')
+    .select('id, name, type, description, photos, gps_lat, gps_lng')
+  if (error || !data) throw new Error(error?.message ?? 'amenities query returned no data')
+
+  return data.map((row) => ({
+    id: row.id,
+    name: row.name,
+    type: row.type as AmenityType,
+    description: row.description,
+    photos: row.photos,
+    gps_lat: row.gps_lat,
+    gps_lng: row.gps_lng,
+  }))
 }
 
 /**
@@ -196,8 +217,9 @@ export async function runPrecache(
   onProgress?: (fetched: number, total: number) => void,
   isCancelled?: () => boolean
 ): Promise<PrecacheResult> {
-  const exhibits = await fetchCachedExhibits()
+  const [exhibits, amenities] = await Promise.all([fetchCachedExhibits(), fetchCachedAmenities()])
   useStore.getState().setCachedExhibits(exhibits)
+  useStore.getState().setCachedAmenities(amenities)
   const result = await precacheGroups(getAssetGroups(exhibits, language), {
     failures: useStore.getState().assetFailures,
     onProgress,
