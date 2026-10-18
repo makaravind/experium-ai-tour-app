@@ -108,7 +108,7 @@ export default function UserMenu() {
             </button>
             <span
               aria-hidden="true"
-              className="absolute -bottom-[7px] right-7 h-3.5 w-3.5 rotate-45 border-b border-r border-ex-border bg-ex-paper"
+              className="absolute -bottom-[7px] right-[42px] h-3.5 w-3.5 rotate-45 border-b border-r border-ex-border bg-ex-paper"
             />
           </motion.div>
         </>
