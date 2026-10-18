@@ -69,6 +69,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const precacheLanguage = useStore((s) => s.precacheLanguage)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const assetFailures = useStore((s) => s.assetFailures)
+  const refreshRequested = useStore((s) => s.refreshRequested)
   const phaseRef = useRef<GatePhase>('checking')
   const runningRef = useRef(false)
   const restartRef = useRef(false)
@@ -171,6 +172,15 @@ export default function AppGate({ children }: { children: ReactNode }) {
       if (p === 'loading' || p === 'blocked-offline' || p === 'fetch-error') void run()
     })
   }, [run])
+
+  useEffect(() => {
+    if (!refreshRequested || phaseRef.current !== 'clear') return
+    useStore.getState().setRefreshRequested(false)
+    void (async () => {
+      if (useDebugStore.getState().isActive) await caches.delete('audio-cache')
+      await run()
+    })()
+  }, [refreshRequested, run])
 
   const handleLanguageChange = useCallback(
     (code: Language) => {
