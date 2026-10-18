@@ -130,7 +130,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
       }
 
       if (!online) {
-        setPhase('blocked-offline')
+        setPhase(hasDataset ? nextAfterClear() : 'blocked-offline')
         return
       }
 
