@@ -330,21 +330,23 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         )}
       </AnimatePresence>
 
-      {searchOpen && (
-        <SearchOverlay
-          exhibits={mapExhibits}
-          nearbyExhibitIds={nearbyExhibitIds}
-          userPosition={userPosition}
-          mapFailed={mapFailed}
-          initialMode={searchMode}
-          onClose={() => setSearchOpen(false)}
-          onSelect={handleSearchSelect}
-          onSelectAmenity={(amenity) => {
-            setSearchOpen(false)
-            handleAmenityTap(amenity.id)
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {searchOpen && (
+          <SearchOverlay
+            exhibits={mapExhibits}
+            nearbyExhibitIds={nearbyExhibitIds}
+            userPosition={userPosition}
+            mapFailed={mapFailed}
+            initialMode={searchMode}
+            onClose={() => setSearchOpen(false)}
+            onSelect={handleSearchSelect}
+            onSelectAmenity={(amenity) => {
+              setSearchOpen(false)
+              handleAmenityTap(amenity.id)
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <TabBar />
       <UserMenu />
