@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import type { AmenityType } from '@/lib/types'
 
 export interface IconProps {
   size?: number
@@ -215,5 +216,42 @@ export function PinIcon({
       />
       <circle cx="15" cy="15" r="5" fill="#fff" />
     </svg>
+  )
+}
+
+/** Amenity glyphs from the amenities UI mock; gate (arch) is drawn — the mock has none */
+export function AmenityTypeIcon({ type, ...props }: IconProps & { type: AmenityType }) {
+  return (
+    <Stroke {...props}>
+      {type === 'washroom' && (
+        <>
+          <circle cx="9" cy="4" r="2" />
+          <path d="M6 8h6l-1 7H7L6 8z" />
+          <path d="M9 15v5" />
+          <circle cx="17" cy="4" r="2" />
+          <path d="M15 8h4l-1 7h-2l-1-7z" />
+          <path d="M17 15v5" />
+        </>
+      )}
+      {type === 'ticketing' && (
+        <>
+          <rect x="2" y="7" width="20" height="10" rx="2" />
+          <path d="M15 7v-.5a2.5 2.5 0 0 0-5 0V7M15 17v.5a2.5 2.5 0 0 1-5 0V17" />
+        </>
+      )}
+      {type === 'food' && (
+        <>
+          <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+          <path d="M7 2v20" />
+          <path d="M21 15V2a5 5 0 0 0-5 5v6h5zm0 0v7" />
+        </>
+      )}
+      {type === 'gate' && (
+        <>
+          <path d="M4 21V10a8 8 0 0 1 16 0v11" />
+          <path d="M9 21v-6a3 3 0 0 1 6 0v6" />
+        </>
+      )}
+    </Stroke>
   )
 }
