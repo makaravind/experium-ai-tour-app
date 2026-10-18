@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { HomeIcon, MapIcon, ScanIcon } from '@/components/icons'
+import { useStore } from '@/lib/store'
 
 export default function TabBar() {
   const pathname = usePathname()
@@ -60,6 +61,20 @@ export default function TabBar() {
         <MapIcon strokeWidth={2.1} />
         Map
       </Link>
+
+      <button
+        type="button"
+        onClick={() => useStore.getState().setMoreMenuOpen(true)}
+        aria-haspopup="menu"
+        className="flex flex-col items-center gap-0.5 text-[10.5px] font-extrabold flex-1 text-ex-muted"
+      >
+        <svg width={24} height={24} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="5" cy="12" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="19" cy="12" r="2" />
+        </svg>
+        More
+      </button>
     </nav>
   )
 }
