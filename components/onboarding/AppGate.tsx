@@ -168,7 +168,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
     void run()
     return onForeground(() => {
       const p = phaseRef.current
-      if (p === 'loading' || p === 'blocked-offline') void run()
+      if (p === 'loading' || p === 'blocked-offline' || p === 'fetch-error') void run()
     })
   }, [run])
 
