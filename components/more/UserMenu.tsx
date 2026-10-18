@@ -83,6 +83,7 @@ const ICON_BASE = 'shrink-0 w-[42px] h-[42px] rounded-[13px] grid place-items-ce
 export default function UserMenu() {
   const open = useStore((s) => s.moreMenuOpen)
   const setOpen = useStore((s) => s.setMoreMenuOpen)
+  const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
   const online = useSyncExternalStore(subscribeOnline, getOnline, getServerOnline)
   const refreshRowRef = useRef<HTMLButtonElement>(null)
 
@@ -205,22 +206,22 @@ export default function UserMenu() {
                 <button
                   type="button"
                   role="menuitem"
-                  aria-disabled="true"
-                  className={`${ROW} cursor-not-allowed`}
+                  onClick={() => {
+                    setOpen(false)
+                    setTimeout(() => setProfileModalOpen(true), 200)
+                  }}
+                  className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg`}
                 >
-                  <span className={`${ICON_BASE} bg-ex-bg text-ex-muted`}>
+                  <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
                     <UserIcon />
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block font-extrabold text-[15px] text-ex-muted leading-snug">
+                    <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
                       Profile &amp; preferences
                     </span>
                     <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
-                      Name, language, accessibility
+                      Edit your name, phone &amp; email
                     </span>
-                  </span>
-                  <span className="shrink-0 inline-block text-[11px] font-extrabold tracking-[0.02em] rounded-full px-[9px] py-[3px] border bg-ex-sage/10 text-ex-sage border-ex-sage/40">
-                    Soon
                   </span>
                 </button>
               </li>

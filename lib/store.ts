@@ -65,6 +65,9 @@ interface Store {
 
   moreMenuOpen: boolean
   setMoreMenuOpen: (v: boolean) => void
+
+  profileModalOpen: boolean
+  setProfileModalOpen: (v: boolean) => void
 }
 
 export const useStore = create<Store>()(
@@ -128,6 +131,9 @@ export const useStore = create<Store>()(
 
       moreMenuOpen: false,
       setMoreMenuOpen: (moreMenuOpen) => set({ moreMenuOpen }),
+
+      profileModalOpen: false,
+      setProfileModalOpen: (profileModalOpen) => set({ profileModalOpen }),
     }),
     {
       name: 'experium-store',

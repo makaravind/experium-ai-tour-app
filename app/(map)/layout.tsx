@@ -9,6 +9,7 @@ import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
 import UserMenu from '@/components/more/UserMenu'
+import InfoModal from '@/components/onboarding/InfoModal'
 import { CompassIcon, HomeIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
@@ -43,6 +44,9 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<{ total: number; saved: boolean } | null>(null)
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
+  const userInfo = useStore((s) => s.userInfo)
+  const profileModalOpen = useStore((s) => s.profileModalOpen)
+  const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
   const recenterTrigger = useMapStore((s) => s.recenterTrigger)
   const followMode = useMapStore((s) => s.followMode)
@@ -326,6 +330,17 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
 
       <TabBar />
       <UserMenu />
+      {profileModalOpen && (
+        <InfoModal
+          initialValues={{
+            name: userInfo?.name ?? '',
+            phone: userInfo?.phone ?? '',
+            email: userInfo?.email ?? '',
+          }}
+          onDone={() => setProfileModalOpen(false)}
+          onCancel={() => setProfileModalOpen(false)}
+        />
+      )}
       {children}
     </div>
   )

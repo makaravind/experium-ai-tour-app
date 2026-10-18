@@ -7,12 +7,15 @@ import ScanNowButton from '@/components/exhibit/ScanNowButton'
 import TabBar from '@/components/exhibit/TabBar'
 import UserMenu from '@/components/more/UserMenu'
 import TrailCard from '@/components/exhibit/TrailCard'
+import InfoModal from '@/components/onboarding/InfoModal'
 import { LeafIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 
 export default function Home() {
   const totalDiscovered = useStore((s) => s.totalDiscovered)
   const userInfo = useStore((s) => s.userInfo)
+  const profileModalOpen = useStore((s) => s.profileModalOpen)
+  const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
 
   const isFresh = totalDiscovered === 0
 
@@ -69,6 +72,17 @@ export default function Home() {
 
       <TabBar />
       <UserMenu />
+      {profileModalOpen && (
+        <InfoModal
+          initialValues={{
+            name: userInfo?.name ?? '',
+            phone: userInfo?.phone ?? '',
+            email: userInfo?.email ?? '',
+          }}
+          onDone={() => setProfileModalOpen(false)}
+          onCancel={() => setProfileModalOpen(false)}
+        />
+      )}
     </div>
   )
 }
