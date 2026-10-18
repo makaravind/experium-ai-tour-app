@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
 import ParkMap from '@/components/map/ParkMap'
+import AmenitiesPill from '@/components/amenity/AmenitiesPill'
+import AmenitySheet from '@/components/amenity/AmenitySheet'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
@@ -14,7 +16,7 @@ import { CompassIcon, HomeIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
 import { getCrossedMilestone } from '@/lib/trail'
-import { supabase } from '@/lib/supabase'
+import { toMapExhibits } from '@/lib/map-exhibits'
 import type { MapExhibit, PreviewExhibit } from '@/lib/types'
 
 function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
@@ -38,13 +40,15 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [navigateEnabled, setNavigateEnabled] = useState(false)
   const [mapFailed, setMapFailed] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [exhibitsForSearch, setExhibitsForSearch] = useState<MapExhibit[]>([])
+  const [searchMode, setSearchMode] = useState<'exhibits' | 'amenities'>('exhibits')
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
   const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<{ total: number; saved: boolean } | null>(null)
 
   const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
   const userInfo = useStore((s) => s.userInfo)
+  const cachedExhibits = useStore((s) => s.cachedExhibits)
+  const mapExhibits = useMemo(() => toMapExhibits(cachedExhibits), [cachedExhibits])
   const profileModalOpen = useStore((s) => s.profileModalOpen)
   const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
   const exhibitPageData = useMapStore((s) => s.exhibitPageData)
@@ -54,6 +58,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const retryGpsTrigger = useMapStore((s) => s.retryGpsTrigger)
   const nearbyExhibitIds = useMapStore((s) => s.nearbyExhibitIds)
   const userPosition = useMapStore((s) => s.userPosition)
+  const activeAmenityId = useMapStore((s) => s.activeAmenityId)
 
   // Clear map-page state when leaving exhibit page
 
@@ -70,39 +75,10 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         setFlyToTarget(null)
         setNavigateEnabled(false)
       }
+    } else {
+      useMapStore.getState().setActiveAmenityId(null)
     }
   }, [isExhibitPage])
-
-  // Map failed before exhibits loaded: fetch a trimmed list so search still works
-  useEffect(() => {
-    if (!mapFailed || exhibitsForSearch.length > 0) return
-    let cancelled = false
-    supabase
-      .from('exhibits')
-      .select('id, name, type, tier, status, gps_lng, gps_lat, exhibit_qr_codes(code)')
-      .eq('exhibit_qr_codes.status', 'active')
-      .not('gps_lat', 'is', null)
-      .not('gps_lng', 'is', null)
-      .then(({ data }) => {
-        if (cancelled || !data) return
-        setExhibitsForSearch(
-          data.map((row) => ({
-            id: row.id,
-            name: row.name,
-            type: row.type,
-            tier: row.tier,
-            gps_lat: row.gps_lat,
-            gps_lng: row.gps_lng,
-            status: row.status ?? 'live',
-            qr_code: (row.exhibit_qr_codes as { code: string }[] | null)?.[0]?.code ?? null,
-            languages: [],
-          }))
-        )
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [mapFailed, exhibitsForSearch.length])
 
   // Fly to exhibit when page data arrives or changes
 
@@ -162,12 +138,23 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t)
   }, [toast])
 
+  useEffect(() => {
+    if (mapFailed) useMapStore.getState().setActiveAmenityId(null)
+  }, [mapFailed])
+
   const handlePinTap = (pin: MapExhibit) => {
+    useMapStore.getState().setActiveAmenityId(null)
     setMapSelectedExhibit(toPreviewExhibit(pin))
     setNavigateEnabled(true)
   }
 
+  const handleAmenityTap = (id: string) => {
+    setMapSelectedExhibit(null)
+    useMapStore.getState().setActiveAmenityId(id)
+  }
+
   const handleMapTap = () => {
+    useMapStore.getState().setActiveAmenityId(null)
     if (isExhibitPage) {
       setMapSelectedExhibit(null)
       router.push('/map')
@@ -189,10 +176,22 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     } else {
       handleMapTap()
     }
+    setSearchMode('exhibits')
+    setSearchOpen(true)
+  }
+
+  // Unlike the search bar, keeps the amenity selection
+  const handleOpenAmenitySearch = () => {
+    if (isExhibitPage) {
+      setMapSelectedExhibit(null)
+      router.push('/map')
+    }
+    setSearchMode('amenities')
     setSearchOpen(true)
   }
 
   const handleSearchSelect = (exhibit: MapExhibit) => {
+    useMapStore.getState().setActiveAmenityId(null)
     setSearchOpen(false)
     if (mapFailed) {
       if (exhibit.qr_code) router.push(`/s/${exhibit.qr_code}`)
@@ -218,9 +217,10 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         <ParkMap
           onLoadError={() => setMapFailed(true)}
           onPinTap={handlePinTap}
+          onAmenityTap={handleAmenityTap}
+          hideAmenities={isExhibitPage}
           flyToTarget={flyToTarget}
           onMapTap={handleMapTap}
-          onExhibitsLoaded={setExhibitsForSearch}
         />
       )}
 
@@ -289,6 +289,12 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         </button>
       </div>
 
+      {!mapFailed && (
+        <div className="absolute left-4" style={{ top: 112, zIndex: 45 }}>
+          <AmenitiesPill onClick={handleOpenAmenitySearch} />
+        </div>
+      )}
+
       <PreviewSheet
         exhibit={sheetExhibit}
         audio={sheetAudio}
@@ -299,6 +305,13 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         onQuartile={sheetOnQuartile}
         onAudioEnded={isShowingCurrentExhibit ? handleAudioEnded : undefined}
       />
+
+      {!mapFailed && (
+        <AmenitySheet
+          amenityId={activeAmenityId}
+          onClose={() => useMapStore.getState().setActiveAmenityId(null)}
+        />
+      )}
 
       <AnimatePresence>
         {toast && (
@@ -317,16 +330,23 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         )}
       </AnimatePresence>
 
-      {searchOpen && (
-        <SearchOverlay
-          exhibits={exhibitsForSearch}
-          nearbyExhibitIds={nearbyExhibitIds}
-          userPosition={userPosition}
-          mapFailed={mapFailed}
-          onClose={() => setSearchOpen(false)}
-          onSelect={handleSearchSelect}
-        />
-      )}
+      <AnimatePresence>
+        {searchOpen && (
+          <SearchOverlay
+            exhibits={mapExhibits}
+            nearbyExhibitIds={nearbyExhibitIds}
+            userPosition={userPosition}
+            mapFailed={mapFailed}
+            initialMode={searchMode}
+            onClose={() => setSearchOpen(false)}
+            onSelect={handleSearchSelect}
+            onSelectAmenity={(amenity) => {
+              setSearchOpen(false)
+              handleAmenityTap(amenity.id)
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <TabBar />
       <UserMenu />

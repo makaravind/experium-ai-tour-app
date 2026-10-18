@@ -5,13 +5,21 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LeafOutlineIcon } from '@/components/icons'
 
-export const PLACEHOLDER = {
+export type Palette = { hero: string; blank: string; blankIcon: string }
+
+export const PLACEHOLDER: Palette = {
   hero: 'linear-gradient(160deg, #6f9557, #456a3f)',
   blank: 'linear-gradient(160deg, #e8e5df, #d8d4cb)',
   blankIcon: '#b9b4a8',
-} as const
+}
 
-export default function Gallery({ count = 4 }: { count?: number }) {
+export default function Gallery({
+  count = 4,
+  palette = PLACEHOLDER,
+}: {
+  count?: number
+  palette?: Palette
+}) {
   const trackRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<(HTMLButtonElement | null)[]>([])
   const [active, setActive] = useState(0)
@@ -30,7 +38,7 @@ export default function Gallery({ count = 4 }: { count?: number }) {
     el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
   }
 
-  const bgFor = (i: number) => (i === 0 ? PLACEHOLDER.hero : PLACEHOLDER.blank)
+  const bgFor = (i: number) => (i === 0 ? palette.hero : palette.blank)
 
   return (
     <div className="w-full">
@@ -62,9 +70,7 @@ export default function Gallery({ count = 4 }: { count?: number }) {
                 }}
                 aria-label={`Photo ${i + 1} of ${count} — tap to enlarge`}
               >
-                {i > 0 && (
-                  <LeafOutlineIcon size={30} color={PLACEHOLDER.blankIcon} strokeWidth={1.6} />
-                )}
+                {i > 0 && <LeafOutlineIcon size={30} color={palette.blankIcon} strokeWidth={1.6} />}
               </button>
             </div>
           ))}
@@ -83,6 +89,7 @@ export default function Gallery({ count = 4 }: { count?: number }) {
                 index={fullscreen.index}
                 rect={fullscreen.rect}
                 bg={bgFor(fullscreen.index)}
+                iconColor={palette.blankIcon}
                 onClose={() => setFullscreen(null)}
               />
             )}
@@ -110,7 +117,7 @@ export default function Gallery({ count = 4 }: { count?: number }) {
           >
             {i > 0 && (
               <div className="w-full h-full flex items-center justify-center">
-                <LeafOutlineIcon size={16} color={PLACEHOLDER.blankIcon} strokeWidth={1.6} />
+                <LeafOutlineIcon size={16} color={palette.blankIcon} strokeWidth={1.6} />
               </div>
             )}
           </button>
@@ -128,11 +135,13 @@ function FullscreenModal({
   index,
   rect,
   bg,
+  iconColor,
   onClose,
 }: {
   index: number
   rect: DOMRect
   bg: string
+  iconColor: string
   onClose: () => void
 }) {
   const vw = window.innerWidth
@@ -198,7 +207,7 @@ function FullscreenModal({
         exit={{ scale, x: dx, y: dy, borderRadius: 10 / scale }}
         transition={morphTransition}
       >
-        {index > 0 && <LeafOutlineIcon size={60} color={PLACEHOLDER.blankIcon} strokeWidth={1.2} />}
+        {index > 0 && <LeafOutlineIcon size={60} color={iconColor} strokeWidth={1.2} />}
       </motion.div>
     </motion.div>
   )

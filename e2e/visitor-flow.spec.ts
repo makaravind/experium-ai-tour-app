@@ -129,10 +129,13 @@ test.describe('Visitor flow — returning visitor', () => {
                   tier: 'free',
                   facts: [],
                   audio: { en: url, hi: hiUrl },
+                  gps_lat: 17.937484,
+                  gps_lng: 78.460897,
+                  exhibitStatus: 'live',
                 },
               ],
             },
-            version: 1,
+            version: 2,
           })
         )
       },

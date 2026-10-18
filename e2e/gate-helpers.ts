@@ -17,6 +17,7 @@ export const FAKE_HI_AUDIO_URL = 'https://example.test/audio/baobab-forest-hi.mp
  */
 export async function mockPrecacheDataset(page: Page, { seedCache = true } = {}) {
   if (seedCache) await seedAudioCache(page)
+  await mockAmenities(page)
   await page.route(FAKE_AUDIO_URL, (route) =>
     route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
   )
@@ -32,6 +33,9 @@ export async function mockPrecacheDataset(page: Page, { seedCache = true } = {})
           type: null,
           tier: 'free',
           facts: [],
+          status: 'live',
+          gps_lat: 17.937484,
+          gps_lng: 78.460897,
           exhibit_qr_codes: [{ code: QR_CODE, status: 'active' }],
           exhibit_audio: [
             { language: 'en', audio_url: FAKE_AUDIO_URL, status: 'published' },
@@ -41,6 +45,13 @@ export async function mockPrecacheDataset(page: Page, { seedCache = true } = {})
       ]),
     })
   })
+}
+
+/** AppGate's bulk amenities query (lib/precache.ts fetchCachedAmenities); runPrecache fails if it errors. */
+export async function mockAmenities(page: Page, rows: object[] = []) {
+  await page.route('**/rest/v1/amenities?*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) })
+  )
 }
 
 /** 60s of 8-bit silence (won't end on its own) so the <audio> element can really play (fires `play` -> first-play scan). */

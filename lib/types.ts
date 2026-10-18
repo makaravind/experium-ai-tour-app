@@ -23,6 +23,22 @@ export interface CachedExhibit {
   tier: string
   facts: Fact[]
   audio: Partial<Record<Language, string>> // published audio_url per language
+  gps_lat: number | null
+  gps_lng: number | null
+  exhibitStatus: ExhibitStatus // exhibits.status; `status` above means QR active
+}
+
+export type AmenityType = 'washroom' | 'ticketing' | 'food' | 'gate'
+
+/** One amenity row in the persisted dataset. `photos` is carried but the UI ignores the URLs (v1). */
+export interface CachedAmenity {
+  id: string
+  name: string
+  type: AmenityType
+  description: string | null
+  photos: string[]
+  gps_lat: number
+  gps_lng: number
 }
 
 export interface ExhibitData {

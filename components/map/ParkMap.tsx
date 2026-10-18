@@ -2,23 +2,26 @@
 
 import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
 import { useDebugStore } from '@/lib/debug-store'
 import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
-import { supabase } from '@/lib/supabase'
+import { toMapExhibits } from '@/lib/map-exhibits'
 import { classifyGeoError, lerpPosition, type LatLng } from '@/lib/gps'
 import { nearestWithin, pinPixelHeight } from '@/lib/nearby'
-import type { ExhibitStatus, MapExhibit } from '@/lib/types'
+import { AmenityTypeIcon } from '@/components/icons'
+import type { CachedAmenity, ExhibitStatus, MapExhibit } from '@/lib/types'
 
 interface ParkMapProps {
   onLoadError: () => void
   onPinTap: (exhibit: MapExhibit) => void
+  onAmenityTap: (id: string) => void
+  hideAmenities?: boolean
   flyToTarget?: string | null
   onMapTap?: () => void
-  onExhibitsLoaded?: (exhibits: MapExhibit[]) => void
 }
 
 const ORTHO_BOUNDS: [number, number, number, number] = [
@@ -169,30 +172,72 @@ function PeekChipEl({ chip }: { chip: PeekChip }) {
   )
 }
 
+function AmenityChipEl({ amenity, selected }: { amenity: CachedAmenity; selected: boolean }) {
+  return (
+    <>
+      <div
+        className="grid place-items-center bg-ex-amenity"
+        data-selected={selected}
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 9,
+          border: '2px solid rgba(255,255,255,0.75)',
+          boxShadow: `${selected ? '0 0 0 3px rgba(90,127,160,0.4), ' : ''}0 2px 6px rgba(0,0,0,0.28)`,
+        }}
+      >
+        <AmenityTypeIcon type={amenity.type} size={14} color="#fff" />
+      </div>
+      <span
+        className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-ex-amenity"
+        style={{
+          top: '100%',
+          marginTop: 3,
+          fontSize: 8,
+          fontWeight: 800,
+          background: 'rgba(255,255,255,0.9)',
+          borderRadius: 5,
+          padding: '1.5px 5px',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+        }}
+      >
+        {amenity.name}
+      </span>
+    </>
+  )
+}
+
 export default function ParkMap({
   onLoadError,
   onPinTap,
+  onAmenityTap,
+  hideAmenities,
   flyToTarget,
   onMapTap,
-  onExhibitsLoaded,
 }: ParkMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
   const mapRef = useRef<maplibregl.Map | null>(null)
   const flyToTargetRef = useRef(flyToTarget)
   const onPinTapRef = useRef(onPinTap)
+  const onAmenityTapRef = useRef(onAmenityTap)
   const onMapTapRef = useRef(onMapTap)
-  const onExhibitsLoadedRef = useRef(onExhibitsLoaded)
   // Keep refs current so stale-closure handlers always call the latest callbacks
   // eslint-disable-next-line react-hooks/refs
   flyToTargetRef.current = flyToTarget
   // eslint-disable-next-line react-hooks/refs
   onPinTapRef.current = onPinTap
   // eslint-disable-next-line react-hooks/refs
-  onMapTapRef.current = onMapTap
+  onAmenityTapRef.current = onAmenityTap
   // eslint-disable-next-line react-hooks/refs
-  onExhibitsLoadedRef.current = onExhibitsLoaded
+  onMapTapRef.current = onMapTap
   const [peekChips, setPeekChips] = useState<PeekChip[]>([])
+  const [mapReady, setMapReady] = useState(false)
+  const [amenityChips, setAmenityChips] = useState<
+    { amenity: CachedAmenity; el: HTMLDivElement }[]
+  >([])
+  const cachedAmenities = useStore((s) => s.cachedAmenities)
+  const activeAmenityId = useMapStore((s) => s.activeAmenityId)
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
   useEffect(() => {
@@ -234,30 +279,7 @@ export default function ParkMap({
 
     map.on('load', async () => {
       if (cancelled) return
-      const { data } = await supabase
-        .from('exhibits')
-        .select(
-          'id, name, type, tier, status, gps_lng, gps_lat, exhibit_qr_codes(code), exhibit_audio(language, status)'
-        )
-        .eq('exhibit_qr_codes.status', 'active')
-        .not('gps_lat', 'is', null)
-        .not('gps_lng', 'is', null)
-
-      exhibitsRef.current = (data ?? []).map((row) => ({
-        id: row.id,
-        name: row.name,
-        type: row.type,
-        tier: row.tier,
-        gps_lat: row.gps_lat,
-        gps_lng: row.gps_lng,
-        status: row.status ?? 'live',
-        qr_code: (row.exhibit_qr_codes as { code: string }[] | null)?.[0]?.code ?? null,
-        languages:
-          (row.exhibit_audio as { language: string; status: string }[] | null)
-            ?.filter((a) => a.status === 'published')
-            .map((a) => a.language) ?? [],
-      }))
-      onExhibitsLoadedRef.current?.(exhibitsRef.current)
+      exhibitsRef.current = toMapExhibits(useStore.getState().cachedExhibits)
 
       const visitedExhibits = useStore.getState().visitedExhibits
       const exhibitPinsGeoJson = {
@@ -493,6 +515,8 @@ export default function ParkMap({
         const c = map.getCenter()
         useStore.getState().setMapViewport({ center: [c.lng, c.lat], zoom: map.getZoom() })
       })
+
+      setMapReady(true)
     })
 
     map.on('error', onLoadError)
@@ -517,9 +541,62 @@ export default function ParkMap({
     mapRef.current.flyTo({ center: [exhibit.gps_lng, exhibit.gps_lat], zoom: 19 })
   }, [flyToTarget])
 
+  // Amenity chips are DOM markers; React content is portalled into each marker element.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!mapReady || !map || hideAmenities) return
+    const chips = cachedAmenities.map((amenity) => {
+      const el = document.createElement('div')
+      el.setAttribute('role', 'button')
+      el.tabIndex = 0
+      el.style.cursor = 'pointer'
+      el.addEventListener('click', (e) => {
+        e.stopPropagation()
+        onAmenityTapRef.current(amenity.id)
+      })
+      el.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
+        onAmenityTapRef.current(amenity.id)
+      })
+      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([amenity.gps_lng, amenity.gps_lat])
+        .addTo(map)
+      el.setAttribute('aria-label', amenity.name) // addTo sets a generic "Map marker" label
+      return { amenity, el, marker }
+    })
+    setAmenityChips(chips)
+    return () => {
+      chips.forEach((c) => c.marker.remove())
+      setAmenityChips([])
+    }
+  }, [mapReady, hideAmenities, cachedAmenities])
+
+  useEffect(() => {
+    if (!activeAmenityId || !mapRef.current) return
+    const amenity = useStore.getState().cachedAmenities.find((a) => a.id === activeAmenityId)
+    if (!amenity) return
+    // GPS follow would panTo(user) over the flyTo
+    useMapStore.getState().setFollowMode('idle')
+    mapRef.current.flyTo({ center: [amenity.gps_lng, amenity.gps_lat] })
+  }, [activeAmenityId])
+
+  useEffect(() => {
+    amenityChips.forEach(({ amenity, el }) =>
+      el.setAttribute('aria-pressed', String(amenity.id === activeAmenityId))
+    )
+  }, [amenityChips, activeAmenityId])
+
   return (
     <div className="absolute inset-0">
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      {amenityChips.map(({ amenity, el }) =>
+        createPortal(
+          <AmenityChipEl amenity={amenity} selected={amenity.id === activeAmenityId} />,
+          el,
+          amenity.id
+        )
+      )}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {peekChips.map((chip) => (
           <PeekChipEl key={chip.id} chip={chip} />
