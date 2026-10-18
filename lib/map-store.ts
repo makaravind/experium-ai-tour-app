@@ -21,6 +21,8 @@ interface MapStoreState {
   clearExhibitPageData: () => void
   activeExhibitId: string | null
   setActiveExhibitId: (id: string | null) => void
+  activeAmenityId: string | null
+  setActiveAmenityId: (id: string | null) => void
   nearbyExhibitIds: string[]
   setNearbyExhibitIds: (ids: string[]) => void
   userPosition: UserPosition | null
@@ -48,6 +50,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   clearExhibitPageData: () => set({ exhibitPageData: null }),
   activeExhibitId: null,
   setActiveExhibitId: (id) => set({ activeExhibitId: id }),
+  activeAmenityId: null,
+  setActiveAmenityId: (id) => set({ activeAmenityId: id }),
   nearbyExhibitIds: [],
   setNearbyExhibitIds: (ids) => {
     const current = get().nearbyExhibitIds

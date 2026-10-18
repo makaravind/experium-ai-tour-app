@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
 import ParkMap from '@/components/map/ParkMap'
+import AmenitiesPill from '@/components/amenity/AmenitiesPill'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
@@ -38,6 +39,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [navigateEnabled, setNavigateEnabled] = useState(false)
   const [mapFailed, setMapFailed] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [searchMode, setSearchMode] = useState<'exhibits' | 'amenities'>('exhibits')
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
   const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<{ total: number; saved: boolean } | null>(null)
@@ -133,11 +135,18 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   }, [toast])
 
   const handlePinTap = (pin: MapExhibit) => {
+    useMapStore.getState().setActiveAmenityId(null)
     setMapSelectedExhibit(toPreviewExhibit(pin))
     setNavigateEnabled(true)
   }
 
+  const handleAmenityTap = (id: string) => {
+    setMapSelectedExhibit(null)
+    useMapStore.getState().setActiveAmenityId(id)
+  }
+
   const handleMapTap = () => {
+    useMapStore.getState().setActiveAmenityId(null)
     if (isExhibitPage) {
       setMapSelectedExhibit(null)
       router.push('/map')
@@ -159,6 +168,17 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     } else {
       handleMapTap()
     }
+    setSearchMode('exhibits')
+    setSearchOpen(true)
+  }
+
+  // Unlike the search bar, keeps the amenity selection
+  const handleOpenAmenitySearch = () => {
+    if (isExhibitPage) {
+      setMapSelectedExhibit(null)
+      router.push('/map')
+    }
+    setSearchMode('amenities')
     setSearchOpen(true)
   }
 
@@ -258,6 +278,12 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         </button>
       </div>
 
+      {!mapFailed && (
+        <div className="absolute left-4" style={{ top: 112, zIndex: 20 }}>
+          <AmenitiesPill onClick={handleOpenAmenitySearch} />
+        </div>
+      )}
+
       <PreviewSheet
         exhibit={sheetExhibit}
         audio={sheetAudio}
@@ -292,8 +318,13 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           nearbyExhibitIds={nearbyExhibitIds}
           userPosition={userPosition}
           mapFailed={mapFailed}
+          initialMode={searchMode}
           onClose={() => setSearchOpen(false)}
           onSelect={handleSearchSelect}
+          onSelectAmenity={(amenity) => {
+            setSearchOpen(false)
+            handleAmenityTap(amenity.id)
+          }}
         />
       )}
 
