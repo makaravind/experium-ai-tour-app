@@ -9,6 +9,7 @@ export default function TabBar() {
   const pathname = usePathname()
   const isHome = pathname === '/'
   const isMap = pathname === '/map'
+  const moreOpen = useStore((s) => s.moreMenuOpen)
 
   return (
     <nav
@@ -66,13 +67,18 @@ export default function TabBar() {
         type="button"
         onClick={() => useStore.getState().setMoreMenuOpen(true)}
         aria-haspopup="menu"
-        className="flex flex-col items-center gap-0.5 text-[10.5px] font-extrabold flex-1 text-ex-muted"
+        aria-expanded={moreOpen}
+        className={`flex flex-col items-center gap-0.5 text-[10.5px] font-extrabold flex-1 ${moreOpen ? 'text-ex-forest-shadow' : 'text-ex-muted'}`}
       >
-        <svg width={24} height={24} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <circle cx="5" cy="12" r="2" />
-          <circle cx="12" cy="12" r="2" />
-          <circle cx="19" cy="12" r="2" />
-        </svg>
+        <span
+          className={`grid place-items-center w-11 h-7 rounded-[14px] transition-colors ${moreOpen ? 'bg-ex-forest/10' : ''}`}
+        >
+          <svg width={24} height={24} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="5.5" cy="12" r="1.9" />
+            <circle cx="12" cy="12" r="1.9" />
+            <circle cx="18.5" cy="12" r="1.9" />
+          </svg>
+        </span>
         More
       </button>
     </nav>
