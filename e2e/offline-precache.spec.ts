@@ -67,4 +67,39 @@ test.describe('Offline after upfront precache', () => {
     const status = await page.evaluate(async (u) => (await fetch(u)).status, src)
     expect(status).toBe(200)
   })
+
+  test('offline cold open with a saved dataset but audio gaps reaches the map, not the blocker', async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'offline + service worker is only reliable in chromium')
+
+    // Online: the real precache saves the dataset to the store and the mp3 to Cache Storage
+    await page.goto(`/s/${QR_CODE}`)
+    await page.getByRole('button', { name: 'Skip for now' }).click({ timeout: 30000 })
+    await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
+    await page.evaluate(() => navigator.serviceWorker.ready)
+
+    // Open a gap: dataset stays in the store, audio is gone from Cache Storage
+    const cachedAudio = await page.evaluate(async () => {
+      const cache = await caches.open('audio-cache')
+      const keys = await cache.keys()
+      await Promise.all(keys.map((r) => cache.delete(r)))
+      return keys.length
+    })
+    expect(cachedAudio).toBeGreaterThan(0)
+
+    // setOffline only cuts the network: later documents still report navigator.onLine === true
+    await page.addInitScript(() =>
+      Object.defineProperty(Navigator.prototype, 'onLine', { get: () => false })
+    )
+    await context.setOffline(true)
+    await page.goto('/map')
+
+    await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeVisible({
+      timeout: 15000,
+    })
+    await expect(page.getByText('Connect to the internet')).toBeHidden()
+  })
 })
