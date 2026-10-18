@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { CachedExhibit, Language, User } from '@/lib/types'
+import type { CachedAmenity, CachedExhibit, Language, User } from '@/lib/types'
 
 export type QueuedScan = {
   id: string
@@ -24,6 +24,9 @@ interface Store {
 
   cachedExhibits: CachedExhibit[]
   setCachedExhibits: (e: CachedExhibit[]) => void
+
+  cachedAmenities: CachedAmenity[]
+  setCachedAmenities: (a: CachedAmenity[]) => void
 
   // QR codes already counted toward totalDiscovered
   discoveredCodes: string[]
@@ -90,6 +93,9 @@ export const useStore = create<Store>()(
       cachedExhibits: [],
       setCachedExhibits: (cachedExhibits) => set({ cachedExhibits }),
 
+      cachedAmenities: [],
+      setCachedAmenities: (cachedAmenities) => set({ cachedAmenities }),
+
       discoveredCodes: [],
       discoverCode: (code) => {
         const s = get()
@@ -137,17 +143,20 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'experium-store',
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<Store>
         if (version === 0) {
           return {
             ...state,
             cachedExhibits: [],
+            cachedAmenities: [],
             precacheLanguage:
               state.completionByGroup?.['audio-cache']?.language ?? state.language ?? 'en',
           } as Store
         }
+        // v1 cachedExhibits has no GPS: clear so AppGate re-runs runPrecache
+        if (version < 2) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
         return state as Store
       },
       partialize: (s) => ({
@@ -158,6 +167,7 @@ export const useStore = create<Store>()(
         userInfo: s.userInfo,
         mapViewport: s.mapViewport,
         cachedExhibits: s.cachedExhibits,
+        cachedAmenities: s.cachedAmenities,
         discoveredCodes: s.discoveredCodes,
         scanQueue: s.scanQueue,
         precacheLanguage: s.precacheLanguage,

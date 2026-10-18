@@ -6,6 +6,7 @@ beforeEach(() => {
     language: 'en',
     visitedExhibits: [],
     cachedExhibits: [],
+    cachedAmenities: [],
     precacheLanguage: null,
     completionByGroup: {},
     assetFailures: {},
@@ -107,6 +108,45 @@ describe('persist migration v0 -> v1', () => {
     const out = migrate({ language: 'hi', cachedExhibits: [{ id: 'x' }] })
     expect(out.cachedExhibits).toEqual([])
     expect(out.precacheLanguage).toBe('hi')
+  })
+})
+
+describe('persist migration v1 -> v2', () => {
+  const migrate = (state: object) => {
+    const fn = useStore.persist.getOptions().migrate!
+    return fn(state, 1) as unknown as Record<string, unknown>
+  }
+
+  it('clears cachedExhibits (no GPS), defaults cachedAmenities to [], keeps the rest', () => {
+    const out = migrate({
+      language: 'hi',
+      cachedExhibits: [{ id: 'x' }],
+      precacheLanguage: 'hi',
+      visitedExhibits: ['a'],
+    })
+    expect(out.cachedExhibits).toEqual([])
+    expect(out.cachedAmenities).toEqual([])
+    expect(out.precacheLanguage).toBe('hi')
+    expect(out.visitedExhibits).toEqual(['a'])
+  })
+
+  it('leaves v2 state untouched', () => {
+    const fn = useStore.persist.getOptions().migrate!
+    const out = fn(
+      { cachedExhibits: [{ id: 'x' }], cachedAmenities: [{ id: 'a' }] },
+      2
+    ) as unknown as Record<string, unknown>
+    expect(out.cachedExhibits).toEqual([{ id: 'x' }])
+    expect(out.cachedAmenities).toEqual([{ id: 'a' }])
+  })
+
+  it('persists cachedAmenities', () => {
+    useStore.setState({ cachedAmenities: [{ id: 'a' } as never] })
+    const out = useStore.persist.getOptions().partialize!(useStore.getState()) as Record<
+      string,
+      unknown
+    >
+    expect(out.cachedAmenities).toEqual([{ id: 'a' }])
   })
 })
 
