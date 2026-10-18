@@ -1,6 +1,13 @@
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/lib/store'
-import type { AmenityType, CachedAmenity, CachedExhibit, ExhibitStatus, Fact, Language } from '@/lib/types'
+import type {
+  AmenityType,
+  CachedAmenity,
+  CachedExhibit,
+  ExhibitStatus,
+  Fact,
+  Language,
+} from '@/lib/types'
 
 export const MAX_ATTEMPTS = 3
 export const CONCURRENCY = 6
@@ -32,7 +39,7 @@ export interface PrecacheDeps {
   /** urls currently in Cache Storage for a cache name */
   listCached: (cacheName: string) => Promise<Iterable<string>>
   /** fetch one asset so the SW caches it; throws on failure */
-  fetchAsset: (url: string) => Promise<void>
+  fetchAsset: (url: string, signal?: AbortSignal) => Promise<void>
   isOnline: () => boolean
 }
 
@@ -111,8 +118,8 @@ const realDeps: PrecacheDeps = {
     const cache = await caches.open(cacheName)
     return (await cache.keys()).map((r) => r.url)
   },
-  fetchAsset: async (url) => {
-    const res = await fetch(url)
+  fetchAsset: async (url, signal) => {
+    const res = await fetch(url, { signal })
     if (!res.ok) throw new Error(`${res.status} ${url}`)
     await res.arrayBuffer() // finish the download before counting it
   },
@@ -145,6 +152,8 @@ export async function precacheGroups(
     maxAttempts?: number
     /** checked before each fetch; once true no new urls are taken and no retry rounds run */
     isCancelled?: () => boolean
+    /** aborts in-flight fetches immediately; treated as cancelled, no failure counted */
+    signal?: AbortSignal
   } & Partial<PrecacheDeps>
 ): Promise<PrecacheResult> {
   const deps = { ...realDeps, ...opts }
@@ -165,7 +174,7 @@ export async function precacheGroups(
     .flat()
     .filter((u) => (failures[u]?.count ?? 0) < max)
 
-  const cancelled = () => opts.isCancelled?.() ?? false
+  const cancelled = () => (opts.signal?.aborted ?? false) || (opts.isCancelled?.() ?? false)
 
   while (todo.length > 0 && !offline && !cancelled()) {
     const retry: string[] = []
@@ -173,10 +182,11 @@ export async function precacheGroups(
     const worker = async () => {
       for (let url = queue.shift(); url && !offline && !cancelled(); url = queue.shift()) {
         try {
-          await deps.fetchAsset(url)
+          await deps.fetchAsset(url, opts.signal)
           delete failures[url]
           opts.onProgress?.(++fetched, total)
-        } catch {
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return
           if (!deps.isOnline()) {
             offline = true // connectivity, not a bad asset: don't burn an attempt
             return
@@ -215,7 +225,8 @@ export async function precacheGroups(
 export async function runPrecache(
   language: Language,
   onProgress?: (fetched: number, total: number) => void,
-  isCancelled?: () => boolean
+  isCancelled?: () => boolean,
+  signal?: AbortSignal
 ): Promise<PrecacheResult> {
   const [exhibits, amenities] = await Promise.all([fetchCachedExhibits(), fetchCachedAmenities()])
   useStore.getState().setCachedExhibits(exhibits)
@@ -224,6 +235,7 @@ export async function runPrecache(
     failures: useStore.getState().assetFailures,
     onProgress,
     isCancelled,
+    signal,
   })
   const s = useStore.getState()
   s.setAssetFailures(result.failures)

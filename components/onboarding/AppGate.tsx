@@ -74,6 +74,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const runningRef = useRef(false)
   const restartRef = useRef(false)
   const runRef = useRef<() => Promise<void>>(async () => {})
+  const abortRef = useRef<AbortController | null>(null)
 
   const setPhase = useCallback((p: GatePhase) => {
     phaseRef.current = p
@@ -137,6 +138,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
       setPhase('loading')
       setPct(0)
       setLabel(undefined)
+      const controller = new AbortController()
+      abortRef.current = controller
       const [result] = await Promise.all([
         runPrecache(
           target,
@@ -144,7 +147,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
             setPct(total ? (fetched / total) * 100 : 0)
             setLabel(total ? `Downloading ${fetched} of ${total}` : undefined)
           },
-          () => restartRef.current
+          () => restartRef.current,
+          controller.signal
         ),
         idPromise,
       ])
@@ -188,6 +192,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const handleLanguageChange = useCallback(
     (code: Language) => {
       if (code === useStore.getState().precacheLanguage) return
+      abortRef.current?.abort()
+      setPct(0)
       useStore.getState().setPrecacheLanguage(code)
       void run()
     },
