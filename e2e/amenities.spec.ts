@@ -116,10 +116,75 @@ test.describe('Amenities', () => {
     await expect(page.locator('[data-selected="true"]')).toBeVisible()
   })
 
+  test('pill with a chip selected opens amenity search and keeps the selection', async ({
+    page,
+  }) => {
+    await page.goto('/map')
+    await chip(page).click()
+    await expect(page.getByText(DESCRIPTION)).toBeVisible()
+
+    // The scrim must not swallow the tap
+    await page.getByRole('button', { name: 'Amenities' }).click()
+    await expect(page.getByPlaceholder('Search amenities')).toBeVisible()
+
+    await page.getByPlaceholder('Search amenities').fill('wash')
+    // Overlay's pill renders after the layout's; ✕ returns to exhibits mode and clears the query
+    await page.getByRole('button', { name: 'Amenities' }).last().click()
+    await expect(page.getByPlaceholder('Search exhibits')).toHaveValue('')
+    await expect(page.getByText('Baobab Forest')).toBeVisible()
+    await page.getByRole('button', { name: 'Close search' }).click()
+    await expect(page.getByText(DESCRIPTION)).toBeVisible()
+    await expect(page.locator('[data-selected="true"]')).toBeVisible()
+  })
+
+  test('map failure hides chips, pill and sheet; search still lists exhibits', async ({ page }) => {
+    await page.route('**/park.pmtiles', (route) => route.abort())
+    await page.goto('/map')
+    await expect(page.getByRole('button', { name: 'Amenities' })).toBeHidden()
+    await expect(chip(page)).toBeHidden()
+
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    await expect(page.getByText('Baobab Forest')).toBeVisible()
+  })
+
+  test('exhibit-page entry clears a selected amenity', async ({ page }) => {
+    await page.goto('/map')
+    await chip(page).click()
+    await expect(page.getByText(DESCRIPTION)).toBeVisible()
+
+    // Client-side navigation, as a QR scan does
+    await page.evaluate((code) => (window as any).next.router.push(`/s/${code}`), QR_CODE)
+    await expect(page.getByRole('button', { name: /listen/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(DESCRIPTION)).toBeHidden()
+
+    await expect(async () => {
+      await page.mouse.click(30, 300)
+      await expect(page).toHaveURL(/\/map$/, { timeout: 1000 })
+    }).toPass()
+    await expect(chip(page)).toBeVisible()
+    await expect(page.locator('[data-selected="true"]')).toBeHidden()
+  })
+
   test.describe('with a GPS fix at Baobab Forest', () => {
     test.use({
       geolocation: { latitude: 17.937484, longitude: 78.460897 },
       permissions: ['geolocation'],
+    })
+
+    test('chip tap leaves GPS follow mode and is keyboard operable', async ({ page }) => {
+      await page.goto('/map')
+      const compass = page
+        .getByRole('button', { name: 'Home' })
+        .locator('..')
+        .getByRole('button')
+        .last()
+      await expect(compass).toHaveClass(/bg-ex-forest/, { timeout: 15000 })
+
+      await chip(page).focus()
+      await expect(chip(page)).toHaveAttribute('aria-pressed', 'false')
+      await page.keyboard.press('Enter')
+      await expect(chip(page)).toHaveAttribute('aria-pressed', 'true')
+      await expect(compass).not.toHaveClass(/bg-ex-forest/)
     })
 
     test('badge shows distance; exhibit pin after an amenity leaves one sheet', async ({

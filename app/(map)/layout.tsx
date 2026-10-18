@@ -138,6 +138,10 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t)
   }, [toast])
 
+  useEffect(() => {
+    if (mapFailed) useMapStore.getState().setActiveAmenityId(null)
+  }, [mapFailed])
+
   const handlePinTap = (pin: MapExhibit) => {
     useMapStore.getState().setActiveAmenityId(null)
     setMapSelectedExhibit(toPreviewExhibit(pin))
@@ -286,7 +290,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {!mapFailed && (
-        <div className="absolute left-4" style={{ top: 112, zIndex: 20 }}>
+        <div className="absolute left-4" style={{ top: 112, zIndex: 45 }}>
           <AmenitiesPill onClick={handleOpenAmenitySearch} />
         </div>
       )}
@@ -302,10 +306,12 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         onAudioEnded={isShowingCurrentExhibit ? handleAudioEnded : undefined}
       />
 
-      <AmenitySheet
-        amenityId={activeAmenityId}
-        onClose={() => useMapStore.getState().setActiveAmenityId(null)}
-      />
+      {!mapFailed && (
+        <AmenitySheet
+          amenityId={activeAmenityId}
+          onClose={() => useMapStore.getState().setActiveAmenityId(null)}
+        />
+      )}
 
       <AnimatePresence>
         {toast && (

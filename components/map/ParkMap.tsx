@@ -548,9 +548,15 @@ export default function ParkMap({
     const chips = cachedAmenities.map((amenity) => {
       const el = document.createElement('div')
       el.setAttribute('role', 'button')
+      el.tabIndex = 0
       el.style.cursor = 'pointer'
       el.addEventListener('click', (e) => {
         e.stopPropagation()
+        onAmenityTapRef.current(amenity.id)
+      })
+      el.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
         onAmenityTapRef.current(amenity.id)
       })
       const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
@@ -569,8 +575,17 @@ export default function ParkMap({
   useEffect(() => {
     if (!activeAmenityId || !mapRef.current) return
     const amenity = useStore.getState().cachedAmenities.find((a) => a.id === activeAmenityId)
-    if (amenity) mapRef.current.flyTo({ center: [amenity.gps_lng, amenity.gps_lat] })
+    if (!amenity) return
+    // GPS follow would panTo(user) over the flyTo
+    useMapStore.getState().setFollowMode('idle')
+    mapRef.current.flyTo({ center: [amenity.gps_lng, amenity.gps_lat] })
   }, [activeAmenityId])
+
+  useEffect(() => {
+    amenityChips.forEach(({ amenity, el }) =>
+      el.setAttribute('aria-pressed', String(amenity.id === activeAmenityId))
+    )
+  }, [amenityChips, activeAmenityId])
 
   return (
     <div className="absolute inset-0">
