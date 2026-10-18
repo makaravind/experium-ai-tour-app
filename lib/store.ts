@@ -59,6 +59,9 @@ interface Store {
 
   listenedCurrentExhibit: boolean
   setListenedCurrentExhibit: (b: boolean) => void
+
+  refreshRequested: boolean
+  setRefreshRequested: (v: boolean) => void
 }
 
 export const useStore = create<Store>()(
@@ -116,6 +119,9 @@ export const useStore = create<Store>()(
 
       listenedCurrentExhibit: false,
       setListenedCurrentExhibit: (listenedCurrentExhibit) => set({ listenedCurrentExhibit }),
+
+      refreshRequested: false,
+      setRefreshRequested: (refreshRequested) => set({ refreshRequested }),
     }),
     {
       name: 'experium-store',
