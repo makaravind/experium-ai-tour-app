@@ -178,6 +178,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
     useStore.getState().setRefreshRequested(false)
     void (async () => {
       if (useDebugStore.getState().isActive) await caches.delete('audio-cache')
+      useStore.getState().setCachedExhibits([])
       await run()
     })()
   }, [refreshRequested, run])
