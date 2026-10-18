@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
 import ParkMap from '@/components/map/ParkMap'
 import AmenitiesPill from '@/components/amenity/AmenitiesPill'
+import AmenitySheet from '@/components/amenity/AmenitySheet'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
@@ -57,6 +58,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const retryGpsTrigger = useMapStore((s) => s.retryGpsTrigger)
   const nearbyExhibitIds = useMapStore((s) => s.nearbyExhibitIds)
   const userPosition = useMapStore((s) => s.userPosition)
+  const activeAmenityId = useMapStore((s) => s.activeAmenityId)
 
   // Clear map-page state when leaving exhibit page
 
@@ -73,6 +75,8 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         setFlyToTarget(null)
         setNavigateEnabled(false)
       }
+    } else {
+      useMapStore.getState().setActiveAmenityId(null)
     }
   }, [isExhibitPage])
 
@@ -183,6 +187,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   }
 
   const handleSearchSelect = (exhibit: MapExhibit) => {
+    useMapStore.getState().setActiveAmenityId(null)
     setSearchOpen(false)
     if (mapFailed) {
       if (exhibit.qr_code) router.push(`/s/${exhibit.qr_code}`)
@@ -208,6 +213,8 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         <ParkMap
           onLoadError={() => setMapFailed(true)}
           onPinTap={handlePinTap}
+          onAmenityTap={handleAmenityTap}
+          hideAmenities={isExhibitPage}
           flyToTarget={flyToTarget}
           onMapTap={handleMapTap}
         />
@@ -293,6 +300,11 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         onFirstPlay={sheetOnFirstPlay}
         onQuartile={sheetOnQuartile}
         onAudioEnded={isShowingCurrentExhibit ? handleAudioEnded : undefined}
+      />
+
+      <AmenitySheet
+        amenityId={activeAmenityId}
+        onClose={() => useMapStore.getState().setActiveAmenityId(null)}
       />
 
       <AnimatePresence>
