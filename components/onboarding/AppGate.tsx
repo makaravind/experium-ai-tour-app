@@ -150,8 +150,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
       // surfacing it (clear/info/error) would flash wrong-language content. The finally block re-runs.
       if (!restartRef.current) finish(result)
     } catch {
-      // handshake or dataset query failed: treat as network failure
-      if (!restartRef.current) setPhase('blocked-offline')
+      // handshake or dataset query failed: offline is a connectivity problem, online is a fetch failure
+      if (!restartRef.current) setPhase(navigator.onLine ? 'fetch-error' : 'blocked-offline')
     } finally {
       runningRef.current = false
       if (restartRef.current) {
@@ -214,6 +214,24 @@ export default function AppGate({ children }: { children: ReactNode }) {
       <Screen
         title="Connect to the internet"
         body="We need a connection once to download the audio tour. After that it works offline."
+      >
+        <button
+          type="button"
+          className={buttonClass}
+          style={{ border: 'none' }}
+          onClick={() => void run()}
+        >
+          Try again
+        </button>
+      </Screen>
+    )
+  }
+
+  if (phase === 'fetch-error') {
+    return (
+      <Screen
+        title="Something went wrong"
+        body="Couldn't load the tour data. Check your connection and try again."
       >
         <button
           type="button"
