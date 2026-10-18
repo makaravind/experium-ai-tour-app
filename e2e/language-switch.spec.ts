@@ -239,6 +239,34 @@ test.describe('Language switch from the sheet', () => {
   })
 })
 
+test('abort: language switch cancels stalled download without waiting for it', async ({ page }) => {
+  await mockPrecacheDataset(page, { seedCache: false })
+  await seedVisitor(page, { language: 'en', precacheLanguage: 'en' }, { cacheEn: false })
+
+  // EN hangs forever — the abort must cancel it rather than wait for completion
+  let enStarted = false
+  await page.route(FAKE_AUDIO_URL, () => {
+    enStarted = true
+    // intentionally never fulfilled
+  })
+  const hiRequests: string[] = []
+  await page.route(FAKE_HI_AUDIO_URL, (route) => {
+    hiRequests.push(route.request().url())
+    return route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
+  })
+
+  await page.goto(`/s/${QR_CODE}`)
+  await expect(page.getByText('Choose your language')).toBeVisible({ timeout: 10000 })
+  await expect.poll(() => enStarted, { timeout: 10000 }).toBe(true)
+
+  await page.getByRole('button', { name: 'हिंदी' }).click()
+
+  // Picker reflects the new selection immediately
+  await expect(page.getByRole('button', { name: 'हिंदी' })).toHaveAttribute('aria-pressed', 'true')
+  // HI fetch starts right away — EN was never unblocked, so this proves the abort happened
+  await expect.poll(() => hiRequests.length, { timeout: 10000 }).toBeGreaterThan(0)
+})
+
 test('catch-up run: picker re-targets the download to the tapped language', async ({ page }) => {
   await trackPageLandScans(page)
   // EN is not in Cache Storage, so the gate has to download it
