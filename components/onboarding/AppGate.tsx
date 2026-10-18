@@ -85,7 +85,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
     (result: PrecacheResult) => {
       const capped = result.groups.some((g) => g.capped.length > 0)
       if (capped) setPhase('asset-error')
-      else if (result.offline || result.groups.some((g) => !g.complete)) setPhase('blocked-offline')
+      else if (result.offline) setPhase('blocked-offline')
+      else if (result.groups.some((g) => !g.complete)) setPhase('asset-error')
       else setPhase(nextAfterClear())
     },
     [setPhase]
