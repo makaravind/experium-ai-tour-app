@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import DebugPanel from '@/components/DebugPanel'
 import AppGate from '@/components/onboarding/AppGate'
+import ScanQueueSync from '@/components/ScanQueueSync'
 import { SerwistProvider } from '@serwist/next/react'
 
 export const metadata: Metadata = {
@@ -29,6 +30,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-body antialiased">
         <SerwistProvider swUrl="/sw.js" register cacheOnNavigation={false} reloadOnOnline={false}>
+          <ScanQueueSync />
           <AppGate>{children}</AppGate>
         </SerwistProvider>
         <Analytics />
