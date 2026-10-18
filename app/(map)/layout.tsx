@@ -8,6 +8,7 @@ import ParkMap from '@/components/map/ParkMap'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
 import TabBar from '@/components/exhibit/TabBar'
+import UserMenu from '@/components/more/UserMenu'
 import { CompassIcon, HomeIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
@@ -324,6 +325,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       )}
 
       <TabBar />
+      <UserMenu />
       {children}
     </div>
   )
