@@ -1,8 +1,18 @@
-import { describe, it, expect, vi } from 'vitest'
-import { getAssetGroups, precacheGroups, findMissing } from '@/lib/precache'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createElement } from 'react'
+import { render, waitFor } from '@testing-library/react'
+import AppGate from '@/components/onboarding/AppGate'
+import { useDebugStore } from '@/lib/debug-store'
+import { getAssetGroups, precacheGroups, findMissing, checkFresh } from '@/lib/precache'
 import type { CachedExhibit } from '@/lib/types'
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
+vi.mock('@/lib/handshake-lock', () => ({ getOrCreateVisitorId: async () => 'visitor-1' }))
+vi.mock('@/lib/precache', async (orig) => ({
+  ...(await orig<typeof import('@/lib/precache')>()),
+  checkFresh: vi.fn(),
+  runPrecache: vi.fn(),
+}))
 
 const u = (n: number) => `https://cdn.test/a${n}.mp3`
 
@@ -150,5 +160,39 @@ describe('findMissing', () => {
       }
     )
     expect(m).toEqual({ c: ['https://x.test/b.mp3'] })
+  })
+})
+
+describe('AppGate offline with gaps', () => {
+  const gaps = { 'audio-cache': [u(1)] }
+  const gate = () => createElement(AppGate, null, 'app')
+
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+    useDebugStore.setState({ cacheDebug: null })
+    Object.defineProperty(navigator, 'onLine', { value: false, writable: true, configurable: true })
+  })
+
+  it('lets a visitor with a dataset through to onboarding (nextAfterClear), not blocked-offline', async () => {
+    vi.mocked(checkFresh).mockResolvedValue({ hasDataset: true, missing: gaps })
+    const { container } = render(gate())
+    await waitFor(() => expect(useDebugStore.getState().cacheDebug).toBe('info'))
+    expect(container).not.toHaveTextContent('Connect to the internet')
+  })
+
+  it('lets an onboarded visitor with a dataset straight into the app', async () => {
+    localStorage.setItem('experium_onboarded', '1')
+    vi.mocked(checkFresh).mockResolvedValue({ hasDataset: true, missing: gaps })
+    const { container } = render(gate())
+    await waitFor(() => expect(useDebugStore.getState().cacheDebug).toBe('clear'))
+    expect(container).toHaveTextContent('app')
+  })
+
+  it('still blocks a visitor with no dataset', async () => {
+    vi.mocked(checkFresh).mockResolvedValue({ hasDataset: false, missing: gaps })
+    const { findByText } = render(gate())
+    await findByText('Connect to the internet')
+    expect(useDebugStore.getState().cacheDebug).toBe('blocked-offline')
   })
 })
