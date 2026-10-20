@@ -56,7 +56,7 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
   const { data, error } = await supabase
     .from('exhibits')
     .select(
-      'id, name, type, tier, facts, status, gps_lat, gps_lng, exhibit_qr_codes(code, status), exhibit_audio(language, audio_url, status)'
+      'id, code, name, type, tier, facts, status, gps_lat, gps_lng, exhibit_qr_codes(code, status), exhibit_audio(language, audio_url, status)'
     )
   if (error || !data) throw new Error(error?.message ?? 'exhibits query returned no data')
 
@@ -70,6 +70,7 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
     return {
       id: row.id,
       code: qr?.code ?? null,
+      displayNumber: (row.code as number | null) ?? null,
       status: qr?.status === 'active' ? 'active' : 'coming_soon',
       name: row.name,
       type: row.type,
