@@ -341,7 +341,7 @@ export default function ParkMap({
         lat: exhibit.gps_lat,
         lng: exhibit.gps_lng,
         status: exhibit.status,
-        number: exhibit.displayNumber ?? 0,
+        number: exhibit.displayNumber,
       }))
 
       try {

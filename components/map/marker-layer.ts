@@ -10,7 +10,7 @@ export type MarkerInput = {
   lat: number
   lng: number
   status: 'live' | 'coming_soon'
-  number: number
+  number: number | null
 }
 
 const RISE_DURATION_MS = 400
@@ -67,7 +67,7 @@ function darkenHex(hex: string, amount: number): string {
 }
 
 /** Baked 96×96 marker disc: tinted gradient ring, dark gap, white disc, exhibit number. One per marker × tint. */
-function buildDiscTexture(num: number, tintKey: TintKey): THREE.CanvasTexture {
+function buildDiscTexture(num: number | null, tintKey: TintKey): THREE.CanvasTexture {
   const s = 96
   const c = s / 2
   const R_outer = 44
@@ -112,12 +112,14 @@ function buildDiscTexture(num: number, tintKey: TintKey): THREE.CanvasTexture {
   ctx.arc(c, c, R_disc, 0, Math.PI * 2)
   ctx.fill()
 
-  // 4. Number
-  ctx.fillStyle = isDimmed ? '#aaaaaa' : '#1c1c1c'
-  ctx.font = 'bold 14px sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(String(num), c, c)
+  // 4. Number (omitted when null — disc stays blank until park number is assigned)
+  if (num !== null) {
+    ctx.fillStyle = isDimmed ? '#aaaaaa' : '#1c1c1c'
+    ctx.font = 'bold 14px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(num), c, c)
+  }
 
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
@@ -166,6 +168,7 @@ type MarkerEntry = {
   shadow: THREE.Mesh
   discTextures: Record<TintKey, THREE.CanvasTexture>
   rippleStartMs: number
+  prevTintKey: TintKey | null
 }
 
 export function createMarkerLayer(opts: {
@@ -189,7 +192,7 @@ export function createMarkerLayer(opts: {
   let activeId: string | null = null
   let activeSince = 0
 
-  function createMarkerEntry(number: number): MarkerEntry {
+  function createMarkerEntry(number: number | null): MarkerEntry {
     const pivot = new THREE.Group()
 
     const discTextures: Record<TintKey, THREE.CanvasTexture> = {
@@ -240,7 +243,7 @@ export function createMarkerLayer(opts: {
     pivot.add(disc)
     scene.add(pivot)
 
-    return { pivot, disc, aura, ripple, shadow, discTextures, rippleStartMs: -1 }
+    return { pivot, disc, aura, ripple, shadow, discTextures, rippleStartMs: -1, prevTintKey: null }
   }
 
   function removeMarkerEntry(entry: MarkerEntry): void {
@@ -268,7 +271,7 @@ export function createMarkerLayer(opts: {
       shadowGeometry = new THREE.PlaneGeometry(1, 1)
       shadowTexture = makeShadowTexture()
       discGeometry = new THREE.PlaneGeometry(1, 1)
-      auraGeometry = new THREE.PlaneGeometry(1, 1)
+      auraGeometry = discGeometry
       auraTexture = makeAuraTexture()
       rippleTexture = makeRippleTexture()
 
@@ -298,6 +301,8 @@ export function createMarkerLayer(opts: {
       const forcedMarkerState = useDebugStore.getState().forcedMarkerState
 
       const now = performance.now()
+      // '__forced-active__' is a sentinel that never matches a real exhibit id, so the rise animation
+      // triggers whenever forcedMarkerState switches to 'active' regardless of which exhibit is active.
       const activeKey = forcedMarkerState === 'active' ? '__forced-active__' : activeExhibitId
       const prevActiveId = activeId
       if (activeKey !== activeId) {
@@ -356,8 +361,11 @@ export function createMarkerLayer(opts: {
 
         // Disc: size, position, state texture
         entry.disc.scale.set(pinPx, pinPx, 1)
-        ;(entry.disc.material as THREE.MeshBasicMaterial).map = entry.discTextures[tintKey]
-        ;(entry.disc.material as THREE.MeshBasicMaterial).needsUpdate = true
+        if (tintKey !== entry.prevTintKey) {
+          ;(entry.disc.material as THREE.MeshBasicMaterial).map = entry.discTextures[tintKey]
+          ;(entry.disc.material as THREE.MeshBasicMaterial).needsUpdate = true
+          entry.prevTintKey = tintKey
+        }
 
         // Rise + shadow shrink
         let riseOffsetPx = 0
@@ -392,7 +400,8 @@ export function createMarkerLayer(opts: {
         const rippleElapsed = now - entry.rippleStartMs
         if (entry.rippleStartMs >= 0 && rippleElapsed < RIPPLE_DURATION_MS) {
           const t = rippleElapsed / RIPPLE_DURATION_MS
-          entry.ripple.scale.set(lerp(1, 1.9, t) * pinPx, lerp(1, 1.9, t) * pinPx, 1)
+          const rs = lerp(1, 1.9, t) * pinPx
+          entry.ripple.scale.set(rs, rs, 1)
           entry.ripple.position.set(0, riseOffsetPx, 0)
           ;(entry.ripple.material as THREE.MeshBasicMaterial).opacity = lerp(0.6, 0, t)
         } else {
@@ -429,9 +438,13 @@ export function createMarkerLayer(opts: {
 
       renderer.render(scene, camera)
 
-      const hasActiveRipple = [...markers.values()].some(
-        (e) => e.rippleStartMs >= 0 && now - e.rippleStartMs < RIPPLE_DURATION_MS
-      )
+      let hasActiveRipple = false
+      for (const e of markers.values()) {
+        if (e.rippleStartMs >= 0 && now - e.rippleStartMs < RIPPLE_DURATION_MS) {
+          hasActiveRipple = true
+          break
+        }
+      }
       const shouldRepaint = forcedMarkerState
         ? forcedMarkerState === 'active' || forcedMarkerState === 'nearby'
         : activeExhibitId !== null || nearbyExhibitIds.length > 0 || hasActiveRipple
@@ -448,8 +461,7 @@ export function createMarkerLayer(opts: {
 
       shadowGeometry.dispose()
       shadowTexture.dispose()
-      discGeometry.dispose()
-      auraGeometry.dispose()
+      discGeometry.dispose() // auraGeometry shares this instance
       auraTexture.dispose()
       rippleTexture.dispose()
 
