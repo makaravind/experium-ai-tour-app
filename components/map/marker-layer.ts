@@ -115,7 +115,7 @@ function buildDiscTexture(num: number | null, tintKey: TintKey): THREE.CanvasTex
   // 4. Number (omitted when null — disc stays blank until park number is assigned)
   if (num !== null) {
     ctx.fillStyle = isDimmed ? '#aaaaaa' : '#1c1c1c'
-    ctx.font = 'bold 14px sans-serif'
+    ctx.font = 'bold 22px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(String(num), c, c)
