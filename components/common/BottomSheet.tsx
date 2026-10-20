@@ -33,7 +33,7 @@ export default function BottomSheet({
   onCollapse?: () => void
   onReady?: () => void
   ref?: Ref<BottomSheetHandle>
-  children: (sheet: { expanded: boolean; collapse: () => void }) => ReactNode
+  children: (sheet: { expanded: boolean; collapse: () => void; expand: () => void }) => ReactNode
 }) {
   const [expanded, setExpanded] = useState(false)
   const [peekH, setPeekH] = useState<number | undefined>(undefined)
@@ -140,7 +140,7 @@ export default function BottomSheet({
           </button>
 
           {/* eslint-disable-next-line react-hooks/refs -- collapse only touches refs when called from handlers */}
-          {children({ expanded, collapse: () => collapse() })}
+          {children({ expanded, collapse: () => collapse(), expand: () => expand() })}
 
           <div style={{ height: TAB_BAR_CLEARANCE }} />
         </div>

@@ -32,10 +32,11 @@ export default function AmenitySheet({
 
   return (
     <BottomSheet itemId={amenity?.id ?? null} onClose={onClose}>
-      {({ expanded, collapse }) => (
+      {({ expanded, collapse, expand }) => (
         <div className="px-4">
           <SheetSummary
             expanded={expanded}
+            onExpand={expand}
             thumb={
               <div
                 className="w-14 h-14 rounded-xl grid place-items-center bg-ex-amenity"

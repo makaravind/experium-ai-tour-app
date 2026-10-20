@@ -230,7 +230,7 @@ export default function PreviewSheet({
         onCollapse={resetAudio}
         onReady={() => setReady(true)}
       >
-        {({ expanded, collapse }) => (
+        {({ expanded, collapse, expand }) => (
           <>
             <audio
               ref={audioRef}
@@ -277,6 +277,7 @@ export default function PreviewSheet({
             <div className="px-4">
               <SheetSummary
                 expanded={expanded}
+                onExpand={expand}
                 thumb={
                   <div
                     className="w-14 h-14 rounded-xl"

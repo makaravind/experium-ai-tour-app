@@ -12,6 +12,7 @@ export default function SheetSummary({
   nameAddon,
   badge,
   onCollapse,
+  onExpand,
   count,
   palette,
 }: {
@@ -21,6 +22,7 @@ export default function SheetSummary({
   nameAddon?: ReactNode
   badge?: ReactNode
   onCollapse: () => void
+  onExpand?: () => void
   count?: number
   palette?: Palette
 }) {
@@ -54,6 +56,10 @@ export default function SheetSummary({
               key="thumb"
               exit={{ opacity: 0, scale: 0.85 }}
               transition={{ duration: 0.15 }}
+              onClick={onExpand}
+              style={onExpand ? { cursor: 'pointer' } : undefined}
+              role={onExpand ? 'button' : undefined}
+              aria-label={onExpand ? 'Expand to full view' : undefined}
             >
               {thumb}
             </motion.div>
