@@ -10,9 +10,11 @@ export type MarkerInput = {
   lat: number
   lng: number
   status: 'live' | 'coming_soon'
+  number: number
 }
 
 const RISE_DURATION_MS = 400
+const MARKER_DESIGN_PX = 56
 
 type TintKey = 'unvisited' | 'visited' | 'coming_soon'
 
@@ -173,9 +175,12 @@ function makeRippleTexture(): THREE.CanvasTexture {
 
 type MarkerEntry = {
   pivot: THREE.Group
-  pin: THREE.Mesh
+  disc: THREE.Mesh
+  aura: THREE.Mesh
+  ripple: THREE.Mesh
   shadow: THREE.Mesh
-  sparkle: THREE.Sprite
+  discTextures: Record<TintKey, THREE.CanvasTexture>
+  rippleStartMs: number
 }
 
 export function createMarkerLayer(opts: {
@@ -191,39 +196,68 @@ export function createMarkerLayer(opts: {
   let shadowGeometry: THREE.PlaneGeometry
   let shadowTexture: THREE.CanvasTexture
   let faceZ = 0
+  let discGeometry: THREE.PlaneGeometry
+  let auraGeometry: THREE.PlaneGeometry
+  let auraTexture: THREE.CanvasTexture
+  let rippleTexture: THREE.CanvasTexture
+  let shadowMaterial: THREE.MeshBasicMaterial
 
   const markers = new Map<string, MarkerEntry>()
   let activeId: string | null = null
   let activeSince = 0
 
-  function createMarkerEntry(): MarkerEntry {
+  function createMarkerEntry(number: number): MarkerEntry {
     const pivot = new THREE.Group()
 
-    const shadow = new THREE.Mesh(shadowGeometry, baseShadowMaterial)
+    const discTextures: Record<TintKey, THREE.CanvasTexture> = {
+      unvisited: buildDiscTexture(number, 'unvisited'),
+      visited: buildDiscTexture(number, 'visited'),
+      coming_soon: buildDiscTexture(number, 'coming_soon'),
+    }
 
-    const pin = new THREE.Mesh(pinGeometry, baseMaterials.unvisited)
-
-    const sparkleMaterial = new THREE.SpriteMaterial({
-      map: sparkleTexture,
-      blending: THREE.AdditiveBlending,
+    const discMat = new THREE.MeshBasicMaterial({
+      map: discTextures.unvisited,
+      transparent: true,
       depthTest: false,
       depthWrite: false,
-      transparent: true,
     })
-    const sparkle = new THREE.Sprite(sparkleMaterial)
-    sparkle.visible = false
-    pin.add(sparkle)
+    const disc = new THREE.Mesh(discGeometry, discMat)
+
+    const auraMat = new THREE.MeshBasicMaterial({
+      map: auraTexture,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const aura = new THREE.Mesh(auraGeometry, auraMat)
+
+    const rippleMat = new THREE.MeshBasicMaterial({
+      map: rippleTexture,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const ripple = new THREE.Mesh(auraGeometry, rippleMat)
+
+    const shadow = new THREE.Mesh(shadowGeometry, shadowMaterial)
 
     pivot.add(shadow)
-    pivot.add(pin)
+    pivot.add(aura)
+    pivot.add(ripple)
+    pivot.add(disc)
     scene.add(pivot)
 
-    return { pivot, pin, shadow, sparkle }
+    return { pivot, disc, aura, ripple, shadow, discTextures, rippleStartMs: -1 }
   }
 
   function removeMarkerEntry(entry: MarkerEntry): void {
     scene.remove(entry.pivot)
-    entry.sparkle.material.dispose()
+    ;(entry.disc.material as THREE.MeshBasicMaterial).dispose()
+    ;(entry.aura.material as THREE.MeshBasicMaterial).dispose()
+    ;(entry.ripple.material as THREE.MeshBasicMaterial).dispose()
+    for (const tex of Object.values(entry.discTextures)) tex.dispose()
   }
 
   const layer: maplibregl.CustomLayerInterface = {
@@ -234,9 +268,6 @@ export function createMarkerLayer(opts: {
     onAdd(_map, gl) {
       renderer = new THREE.WebGLRenderer({ canvas: map.getCanvas(), context: gl })
       renderer.autoClear = false
-      // Ported from marker-3d.html: HDR studio panels need the roll-off, or highlights clip to flat white.
-      renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.0
 
       scene = new THREE.Scene()
       camera = new THREE.OrthographicCamera(0, 1, 0, -1, 0.1, 1000)
@@ -244,6 +275,18 @@ export function createMarkerLayer(opts: {
 
       shadowGeometry = new THREE.PlaneGeometry(1, 1)
       shadowTexture = makeShadowTexture()
+      discGeometry = new THREE.PlaneGeometry(1, 1)
+      auraGeometry = new THREE.PlaneGeometry(1, 1)
+      auraTexture = makeAuraTexture()
+      rippleTexture = makeRippleTexture()
+      shadowMaterial = new THREE.MeshBasicMaterial({
+        map: shadowTexture,
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.55,
+        depthTest: false,
+        depthWrite: false,
+      })
 
       renderer.resetState()
     },
@@ -418,6 +461,11 @@ export function createMarkerLayer(opts: {
 
       shadowGeometry.dispose()
       shadowTexture.dispose()
+      discGeometry.dispose()
+      auraGeometry.dispose()
+      auraTexture.dispose()
+      rippleTexture.dispose()
+      shadowMaterial.dispose()
 
       renderer.dispose()
     },
