@@ -14,6 +14,8 @@ export type MarkerInput = {
 }
 
 const RISE_DURATION_MS = 400
+const AURA_PERIOD_MS = 2600
+const RIPPLE_DURATION_MS = 480
 const MARKER_DESIGN_PX = 56
 
 type TintKey = 'unvisited' | 'visited' | 'coming_soon'
@@ -26,10 +28,6 @@ const TINTS: Record<TintKey, { color: string; dimmed: boolean }> = {
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t
-}
-
-function smoothstep(v: number): number {
-  return v * v * (3 - 2 * v)
 }
 
 function easeOutCubic(t: number): number {
@@ -51,18 +49,6 @@ function makeShadowTexture(): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
-}
-
-/** Disposes every geometry/material/map found under `root`. For the throwaway studio env scene. */
-function disposeObject3D(root: THREE.Object3D): void {
-  root.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.geometry.dispose()
-      const material = child.material as THREE.MeshBasicMaterial
-      material.map?.dispose()
-      material.dispose()
-    }
-  })
 }
 
 function lightenHex(hex: string, amount: number): string {
@@ -195,12 +181,10 @@ export function createMarkerLayer(opts: {
 
   let shadowGeometry: THREE.PlaneGeometry
   let shadowTexture: THREE.CanvasTexture
-  let faceZ = 0
   let discGeometry: THREE.PlaneGeometry
   let auraGeometry: THREE.PlaneGeometry
   let auraTexture: THREE.CanvasTexture
   let rippleTexture: THREE.CanvasTexture
-  let shadowMaterial: THREE.MeshBasicMaterial
 
   const markers = new Map<string, MarkerEntry>()
   let activeId: string | null = null
@@ -241,7 +225,15 @@ export function createMarkerLayer(opts: {
     })
     const ripple = new THREE.Mesh(auraGeometry, rippleMat)
 
-    const shadow = new THREE.Mesh(shadowGeometry, shadowMaterial)
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: shadowTexture,
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.55,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const shadow = new THREE.Mesh(shadowGeometry, shadowMat)
 
     pivot.add(shadow)
     pivot.add(aura)
@@ -257,6 +249,7 @@ export function createMarkerLayer(opts: {
     ;(entry.disc.material as THREE.MeshBasicMaterial).dispose()
     ;(entry.aura.material as THREE.MeshBasicMaterial).dispose()
     ;(entry.ripple.material as THREE.MeshBasicMaterial).dispose()
+    ;(entry.shadow.material as THREE.MeshBasicMaterial).dispose()
     for (const tex of Object.values(entry.discTextures)) tex.dispose()
   }
 
@@ -279,14 +272,6 @@ export function createMarkerLayer(opts: {
       auraGeometry = new THREE.PlaneGeometry(1, 1)
       auraTexture = makeAuraTexture()
       rippleTexture = makeRippleTexture()
-      shadowMaterial = new THREE.MeshBasicMaterial({
-        map: shadowTexture,
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.55,
-        depthTest: false,
-        depthWrite: false,
-      })
 
       renderer.resetState()
     },
@@ -314,10 +299,8 @@ export function createMarkerLayer(opts: {
       const forcedMarkerState = useDebugStore.getState().forcedMarkerState
 
       const now = performance.now()
-      // The debug override bypasses activeExhibitId entirely, so track it as its own key —
-      // otherwise toggling the "active" debug button mid-session drops the rise-and-spin into
-      // whatever phase performance.now() happens to be at, instead of starting fresh.
-      const activeKey = forcedMarkerState === 'active' ? FORCED_ACTIVE_KEY : activeExhibitId
+      const activeKey = forcedMarkerState === 'active' ? '__forced-active__' : activeExhibitId
+      const prevActiveId = activeId
       if (activeKey !== activeId) {
         activeId = activeKey
         activeSince = now
@@ -326,7 +309,6 @@ export function createMarkerLayer(opts: {
       const zoom = map.getZoom()
       const lat = map.getCenter().lat
       const pinPx = pinPixelHeight(zoom, lat)
-      const scaleFactor = pinPx / PIN_UNITS_H
 
       const exhibits = getExhibits()
       const seen = new Set<string>()
@@ -337,13 +319,16 @@ export function createMarkerLayer(opts: {
         seen.add(exhibit.id)
         let entry = markers.get(exhibit.id)
         if (!entry) {
-          entry = createMarkerEntry()
+          entry = createMarkerEntry(exhibit.number)
           markers.set(exhibit.id, entry)
         }
 
+        if (exhibit.id === activeId && exhibit.id !== prevActiveId) {
+          entry.rippleStartMs = now
+        }
+
         const projected = map.project([exhibit.lng, exhibit.lat])
-        const worldX = projected.x
-        const worldY = -projected.y
+        entry.pivot.position.set(projected.x, -projected.y, 0)
 
         const isComingSoon = exhibit.status === 'coming_soon'
         const isVisited = !isComingSoon && visitedIds.includes(exhibit.id)
@@ -370,10 +355,12 @@ export function createMarkerLayer(opts: {
                 : realTintKey
         }
 
-        entry.pivot.position.set(worldX, worldY, 0)
-        entry.pin.scale.setScalar(scaleFactor)
-        entry.pin.material = isActive ? activeMaterials[tintKey] : baseMaterials[tintKey]
+        // Disc: size, position, state texture
+        entry.disc.scale.set(pinPx, pinPx, 1)
+        ;(entry.disc.material as THREE.MeshBasicMaterial).map = entry.discTextures[tintKey]
+        ;(entry.disc.material as THREE.MeshBasicMaterial).needsUpdate = true
 
+        // Rise + shadow shrink
         let riseOffsetPx = 0
         let shadowDiameterPx = 0.44 * pinPx
         let shadowOpacity = 0.55
@@ -384,33 +371,33 @@ export function createMarkerLayer(opts: {
           riseOffsetPx = 0.32 * pinPx * riseT
           shadowDiameterPx = lerp(0.44 * pinPx, 0.26 * pinPx, riseT)
           shadowOpacity = lerp(0.55, 0.25, riseT)
-
-          const spinElapsed = Math.max(elapsed - RISE_DURATION_MS, 0)
-          entry.pin.rotation.y = ((spinElapsed / SPIN_DURATION_MS) % 1) * Math.PI * 2
-          entry.shadow.material = activeShadowMaterial
-          activeShadowMaterial.opacity = shadowOpacity
-        } else {
-          entry.pin.rotation.y = 0
-          entry.shadow.material = baseShadowMaterial
         }
 
-        entry.pin.position.set(0, TIP_OFFSET * scaleFactor + riseOffsetPx, 0)
+        entry.disc.position.set(0, riseOffsetPx, 0)
         entry.shadow.scale.set(shadowDiameterPx, shadowDiameterPx * 0.32, 1)
+        ;(entry.shadow.material as THREE.MeshBasicMaterial).opacity = shadowOpacity
 
-        entry.sparkle.visible = isNearby
+        // Breathe aura (nearby only)
         if (isNearby) {
-          const phaseMs = nearbyIndex * SPARKLE_STAGGER_MS
-          const t = ((now + phaseMs) % SPARKLE_DURATION_MS) / SPARKLE_DURATION_MS
-          const grow = smoothstep(Math.min(t / 0.55, 1))
-          const fade = t < 0.7 ? smoothstep(Math.min(t / 0.18, 1)) : smoothstep((1 - t) / 0.3)
+          const auraFrac =
+            (Math.sin(((now % AURA_PERIOD_MS) / AURA_PERIOD_MS) * Math.PI * 2) + 1) / 2
+          const auraScale = lerp(1, 1.14, auraFrac) * pinPx
+          entry.aura.scale.set(auraScale, auraScale, 1)
+          entry.aura.position.set(0, riseOffsetPx, 0)
+          ;(entry.aura.material as THREE.MeshBasicMaterial).opacity = lerp(0.12, 0.38, auraFrac)
+        } else {
+          ;(entry.aura.material as THREE.MeshBasicMaterial).opacity = 0
+        }
 
-          const sparklePx = Math.max(0.28 * pinPx, 16) * grow
-          const sizeLocal = sparklePx / scaleFactor
-          entry.sparkle.scale.set(sizeLocal, sizeLocal, 1)
-          entry.sparkle.position.set(SPARK_X, SPARK_BASE_Y + sizeLocal / 2, faceZ + 0.02)
-          const sparkleMaterial = entry.sparkle.material as THREE.SpriteMaterial
-          sparkleMaterial.opacity = fade
-          sparkleMaterial.rotation = grow * 0.3
+        // One-shot ripple
+        const rippleElapsed = now - entry.rippleStartMs
+        if (entry.rippleStartMs >= 0 && rippleElapsed < RIPPLE_DURATION_MS) {
+          const t = rippleElapsed / RIPPLE_DURATION_MS
+          entry.ripple.scale.set(lerp(1, 1.9, t) * pinPx, lerp(1, 1.9, t) * pinPx, 1)
+          entry.ripple.position.set(0, riseOffsetPx, 0)
+          ;(entry.ripple.material as THREE.MeshBasicMaterial).opacity = lerp(0.6, 0, t)
+        } else {
+          ;(entry.ripple.material as THREE.MeshBasicMaterial).opacity = 0
         }
 
         placed.push({ entry, screenY: projected.y, isActive })
@@ -429,25 +416,26 @@ export function createMarkerLayer(opts: {
       for (const p of placed) {
         if (p.isActive) continue
         p.entry.shadow.renderOrder = order++
-        p.entry.pin.renderOrder = order++
-        p.entry.sparkle.renderOrder = order++
+        p.entry.aura.renderOrder = order++
+        p.entry.ripple.renderOrder = order++
+        p.entry.disc.renderOrder = order++
       }
       for (const p of placed) {
         if (!p.isActive) continue
         p.entry.shadow.renderOrder = order++
-        p.entry.pin.renderOrder = order++
-        p.entry.sparkle.renderOrder = order++
+        p.entry.aura.renderOrder = order++
+        p.entry.ripple.renderOrder = order++
+        p.entry.disc.renderOrder = order++
       }
 
-      // Fresh depth buffer for the active pin's self-depth-tested material (see makeStandardMaterial);
-      // every other material here has depthWrite:false, so nothing else is affected and nothing
-      // leaks into Mapbox's own depth buffer on the next frame.
-      renderer.clearDepth()
       renderer.render(scene, camera)
 
+      const hasActiveRipple = [...markers.values()].some(
+        (e) => e.rippleStartMs >= 0 && now - e.rippleStartMs < RIPPLE_DURATION_MS
+      )
       const shouldRepaint = forcedMarkerState
         ? forcedMarkerState === 'active' || forcedMarkerState === 'nearby'
-        : activeExhibitId !== null || nearbyExhibitIds.length > 0
+        : activeExhibitId !== null || nearbyExhibitIds.length > 0 || hasActiveRipple
       if (shouldRepaint) {
         map.triggerRepaint()
       }
@@ -465,7 +453,6 @@ export function createMarkerLayer(opts: {
       auraGeometry.dispose()
       auraTexture.dispose()
       rippleTexture.dispose()
-      shadowMaterial.dispose()
 
       renderer.dispose()
     },
