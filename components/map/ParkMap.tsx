@@ -322,11 +322,11 @@ export default function ParkMap({
             ['linear'],
             ['zoom'],
             14,
-            ['literal', [0, -HIT_CIRCLE_RADIUS_MIN]],
+            ['literal', [0, 0]],
             STARTING_ZOOM,
-            ['literal', [0, -HIT_CIRCLE_RADIUS_START]],
+            ['literal', [0, 0]],
             22,
-            ['literal', [0, -HIT_CIRCLE_RADIUS_MAX]],
+            ['literal', [0, 0]],
           ],
           'circle-color': ['case', ['==', ['get', 'discovered'], true], '#588157', '#dda15e'],
           'circle-opacity': 0,
@@ -341,6 +341,7 @@ export default function ParkMap({
         lat: exhibit.gps_lat,
         lng: exhibit.gps_lng,
         status: exhibit.status,
+        number: exhibit.displayNumber ?? 0,
       }))
 
       try {
