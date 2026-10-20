@@ -39,6 +39,7 @@ function exhibit(
     qr_code: null,
     languages: [],
     status,
+    displayNumber: null,
   }
 }
 

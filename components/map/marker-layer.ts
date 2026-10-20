@@ -10,207 +10,27 @@ export type MarkerInput = {
   lat: number
   lng: number
   status: 'live' | 'coming_soon'
+  number: number | null
 }
 
-// ── Pin geometry, ported verbatim from sample-map/marker-3d.html ──────────
-const R = 1.0 // head radius
-const TIP = 2.05 // head centre → tip
-const HOLE = 0.63 // hole radius
-const DEPTH = 0.34
-const BEVEL_THICKNESS = 0.15
-const BEVEL_SIZE = 0.13
-const BEVEL_SEGMENTS = 16
-const CURVE_SEGMENTS = 128
-
-// Derived, after geo.center(): bbox min [-1.13, -1.682, -0.32] max [1.13, 1.682, 0.32]
-const PIN_UNITS_H = 3.364 // full pin height in pin units
-const TIP_OFFSET = 1.682 // tip sits this far below the mesh origin
-
 const RISE_DURATION_MS = 400
-const SPIN_DURATION_MS = 2200
-const SPARKLE_DURATION_MS = 1000
-const SPARKLE_STAGGER_MS = 200
-const ACTIVE_ENV_MAP_INTENSITY = 2.0
-const FORCED_ACTIVE_KEY = '__forced-active__'
-
-// Sparkle anchor, in pin-local units — off the front face, top-right of the head band.
-const SPARK_X = 0.54
-const SPARK_BASE_Y = 0.92
+const AURA_PERIOD_MS = 2600
+const RIPPLE_DURATION_MS = 480
 
 type TintKey = 'unvisited' | 'visited' | 'coming_soon'
 
-const TINTS: Record<
-  TintKey,
-  { color: number; metalness: number; roughness: number; envMapIntensity: number }
-> = {
-  unvisited: { color: 0xdda15e, metalness: 0.96, roughness: 0.11, envMapIntensity: 1.4 },
-  visited: { color: 0x588157, metalness: 0.96, roughness: 0.11, envMapIntensity: 1.4 },
-  coming_soon: { color: 0x9e7548, metalness: 0.9, roughness: 0.35, envMapIntensity: 0.7 },
+const TINTS: Record<TintKey, { color: string; dimmed: boolean }> = {
+  unvisited: { color: '#dda15e', dimmed: false },
+  visited: { color: '#588157', dimmed: false },
+  coming_soon: { color: '#8f8f8f', dimmed: true },
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t
 }
 
-function smoothstep(v: number): number {
-  return v * v * (3 - 2 * v)
-}
-
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3)
-}
-
-/** The pin silhouette: a circle with a concentric hole, tangent lines down to a tip. */
-function buildPinGeometry(): THREE.ExtrudeGeometry {
-  const tx = (R * Math.sqrt(TIP * TIP - R * R)) / TIP
-  const ty = -(R * R) / TIP
-  const aRight = Math.atan2(ty, tx)
-  const aLeft = Math.PI - aRight
-
-  const shape = new THREE.Shape()
-  shape.moveTo(0, -TIP)
-  shape.lineTo(tx, ty)
-  shape.absarc(0, 0, R, aRight, aLeft, false)
-  shape.lineTo(0, -TIP)
-
-  const hole = new THREE.Path()
-  hole.absarc(0, 0, HOLE, 0, Math.PI * 2, true)
-  shape.holes.push(hole)
-
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: DEPTH,
-    bevelEnabled: true,
-    bevelThickness: BEVEL_THICKNESS,
-    bevelSize: BEVEL_SIZE,
-    bevelOffset: 0,
-    bevelSegments: BEVEL_SEGMENTS,
-    curveSegments: CURVE_SEGMENTS,
-  })
-  geo.center()
-  geo.computeVertexNormals()
-  geo.computeBoundingBox()
-  return geo
-}
-
-/**
- * Studio lightbox environment, ported verbatim from sample-map/marker-3d.html.
- * A polished metal is almost pure reflection, so its look is decided by this
- * environment map, not by scene lights. Panel colours are pushed above 1.0 so
- * they read as HDR light sources. Panels behind the camera are load-bearing —
- * without them the mirror-like front face has nothing to reflect and goes black.
- */
-function buildStudioEnv(): THREE.Scene {
-  const env = new THREE.Scene()
-  env.background = new THREE.Color(0x1a1a1a)
-
-  const quad = new THREE.PlaneGeometry(1, 1)
-  const panel = (
-    w: number,
-    h: number,
-    pos: [number, number, number],
-    rot: [number, number, number],
-    intensity: number
-  ) => {
-    const m = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
-    m.color.setRGB(intensity, intensity * 0.97, intensity * 0.93)
-    const mesh = new THREE.Mesh(quad, m)
-    mesh.scale.set(w, h, 1)
-    mesh.position.set(...pos)
-    mesh.rotation.set(...rot)
-    env.add(mesh)
-  }
-
-  // Large overhead softbox — the dominant highlight across the top
-  panel(14, 14, [0, 7, 0], [Math.PI / 2, 0, 0], 11)
-  // Tall front-left and front-right strips — long vertical streaks
-  panel(3.5, 13, [-6, 1, 3.5], [0, Math.PI / 2.6, 0], 9)
-  panel(3.5, 13, [6, 1, 3.5], [0, -Math.PI / 2.6, 0], 9)
-  // Low front kicker — lifts the cone so it doesn't go black
-  panel(11, 3, [0, -5, 5], [-Math.PI / 6, 0, 0], 5.5)
-
-  // Panels BEHIND the camera, kept as separate bars (not one wash) so they read
-  // as distinct specular streaks rather than a flat uniform face.
-  panel(9, 2.4, [-3.2, 5.5, 10], [0, 0, 0], 5.0) // upper bar
-  panel(2.4, 9, [-6.5, 0.5, 10], [0, 0, 0], 3.4) // left vertical bar
-  panel(7, 1.8, [4.5, -4.0, 10], [0, 0, 0], 2.2) // lower-right kicker
-
-  // Backdrop behind the camera, carrying a bright-to-dark vertical ramp — the
-  // large flat faces are mirrors far from camera, so a uniform backdrop would
-  // render as a flat slab; the ramp gives them a top-to-bottom gradient.
-  const ramp = document.createElement('canvas')
-  ramp.width = 4
-  ramp.height = 256
-  const rctx = ramp.getContext('2d')!
-  const grad = rctx.createLinearGradient(0, 0, 0, 256)
-  grad.addColorStop(0.0, '#ffffff')
-  grad.addColorStop(0.45, '#8f8f8f')
-  grad.addColorStop(1.0, '#101010')
-  rctx.fillStyle = grad
-  rctx.fillRect(0, 0, 4, 256)
-  const rampTex = new THREE.CanvasTexture(ramp)
-  rampTex.colorSpace = THREE.SRGBColorSpace
-
-  const rampMat = new THREE.MeshBasicMaterial({ map: rampTex, side: THREE.DoubleSide })
-  rampMat.color.setScalar(1.5) // lift into HDR so it reads as a light source
-  const rampMesh = new THREE.Mesh(quad, rampMat)
-  rampMesh.scale.set(26, 20, 1)
-  rampMesh.position.set(0, 0, 15)
-  env.add(rampMesh)
-
-  // Dim back wall for falloff on the rear edges
-  panel(14, 14, [0, 0, -9], [0, 0, 0], 1.6)
-
-  return env
-}
-
-/** Specular glint texture, ported verbatim: a blown-out core, needle spikes, warm gold falloff. */
-function makeSparkleTexture(): THREE.CanvasTexture {
-  const s = 256
-  const c = s / 2
-  const cv = document.createElement('canvas')
-  cv.width = cv.height = s
-  const x = cv.getContext('2d')!
-  x.globalCompositeOperation = 'lighter' // accumulate like real light
-
-  const core = x.createRadialGradient(c, c, 0, c, c, s * 0.13)
-  core.addColorStop(0.0, 'rgba(255,255,255,1)')
-  core.addColorStop(0.35, 'rgba(255,248,232,0.95)')
-  core.addColorStop(1.0, 'rgba(255,214,150,0)')
-  x.fillStyle = core
-  x.fillRect(0, 0, s, s)
-
-  const halo = x.createRadialGradient(c, c, 0, c, c, s * 0.34)
-  halo.addColorStop(0.0, 'rgba(255,229,182,0.5)')
-  halo.addColorStop(1.0, 'rgba(255,200,130,0)')
-  x.fillStyle = halo
-  x.fillRect(0, 0, s, s)
-
-  const spike = (angle: number, len: number, halfw: number) => {
-    x.save()
-    x.translate(c, c)
-    x.rotate(angle)
-    const g = x.createLinearGradient(0, 0, len, 0)
-    g.addColorStop(0.0, 'rgba(255,255,255,1)')
-    g.addColorStop(0.2, 'rgba(255,248,233,0.85)')
-    g.addColorStop(0.6, 'rgba(255,224,172,0.4)')
-    g.addColorStop(1.0, 'rgba(255,209,146,0)')
-    x.fillStyle = g
-    x.beginPath()
-    x.moveTo(0, -halfw)
-    x.lineTo(len, 0)
-    x.lineTo(0, halfw)
-    x.closePath()
-    x.fill()
-    x.restore()
-  }
-
-  const L = c * 0.97
-  for (let i = 0; i < 4; i++) spike((i * Math.PI) / 2, L, s * 0.038)
-  for (let i = 0; i < 4; i++) spike(Math.PI / 4 + (i * Math.PI) / 2, L * 0.32, s * 0.024)
-
-  const tex = new THREE.CanvasTexture(cv)
-  tex.colorSpace = THREE.SRGBColorSpace
-  return tex
 }
 
 /** Shared radial-gradient contact-shadow texture. No lights, no shadow map. */
@@ -230,49 +50,125 @@ function makeShadowTexture(): THREE.CanvasTexture {
   return tex
 }
 
-function makeStandardMaterial(
-  tint: {
-    color: number
-    metalness: number
-    roughness: number
-    envMapIntensity: number
-  },
-  selfDepthSorted = false
-): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({
-    color: tint.color,
-    metalness: tint.metalness,
-    roughness: tint.roughness,
-    envMapIntensity: tint.envMapIntensity,
-    // Static pins never rotate, so their front/hole/back faces never overlap on screen and
-    // depthTest:false (required so we don't touch Mapbox's own depth buffer) is harmless. The
-    // active pin spins, and a depthless solid extrusion with a through-hole self-intersects at
-    // most yaw angles — its own faces draw in submission order instead of front-to-back. So the
-    // active variant opts into real depth testing; render() clears the depth buffer every frame
-    // first, and no other material in this layer writes depth, so this can't leak into Mapbox's own
-    // buffer or affect inter-marker draw order (still governed by the screen-y renderOrder sort).
-    depthTest: selfDepthSorted,
-    depthWrite: selfDepthSorted,
-  })
+function lightenHex(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.min(255, Math.round(((n >> 16) & 0xff) + 255 * amount))
+  const g = Math.min(255, Math.round(((n >> 8) & 0xff) + 255 * amount))
+  const b = Math.min(255, Math.round((n & 0xff) + 255 * amount))
+  return `rgb(${r},${g},${b})`
 }
 
-/** Disposes every geometry/material/map found under `root`. For the throwaway studio env scene. */
-function disposeObject3D(root: THREE.Object3D): void {
-  root.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.geometry.dispose()
-      const material = child.material as THREE.MeshBasicMaterial
-      material.map?.dispose()
-      material.dispose()
-    }
-  })
+function darkenHex(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.max(0, Math.round(((n >> 16) & 0xff) * (1 - amount)))
+  const g = Math.max(0, Math.round(((n >> 8) & 0xff) * (1 - amount)))
+  const b = Math.max(0, Math.round((n & 0xff) * (1 - amount)))
+  return `rgb(${r},${g},${b})`
+}
+
+/** Baked 96×96 marker disc: tinted gradient ring, dark gap, white disc, exhibit number. One per marker × tint. */
+function buildDiscTexture(num: number | null, tintKey: TintKey): THREE.CanvasTexture {
+  const s = 96
+  const c = s / 2
+  const R_outer = 44
+  const R_gap = 30
+  const R_disc = 25
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = s
+  const ctx = cv.getContext('2d')!
+
+  const isDimmed = tintKey === 'coming_soon'
+  const ringColor = TINTS[tintKey].color
+
+  // 1. Outer ring: light at top-left → ring color → dark at edge
+  ctx.globalAlpha = isDimmed ? 0.65 : 1.0
+  const ringGrad = ctx.createRadialGradient(c - 8, c - 8, 0, c, c, R_outer)
+  ringGrad.addColorStop(0, lightenHex(ringColor, 0.35))
+  ringGrad.addColorStop(0.48, ringColor)
+  ringGrad.addColorStop(1, darkenHex(ringColor, 0.25))
+  ctx.fillStyle = ringGrad
+  ctx.beginPath()
+  ctx.arc(c, c, R_outer, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.globalAlpha = 1.0
+
+  // 2. Dark gap ring
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'
+  ctx.beginPath()
+  ctx.arc(c, c, R_gap, 0, Math.PI * 2)
+  ctx.fill()
+
+  // 3. White disc
+  const discGrad = ctx.createRadialGradient(c, c, 0, c, c, R_disc)
+  if (isDimmed) {
+    discGrad.addColorStop(0, '#f5f5f5')
+    discGrad.addColorStop(1, '#e8e8e8')
+  } else {
+    discGrad.addColorStop(0, '#ffffff')
+    discGrad.addColorStop(1, '#efefef')
+  }
+  ctx.fillStyle = discGrad
+  ctx.beginPath()
+  ctx.arc(c, c, R_disc, 0, Math.PI * 2)
+  ctx.fill()
+
+  // 4. Number (omitted when null — disc stays blank until park number is assigned)
+  if (num !== null) {
+    ctx.fillStyle = isDimmed ? '#aaaaaa' : '#1c1c1c'
+    ctx.font = 'bold 14px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(num), c, c)
+  }
+
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+/** Shared white ring for the breathing aura; tinted via material color. */
+function makeAuraTexture(): THREE.CanvasTexture {
+  const s = 128
+  const c = s / 2
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = s
+  const ctx = cv.getContext('2d')!
+  ctx.strokeStyle = 'rgba(255,255,255,1)'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.arc(c, c, c - 4, 0, Math.PI * 2)
+  ctx.stroke()
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+/** Shared white ring for the one-shot tap ripple; tinted via material color. */
+function makeRippleTexture(): THREE.CanvasTexture {
+  const s = 128
+  const c = s / 2
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = s
+  const ctx = cv.getContext('2d')!
+  ctx.strokeStyle = 'rgba(255,255,255,1)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(c, c, c - 3, 0, Math.PI * 2)
+  ctx.stroke()
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
 }
 
 type MarkerEntry = {
   pivot: THREE.Group
-  pin: THREE.Mesh
+  disc: THREE.Mesh
+  aura: THREE.Mesh
+  ripple: THREE.Mesh
   shadow: THREE.Mesh
-  sparkle: THREE.Sprite
+  discTextures: Record<TintKey, THREE.CanvasTexture>
+  rippleStartMs: number
+  prevTintKey: TintKey | null
 }
 
 export function createMarkerLayer(opts: {
@@ -284,51 +180,79 @@ export function createMarkerLayer(opts: {
   let renderer: THREE.WebGLRenderer
   let scene: THREE.Scene
   let camera: THREE.OrthographicCamera
-  let pmremRenderTarget: THREE.WebGLRenderTarget | null = null
 
-  let pinGeometry: THREE.ExtrudeGeometry
   let shadowGeometry: THREE.PlaneGeometry
   let shadowTexture: THREE.CanvasTexture
-  let sparkleTexture: THREE.CanvasTexture
-  let faceZ = 0
-
-  let baseMaterials: Record<TintKey, THREE.MeshStandardMaterial>
-  let activeMaterials: Record<TintKey, THREE.MeshStandardMaterial>
-  let baseShadowMaterial: THREE.MeshBasicMaterial
-  let activeShadowMaterial: THREE.MeshBasicMaterial
+  let discGeometry: THREE.PlaneGeometry
+  let auraGeometry: THREE.PlaneGeometry
+  let auraTexture: THREE.CanvasTexture
+  let rippleTexture: THREE.CanvasTexture
 
   const markers = new Map<string, MarkerEntry>()
   let activeId: string | null = null
   let activeSince = 0
 
-  function createMarkerEntry(): MarkerEntry {
+  function createMarkerEntry(number: number | null): MarkerEntry {
     const pivot = new THREE.Group()
 
-    const shadow = new THREE.Mesh(shadowGeometry, baseShadowMaterial)
+    const discTextures: Record<TintKey, THREE.CanvasTexture> = {
+      unvisited: buildDiscTexture(number, 'unvisited'),
+      visited: buildDiscTexture(number, 'visited'),
+      coming_soon: buildDiscTexture(number, 'coming_soon'),
+    }
 
-    const pin = new THREE.Mesh(pinGeometry, baseMaterials.unvisited)
-
-    const sparkleMaterial = new THREE.SpriteMaterial({
-      map: sparkleTexture,
-      blending: THREE.AdditiveBlending,
+    const discMat = new THREE.MeshBasicMaterial({
+      map: discTextures.unvisited,
+      transparent: true,
       depthTest: false,
       depthWrite: false,
-      transparent: true,
     })
-    const sparkle = new THREE.Sprite(sparkleMaterial)
-    sparkle.visible = false
-    pin.add(sparkle)
+    const disc = new THREE.Mesh(discGeometry, discMat)
+
+    const auraMat = new THREE.MeshBasicMaterial({
+      map: auraTexture,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const aura = new THREE.Mesh(auraGeometry, auraMat)
+
+    const rippleMat = new THREE.MeshBasicMaterial({
+      map: rippleTexture,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const ripple = new THREE.Mesh(auraGeometry, rippleMat)
+
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: shadowTexture,
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.55,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const shadow = new THREE.Mesh(shadowGeometry, shadowMat)
 
     pivot.add(shadow)
-    pivot.add(pin)
+    pivot.add(aura)
+    pivot.add(ripple)
+    pivot.add(disc)
     scene.add(pivot)
 
-    return { pivot, pin, shadow, sparkle }
+    return { pivot, disc, aura, ripple, shadow, discTextures, rippleStartMs: -1, prevTintKey: null }
   }
 
   function removeMarkerEntry(entry: MarkerEntry): void {
     scene.remove(entry.pivot)
-    entry.sparkle.material.dispose()
+    ;(entry.disc.material as THREE.MeshBasicMaterial).dispose()
+    ;(entry.aura.material as THREE.MeshBasicMaterial).dispose()
+    ;(entry.ripple.material as THREE.MeshBasicMaterial).dispose()
+    ;(entry.shadow.material as THREE.MeshBasicMaterial).dispose()
+    for (const tex of Object.values(entry.discTextures)) tex.dispose()
   }
 
   const layer: maplibregl.CustomLayerInterface = {
@@ -339,65 +263,17 @@ export function createMarkerLayer(opts: {
     onAdd(_map, gl) {
       renderer = new THREE.WebGLRenderer({ canvas: map.getCanvas(), context: gl })
       renderer.autoClear = false
-      // Ported from marker-3d.html: HDR studio panels need the roll-off, or highlights clip to flat white.
-      renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.0
 
       scene = new THREE.Scene()
       camera = new THREE.OrthographicCamera(0, 1, 0, -1, 0.1, 1000)
       camera.position.z = 10
 
-      pinGeometry = buildPinGeometry()
-      faceZ = pinGeometry.boundingBox!.max.z
-
       shadowGeometry = new THREE.PlaneGeometry(1, 1)
       shadowTexture = makeShadowTexture()
-      sparkleTexture = makeSparkleTexture()
-
-      baseMaterials = {
-        unvisited: makeStandardMaterial(TINTS.unvisited),
-        visited: makeStandardMaterial(TINTS.visited),
-        coming_soon: makeStandardMaterial(TINTS.coming_soon),
-      }
-      activeMaterials = {
-        unvisited: makeStandardMaterial(
-          { ...TINTS.unvisited, envMapIntensity: ACTIVE_ENV_MAP_INTENSITY },
-          true
-        ),
-        visited: makeStandardMaterial(
-          { ...TINTS.visited, envMapIntensity: ACTIVE_ENV_MAP_INTENSITY },
-          true
-        ),
-        coming_soon: makeStandardMaterial(
-          { ...TINTS.coming_soon, envMapIntensity: ACTIVE_ENV_MAP_INTENSITY },
-          true
-        ),
-      }
-
-      baseShadowMaterial = new THREE.MeshBasicMaterial({
-        map: shadowTexture,
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.55,
-        depthTest: false,
-        depthWrite: false,
-      })
-      activeShadowMaterial = new THREE.MeshBasicMaterial({
-        map: shadowTexture,
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.55,
-        depthTest: false,
-        depthWrite: false,
-      })
-
-      const pmrem = new THREE.PMREMGenerator(renderer)
-      pmrem.compileEquirectangularShader()
-      const studioEnv = buildStudioEnv()
-      pmremRenderTarget = pmrem.fromScene(studioEnv, 0.02)
-      scene.environment = pmremRenderTarget.texture
-      pmrem.dispose()
-      disposeObject3D(studioEnv)
+      discGeometry = new THREE.PlaneGeometry(1, 1)
+      auraGeometry = discGeometry
+      auraTexture = makeAuraTexture()
+      rippleTexture = makeRippleTexture()
 
       renderer.resetState()
     },
@@ -425,10 +301,10 @@ export function createMarkerLayer(opts: {
       const forcedMarkerState = useDebugStore.getState().forcedMarkerState
 
       const now = performance.now()
-      // The debug override bypasses activeExhibitId entirely, so track it as its own key —
-      // otherwise toggling the "active" debug button mid-session drops the rise-and-spin into
-      // whatever phase performance.now() happens to be at, instead of starting fresh.
-      const activeKey = forcedMarkerState === 'active' ? FORCED_ACTIVE_KEY : activeExhibitId
+      // '__forced-active__' is a sentinel that never matches a real exhibit id, so the rise animation
+      // triggers whenever forcedMarkerState switches to 'active' regardless of which exhibit is active.
+      const activeKey = forcedMarkerState === 'active' ? '__forced-active__' : activeExhibitId
+      const prevActiveId = activeId
       if (activeKey !== activeId) {
         activeId = activeKey
         activeSince = now
@@ -437,7 +313,6 @@ export function createMarkerLayer(opts: {
       const zoom = map.getZoom()
       const lat = map.getCenter().lat
       const pinPx = pinPixelHeight(zoom, lat)
-      const scaleFactor = pinPx / PIN_UNITS_H
 
       const exhibits = getExhibits()
       const seen = new Set<string>()
@@ -448,13 +323,16 @@ export function createMarkerLayer(opts: {
         seen.add(exhibit.id)
         let entry = markers.get(exhibit.id)
         if (!entry) {
-          entry = createMarkerEntry()
+          entry = createMarkerEntry(exhibit.number)
           markers.set(exhibit.id, entry)
         }
 
+        if (exhibit.id === activeId && exhibit.id !== prevActiveId) {
+          entry.rippleStartMs = now
+        }
+
         const projected = map.project([exhibit.lng, exhibit.lat])
-        const worldX = projected.x
-        const worldY = -projected.y
+        entry.pivot.position.set(projected.x, -projected.y, 0)
 
         const isComingSoon = exhibit.status === 'coming_soon'
         const isVisited = !isComingSoon && visitedIds.includes(exhibit.id)
@@ -481,10 +359,15 @@ export function createMarkerLayer(opts: {
                 : realTintKey
         }
 
-        entry.pivot.position.set(worldX, worldY, 0)
-        entry.pin.scale.setScalar(scaleFactor)
-        entry.pin.material = isActive ? activeMaterials[tintKey] : baseMaterials[tintKey]
+        // Disc: size, position, state texture
+        entry.disc.scale.set(pinPx, pinPx, 1)
+        if (tintKey !== entry.prevTintKey) {
+          ;(entry.disc.material as THREE.MeshBasicMaterial).map = entry.discTextures[tintKey]
+          ;(entry.disc.material as THREE.MeshBasicMaterial).needsUpdate = true
+          entry.prevTintKey = tintKey
+        }
 
+        // Rise + shadow shrink
         let riseOffsetPx = 0
         let shadowDiameterPx = 0.44 * pinPx
         let shadowOpacity = 0.55
@@ -495,33 +378,34 @@ export function createMarkerLayer(opts: {
           riseOffsetPx = 0.32 * pinPx * riseT
           shadowDiameterPx = lerp(0.44 * pinPx, 0.26 * pinPx, riseT)
           shadowOpacity = lerp(0.55, 0.25, riseT)
-
-          const spinElapsed = Math.max(elapsed - RISE_DURATION_MS, 0)
-          entry.pin.rotation.y = ((spinElapsed / SPIN_DURATION_MS) % 1) * Math.PI * 2
-          entry.shadow.material = activeShadowMaterial
-          activeShadowMaterial.opacity = shadowOpacity
-        } else {
-          entry.pin.rotation.y = 0
-          entry.shadow.material = baseShadowMaterial
         }
 
-        entry.pin.position.set(0, TIP_OFFSET * scaleFactor + riseOffsetPx, 0)
+        entry.disc.position.set(0, riseOffsetPx, 0)
         entry.shadow.scale.set(shadowDiameterPx, shadowDiameterPx * 0.32, 1)
+        ;(entry.shadow.material as THREE.MeshBasicMaterial).opacity = shadowOpacity
 
-        entry.sparkle.visible = isNearby
+        // Breathe aura (nearby only)
         if (isNearby) {
-          const phaseMs = nearbyIndex * SPARKLE_STAGGER_MS
-          const t = ((now + phaseMs) % SPARKLE_DURATION_MS) / SPARKLE_DURATION_MS
-          const grow = smoothstep(Math.min(t / 0.55, 1))
-          const fade = t < 0.7 ? smoothstep(Math.min(t / 0.18, 1)) : smoothstep((1 - t) / 0.3)
+          const auraFrac =
+            (Math.sin(((now % AURA_PERIOD_MS) / AURA_PERIOD_MS) * Math.PI * 2) + 1) / 2
+          const auraScale = lerp(1, 1.14, auraFrac) * pinPx
+          entry.aura.scale.set(auraScale, auraScale, 1)
+          entry.aura.position.set(0, riseOffsetPx, 0)
+          ;(entry.aura.material as THREE.MeshBasicMaterial).opacity = lerp(0.12, 0.38, auraFrac)
+        } else {
+          ;(entry.aura.material as THREE.MeshBasicMaterial).opacity = 0
+        }
 
-          const sparklePx = Math.max(0.28 * pinPx, 16) * grow
-          const sizeLocal = sparklePx / scaleFactor
-          entry.sparkle.scale.set(sizeLocal, sizeLocal, 1)
-          entry.sparkle.position.set(SPARK_X, SPARK_BASE_Y + sizeLocal / 2, faceZ + 0.02)
-          const sparkleMaterial = entry.sparkle.material as THREE.SpriteMaterial
-          sparkleMaterial.opacity = fade
-          sparkleMaterial.rotation = grow * 0.3
+        // One-shot ripple
+        const rippleElapsed = now - entry.rippleStartMs
+        if (entry.rippleStartMs >= 0 && rippleElapsed < RIPPLE_DURATION_MS) {
+          const t = rippleElapsed / RIPPLE_DURATION_MS
+          const rs = lerp(1, 1.9, t) * pinPx
+          entry.ripple.scale.set(rs, rs, 1)
+          entry.ripple.position.set(0, riseOffsetPx, 0)
+          ;(entry.ripple.material as THREE.MeshBasicMaterial).opacity = lerp(0.6, 0, t)
+        } else {
+          ;(entry.ripple.material as THREE.MeshBasicMaterial).opacity = 0
         }
 
         placed.push({ entry, screenY: projected.y, isActive })
@@ -540,25 +424,30 @@ export function createMarkerLayer(opts: {
       for (const p of placed) {
         if (p.isActive) continue
         p.entry.shadow.renderOrder = order++
-        p.entry.pin.renderOrder = order++
-        p.entry.sparkle.renderOrder = order++
+        p.entry.aura.renderOrder = order++
+        p.entry.ripple.renderOrder = order++
+        p.entry.disc.renderOrder = order++
       }
       for (const p of placed) {
         if (!p.isActive) continue
         p.entry.shadow.renderOrder = order++
-        p.entry.pin.renderOrder = order++
-        p.entry.sparkle.renderOrder = order++
+        p.entry.aura.renderOrder = order++
+        p.entry.ripple.renderOrder = order++
+        p.entry.disc.renderOrder = order++
       }
 
-      // Fresh depth buffer for the active pin's self-depth-tested material (see makeStandardMaterial);
-      // every other material here has depthWrite:false, so nothing else is affected and nothing
-      // leaks into Mapbox's own depth buffer on the next frame.
-      renderer.clearDepth()
       renderer.render(scene, camera)
 
+      let hasActiveRipple = false
+      for (const e of markers.values()) {
+        if (e.rippleStartMs >= 0 && now - e.rippleStartMs < RIPPLE_DURATION_MS) {
+          hasActiveRipple = true
+          break
+        }
+      }
       const shouldRepaint = forcedMarkerState
         ? forcedMarkerState === 'active' || forcedMarkerState === 'nearby'
-        : activeExhibitId !== null || nearbyExhibitIds.length > 0
+        : activeExhibitId !== null || nearbyExhibitIds.length > 0 || hasActiveRipple
       if (shouldRepaint) {
         map.triggerRepaint()
       }
@@ -570,20 +459,11 @@ export function createMarkerLayer(opts: {
       }
       markers.clear()
 
-      pinGeometry.dispose()
       shadowGeometry.dispose()
       shadowTexture.dispose()
-      sparkleTexture.dispose()
-
-      for (const key of Object.keys(baseMaterials) as TintKey[]) {
-        baseMaterials[key].dispose()
-        activeMaterials[key].dispose()
-      }
-      baseShadowMaterial.dispose()
-      activeShadowMaterial.dispose()
-
-      pmremRenderTarget?.dispose()
-      pmremRenderTarget = null
+      discGeometry.dispose() // auraGeometry shares this instance
+      auraTexture.dispose()
+      rippleTexture.dispose()
 
       renderer.dispose()
     },

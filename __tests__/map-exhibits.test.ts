@@ -14,6 +14,7 @@ const cached = (over: Partial<CachedExhibit> = {}): CachedExhibit => ({
   gps_lat: 17.937484,
   gps_lng: 78.460897,
   exhibitStatus: 'live',
+  displayNumber: 7,
   ...over,
 })
 
@@ -34,6 +35,15 @@ describe('toMapExhibits', () => {
     ])
     expect(active.qr_code).toBe('baobab')
     expect(soon.qr_code).toBeNull()
+  })
+
+  it('passes displayNumber through, null when absent', () => {
+    const [num, none] = toMapExhibits([
+      cached({ id: 'a' }),
+      cached({ id: 'b', displayNumber: null }),
+    ])
+    expect(num.displayNumber).toBe(7)
+    expect(none.displayNumber).toBeNull()
   })
 
   it('takes languages from the audio keys and status from exhibitStatus', () => {
