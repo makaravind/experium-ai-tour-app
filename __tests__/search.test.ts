@@ -12,6 +12,7 @@ const ex = (id: string, name: string): MapExhibit => ({
   qr_code: null,
   languages: ['en'],
   status: 'live',
+  displayNumber: null,
 })
 
 describe('matchesQuery', () => {
