@@ -16,6 +16,7 @@ export function toMapExhibits(cached: CachedExhibit[]): MapExhibit[] {
             qr_code: e.status === 'active' ? e.code : null,
             languages: Object.keys(e.audio),
             status: e.exhibitStatus,
+            displayNumber: e.displayNumber ?? null,
           },
         ]
   )
