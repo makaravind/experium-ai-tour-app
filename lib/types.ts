@@ -26,6 +26,7 @@ export interface CachedExhibit {
   gps_lat: number | null
   gps_lng: number | null
   exhibitStatus: ExhibitStatus // exhibits.status; `status` above means QR active
+  displayNumber: number | null // exhibits.code SMALLINT; park reference number (1–99)
 }
 
 export type AmenityType = 'washroom' | 'ticketing' | 'food' | 'gate'
@@ -66,6 +67,7 @@ export interface MapExhibit {
   qr_code: string | null
   languages: string[]
   status: ExhibitStatus
+  displayNumber: number | null
 }
 
 /** Exhibit shape used by PreviewSheet — no GPS needed. */
