@@ -63,6 +63,114 @@ function disposeObject3D(root: THREE.Object3D): void {
   })
 }
 
+function lightenHex(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.min(255, Math.round(((n >> 16) & 0xff) + 255 * amount))
+  const g = Math.min(255, Math.round(((n >> 8) & 0xff) + 255 * amount))
+  const b = Math.min(255, Math.round((n & 0xff) + 255 * amount))
+  return `rgb(${r},${g},${b})`
+}
+
+function darkenHex(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.max(0, Math.round(((n >> 16) & 0xff) * (1 - amount)))
+  const g = Math.max(0, Math.round(((n >> 8) & 0xff) * (1 - amount)))
+  const b = Math.max(0, Math.round((n & 0xff) * (1 - amount)))
+  return `rgb(${r},${g},${b})`
+}
+
+/** Baked 96×96 marker disc: tinted gradient ring, dark gap, white disc, exhibit number. One per marker × tint. */
+function buildDiscTexture(num: number, tintKey: TintKey): THREE.CanvasTexture {
+  const s = 96
+  const c = s / 2
+  const R_outer = 44
+  const R_gap = 30
+  const R_disc = 25
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = s
+  const ctx = cv.getContext('2d')!
+
+  const isDimmed = tintKey === 'coming_soon'
+  const ringColor = TINTS[tintKey].color
+
+  // 1. Outer ring: light at top-left → ring color → dark at edge
+  ctx.globalAlpha = isDimmed ? 0.65 : 1.0
+  const ringGrad = ctx.createRadialGradient(c - 8, c - 8, 0, c, c, R_outer)
+  ringGrad.addColorStop(0, lightenHex(ringColor, 0.35))
+  ringGrad.addColorStop(0.48, ringColor)
+  ringGrad.addColorStop(1, darkenHex(ringColor, 0.25))
+  ctx.fillStyle = ringGrad
+  ctx.beginPath()
+  ctx.arc(c, c, R_outer, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.globalAlpha = 1.0
+
+  // 2. Dark gap ring
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'
+  ctx.beginPath()
+  ctx.arc(c, c, R_gap, 0, Math.PI * 2)
+  ctx.fill()
+
+  // 3. White disc
+  const discGrad = ctx.createRadialGradient(c, c, 0, c, c, R_disc)
+  if (isDimmed) {
+    discGrad.addColorStop(0, '#f5f5f5')
+    discGrad.addColorStop(1, '#e8e8e8')
+  } else {
+    discGrad.addColorStop(0, '#ffffff')
+    discGrad.addColorStop(1, '#efefef')
+  }
+  ctx.fillStyle = discGrad
+  ctx.beginPath()
+  ctx.arc(c, c, R_disc, 0, Math.PI * 2)
+  ctx.fill()
+
+  // 4. Number
+  ctx.fillStyle = isDimmed ? '#aaaaaa' : '#1c1c1c'
+  ctx.font = 'bold 14px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(String(num), c, c)
+
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+/** Shared white ring for the breathing aura; tinted via material color. */
+function makeAuraTexture(): THREE.CanvasTexture {
+  const s = 128
+  const c = s / 2
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = s
+  const ctx = cv.getContext('2d')!
+  ctx.strokeStyle = 'rgba(255,255,255,1)'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.arc(c, c, c - 4, 0, Math.PI * 2)
+  ctx.stroke()
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+/** Shared white ring for the one-shot tap ripple; tinted via material color. */
+function makeRippleTexture(): THREE.CanvasTexture {
+  const s = 128
+  const c = s / 2
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = s
+  const ctx = cv.getContext('2d')!
+  ctx.strokeStyle = 'rgba(255,255,255,1)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(c, c, c - 3, 0, Math.PI * 2)
+  ctx.stroke()
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
 type MarkerEntry = {
   pivot: THREE.Group
   pin: THREE.Mesh
