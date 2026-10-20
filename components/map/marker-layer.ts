@@ -16,7 +16,6 @@ export type MarkerInput = {
 const RISE_DURATION_MS = 400
 const AURA_PERIOD_MS = 2600
 const RIPPLE_DURATION_MS = 480
-const MARKER_DESIGN_PX = 56
 
 type TintKey = 'unvisited' | 'visited' | 'coming_soon'
 
