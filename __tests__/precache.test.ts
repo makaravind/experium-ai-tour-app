@@ -4,6 +4,7 @@ import { render, waitFor } from '@testing-library/react'
 import AppGate from '@/components/onboarding/AppGate'
 import { useDebugStore } from '@/lib/debug-store'
 import {
+  AssetFetchError,
   getAssetGroups,
   precacheGroups,
   findMissing,
@@ -32,7 +33,7 @@ function harness(urls: string[], preCached: string[] = [], bad: string[] = []) {
     listCached: async () => cached,
     fetchAsset: async (url: string) => {
       attempts[url] = (attempts[url] ?? 0) + 1
-      if (bad.includes(url)) throw new Error('404')
+      if (bad.includes(url)) throw new AssetFetchError(404, url)
       cached.add(url)
     },
     isOnline: () => true,
