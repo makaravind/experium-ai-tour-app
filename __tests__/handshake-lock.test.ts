@@ -5,6 +5,7 @@ vi.mock('@fingerprintjs/fingerprintjs', () => ({
 }))
 
 import { getOrCreateVisitorId } from '@/lib/handshake-lock'
+import { ConnectionTimeoutError, HANDSHAKE_TIMEOUT_MS } from '@/lib/timeouts'
 
 const fetchMock = vi.fn()
 
@@ -61,12 +62,30 @@ describe('getOrCreateVisitorId', () => {
     expect(localStorage.getItem('experium_handshake_lock')).toBeNull()
   })
 
+  it('rejects with ConnectionTimeoutError and releases the lock when fetch never resolves', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    })
+    fetchMock.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_, reject) =>
+          init.signal!.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError'))
+          )
+        )
+    )
+    const p = expect(getOrCreateVisitorId()).rejects.toBeInstanceOf(ConnectionTimeoutError)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(HANDSHAKE_TIMEOUT_MS)
+    await p
+    expect(localStorage.getItem('experium_handshake_lock')).toBeNull()
+  })
+
   describe('slow handshake / lock ownership', () => {
     const LOCK = 'experium_handshake_lock'
     let resolveFetch: (v: unknown) => void
     const realSleep = (ms: number) => new Promise((r) => setTimeout(r, ms)) // setTimeout isn't faked
-    const deferFetch = () =>
-      fetchMock.mockReturnValue(new Promise((r) => (resolveFetch = r)))
+    const deferFetch = () => fetchMock.mockReturnValue(new Promise((r) => (resolveFetch = r)))
 
     it('refreshes the lock so a handshake past LOCK_STALE_MS never lets a 2nd tab in', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
