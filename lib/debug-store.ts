@@ -22,7 +22,14 @@ interface MapDebug {
 }
 
 export type GatePhase =
-  'checking' | 'blocked-offline' | 'fetch-error' | 'loading' | 'asset-error' | 'info' | 'clear'
+  | 'checking'
+  | 'blocked-offline'
+  | 'fetch-error'
+  | 'loading'
+  | 'asset-error'
+  | 'weak-connection'
+  | 'info'
+  | 'clear'
 
 export type ForcedMarkerState = 'unvisited' | 'visited' | 'coming_soon' | 'nearby' | 'active'
 
