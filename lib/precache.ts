@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/lib/store'
+import { AUDIO_IDLE_TIMEOUT_MS, ConnectionTimeoutError } from '@/lib/timeouts'
 import type {
   AmenityType,
   CachedAmenity,
@@ -114,15 +115,64 @@ export function getAssetGroups(
   return [{ cacheName: 'audio-cache', urls: [...new Set(audio)] }]
 }
 
+function concatChunks(chunks: Uint8Array[]): ArrayBuffer {
+  const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0))
+  let offset = 0
+  for (const c of chunks) {
+    out.set(c, offset)
+    offset += c.length
+  }
+  return out.buffer
+}
+
+/** Download one asset; aborts with ConnectionTimeoutError if no bytes arrive for idleMs. */
+export async function fetchAssetWithIdleTimeout(
+  url: string,
+  outerSignal?: AbortSignal,
+  idleMs = AUDIO_IDLE_TIMEOUT_MS
+): Promise<ArrayBuffer> {
+  const inner = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  const resetTimer = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => inner.abort('timeout'), idleMs)
+  }
+
+  const onOuterAbort = () => inner.abort(outerSignal!.reason)
+  outerSignal?.addEventListener('abort', onOuterAbort)
+
+  try {
+    resetTimer()
+    const res = await fetch(url, { signal: inner.signal })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const reader = res.body!.getReader()
+    const chunks: Uint8Array[] = []
+    for (;;) {
+      resetTimer()
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+    }
+    return concatChunks(chunks)
+  } catch (err) {
+    if (outerSignal?.aborted) throw new DOMException(String(outerSignal.reason), 'AbortError')
+    if (inner.signal.aborted && inner.signal.reason === 'timeout')
+      throw new ConnectionTimeoutError()
+    throw err
+  } finally {
+    clearTimeout(timer)
+    outerSignal?.removeEventListener('abort', onOuterAbort)
+  }
+}
+
 const realDeps: PrecacheDeps = {
   listCached: async (cacheName) => {
     const cache = await caches.open(cacheName)
     return (await cache.keys()).map((r) => r.url)
   },
   fetchAsset: async (url, signal) => {
-    const res = await fetch(url, { signal })
-    if (!res.ok) throw new Error(`${res.status} ${url}`)
-    await res.arrayBuffer() // finish the download before counting it
+    await fetchAssetWithIdleTimeout(url, signal) // finish the download before counting it
   },
   isOnline: () => navigator.onLine,
 }
