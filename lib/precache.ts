@@ -10,6 +10,19 @@ import type {
   Language,
 } from '@/lib/types'
 
+export class AssetFetchError extends Error {
+  constructor(
+    public status: number,
+    url: string
+  ) {
+    super(`${status} ${url}`)
+  }
+}
+
+/** Only a definitive 404/410 means the asset itself is bad and counts toward the retry cap. */
+const isPermanent = (err: unknown): err is AssetFetchError =>
+  err instanceof AssetFetchError && (err.status === 404 || err.status === 410)
+
 export const MAX_ATTEMPTS = 3
 export const CONCURRENCY = 6
 
@@ -32,7 +45,7 @@ export interface PrecacheResult {
   failures: Record<string, { count: number }>
   fetched: number
   total: number
-  /** run aborted because the network dropped; no attempts were counted for it */
+  /** run stopped for connectivity (network dropped, 5xx, non-404 error); no attempts were counted */
   offline: boolean
   /** run aborted because a request stalled (idle timeout); no attempts counted */
   timedOut: boolean
@@ -164,7 +177,7 @@ export async function fetchAssetWithIdleTimeout(
   try {
     resetTimer()
     const res = await fetch(url, { signal: inner.signal })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new AssetFetchError(res.status, url)
     if (!res.body) return new ArrayBuffer(0)
     const reader = res.body.getReader()
     const chunks: Uint8Array[] = []
@@ -272,8 +285,8 @@ export async function precacheGroups(
             groupCtrl.abort('timeout') // wake up all other in-flight workers immediately
             return
           }
-          if (!deps.isOnline()) {
-            offline = true // connectivity, not a bad asset: don't burn an attempt
+          if (!isPermanent(err) || !deps.isOnline()) {
+            offline = true // connectivity or server trouble, not a bad asset: don't burn an attempt
             return
           }
           const count = (failures[url]?.count ?? 0) + 1
