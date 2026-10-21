@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+import { FAKE_AUDIO_URL, mockPrecacheDataset, silentWav } from './gate-helpers'
 
 // "Baobab Forest" — the only active QR code seeded in Supabase (and its only published audio row,
 // so the real upfront precache is a single small mp3 — no mocking needed)
@@ -101,5 +102,101 @@ test.describe('Offline after upfront precache', () => {
       timeout: 15000,
     })
     await expect(page.getByText('Connect to the internet')).toBeHidden()
+  })
+})
+
+// Asset failure handling (#87): only 404/410 cap; mocked dataset so these run under `next dev` too.
+// MAX_ATTEMPTS retries are back-to-back, so the capped screen appears within a run.
+test.describe('Asset failure handling', () => {
+  const ASSET_ERROR = "Some audio couldn't be downloaded"
+
+  const persistedFailures = (page: Page) =>
+    page.evaluate(() => {
+      const raw = localStorage.getItem('experium-store')
+      return raw ? (JSON.parse(raw).state?.assetFailures ?? {}) : null
+    })
+
+  test('500 on audio: connectivity stop, not counted in assetFailures', async ({ page }) => {
+    await mockPrecacheDataset(page, { seedCache: false })
+    await page.route(FAKE_AUDIO_URL, (route) => route.fulfill({ status: 500, body: 'error' }))
+
+    await page.goto('/')
+    await expect(page.getByText('Connect to the internet')).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(ASSET_ERROR)).toBeHidden()
+
+    const failures = await persistedFailures(page)
+    expect(failures).not.toBeNull() // otherwise the empty check below is vacuous
+    expect(Object.keys(failures)).toHaveLength(0)
+  })
+
+  test('404: asset-error once, Continue anyway survives reload, strip shows offline', async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'offline events are only reliable in chromium')
+    test.setTimeout(60000)
+    await mockPrecacheDataset(page, { seedCache: false })
+    await page.route(FAKE_AUDIO_URL, (route) => route.fulfill({ status: 404, body: 'not found' }))
+    await page.route('/api/scan', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ total_discovered: 1 }),
+      })
+    )
+
+    await page.goto('/')
+    await expect(page.getByText(ASSET_ERROR)).toBeVisible({ timeout: 25000 })
+    await expect(page.getByText('Baobab Forest')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Continue anyway' }).click()
+    await page.getByRole('button', { name: 'Skip for now' }).click({ timeout: 10000 })
+    await expect(page.getByRole('link', { name: 'Scan Now' })).toBeVisible()
+
+    // Same capped set after a fresh page load: straight to the app, no re-block
+    await page.reload()
+    await expect(page.getByRole('link', { name: 'Scan Now' })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(ASSET_ERROR)).toBeHidden()
+
+    // Online the file streams: no strip. Offline and uncached: strip.
+    await page.goto('/s/baobab-forest')
+    await page.getByRole('button', { name: /listen/i }).click()
+    await expect(page.getByText('Needs internet to play')).toBeHidden()
+    await context.setOffline(true)
+    await expect(page.getByText('Needs internet to play')).toBeVisible({ timeout: 10000 })
+  })
+
+  test('Try again after 404 recovers once the file is served', async ({ page }) => {
+    test.setTimeout(60000)
+    await mockPrecacheDataset(page, { seedCache: false })
+    await page.route(FAKE_AUDIO_URL, (route) => route.fulfill({ status: 404, body: 'not found' }))
+
+    await page.goto('/')
+    await expect(page.getByText(ASSET_ERROR)).toBeVisible({ timeout: 25000 })
+
+    // Later routes win: serve the file now
+    await page.route(FAKE_AUDIO_URL, (route) =>
+      route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
+    )
+    const refetched = page.waitForResponse(
+      (r) => r.url() === FAKE_AUDIO_URL && r.status() === 200,
+      { timeout: 15000 }
+    )
+    await page.getByRole('button', { name: 'Try again' }).click()
+    await refetched // the capped URL was reset and fetched again
+
+    const state = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('experium-store')!).state
+    )
+    expect(Object.keys(state.assetFailures ?? {})).toHaveLength(0)
+    expect(state.acknowledgedCapped ?? []).toHaveLength(0)
+
+    // Under `next dev` there's no service worker, so the fetched audio never reaches Cache Storage
+    // and the gate can't clear (see gate-helpers.ts). Prod build only.
+    if (process.env.E2E_PROD) {
+      await expect(page.getByText(ASSET_ERROR)).toBeHidden({ timeout: 15000 })
+      await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 15000 })
+    }
   })
 })
