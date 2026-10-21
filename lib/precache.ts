@@ -34,6 +34,8 @@ export interface PrecacheResult {
   total: number
   /** run aborted because the network dropped; no attempts were counted for it */
   offline: boolean
+  /** run aborted because a request stalled (idle timeout); no attempts counted */
+  timedOut: boolean
 }
 
 export interface PrecacheDeps {
@@ -216,6 +218,7 @@ export async function precacheGroups(
   const todoCount = Object.values(missing).reduce((n, m) => n + m.length, 0)
   let fetched = total - todoCount
   let offline = false
+  let timedOut = false
   opts.onProgress?.(fetched, total)
   if (todoCount > 0 && fetched > 0) {
     console.log(`[precache] gap-fill: ${todoCount}/${total} assets missing`)
@@ -227,17 +230,25 @@ export async function precacheGroups(
 
   const cancelled = () => (opts.signal?.aborted ?? false) || (opts.isCancelled?.() ?? false)
 
-  while (todo.length > 0 && !offline && !cancelled()) {
+  while (todo.length > 0 && !offline && !timedOut && !cancelled()) {
     const retry: string[] = []
     const queue = [...todo]
     const worker = async () => {
-      for (let url = queue.shift(); url && !offline && !cancelled(); url = queue.shift()) {
+      for (
+        let url = queue.shift();
+        url && !offline && !timedOut && !cancelled();
+        url = queue.shift()
+      ) {
         try {
           await deps.fetchAsset(url, opts.signal)
           delete failures[url]
           opts.onProgress?.(++fetched, total)
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return
+          if (err instanceof ConnectionTimeoutError) {
+            timedOut = true
+            return
+          }
           if (!deps.isOnline()) {
             offline = true // connectivity, not a bad asset: don't burn an attempt
             return
@@ -266,7 +277,7 @@ export async function precacheGroups(
       capped: failed.filter((u) => (failures[u]?.count ?? 0) >= max),
     }
   })
-  return { groups: results, failures, fetched, total, offline }
+  return { groups: results, failures, fetched, total, offline, timedOut }
 }
 
 /**

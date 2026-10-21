@@ -218,6 +218,7 @@ describe('AppGate Refresh content', () => {
       fetched: 0,
       total: 0,
       offline: false,
+      timedOut: false,
     })
     useStore.setState({
       cachedExhibits: [{ id: 'e1', audio: {} } as CachedExhibit],
