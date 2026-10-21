@@ -24,10 +24,9 @@ test('audio timeout: shows Weak connection, no failures counted; Try again passe
   await expect(page.getByText('Weak connection')).toBeVisible({ timeout: 20000 })
 
   // a timeout must not count as an asset failure
-  const failures = await page.evaluate(() => {
-    const raw = localStorage.getItem('experium-store')
-    return raw ? (JSON.parse(raw)?.state?.assetFailures ?? {}) : {}
-  })
+  const persisted = await page.evaluate(() => localStorage.getItem('experium-store'))
+  expect(persisted).not.toBeNull() // otherwise the empty-failures check below is vacuous
+  const failures = JSON.parse(persisted!).state?.assetFailures ?? {}
   expect(Object.keys(failures)).toHaveLength(0)
 
   // audio is now cached; with dataset + audio complete the gate clears straight to the app (no info modal)
