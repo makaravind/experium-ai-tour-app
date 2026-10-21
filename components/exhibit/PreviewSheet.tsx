@@ -277,16 +277,39 @@ export default function PreviewSheet({
             <div className="px-4">
               <SheetSummary
                 expanded={expanded}
+                displayNumber={exhibit?.displayNumber}
                 onExpand={expand}
                 thumb={
-                  <div
-                    className="w-14 h-14 rounded-xl"
-                    style={{
-                      background:
-                        'linear-gradient(135deg, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
-                      overflow: 'hidden',
-                    }}
-                  />
+                  <div className="relative w-14 h-14">
+                    <div
+                      className="w-14 h-14 rounded-xl"
+                      style={{
+                        background:
+                          'linear-gradient(135deg, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
+                        overflow: 'hidden',
+                      }}
+                    />
+                    {exhibit?.displayNumber != null && (
+                      <div className="absolute" style={{ bottom: -3, right: -3 }}>
+                        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+                          <circle cx="11" cy="11" r="11" fill="var(--color-ex-forest)" />
+                          <circle cx="11" cy="11" r="9" fill="var(--color-ex-ink)" />
+                          <circle cx="11" cy="11" r="7.5" fill="white" />
+                          <text
+                            x="11"
+                            y="14.5"
+                            textAnchor="middle"
+                            fontFamily="sans-serif"
+                            fontWeight="bold"
+                            fontSize="7"
+                            fill="var(--color-ex-forest)"
+                          >
+                            {exhibit.displayNumber}
+                          </text>
+                        </svg>
+                      </div>
+                    )}
+                  </div>
                 }
                 name={exhibit?.name}
                 nameAddon={

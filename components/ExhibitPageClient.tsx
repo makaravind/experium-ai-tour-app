@@ -26,6 +26,9 @@ export default function ExhibitPageClient({
 }) {
   const visitorId = useStore((s) => s.visitorId)
   const language = useStore((s) => s.language)
+  const displayNumber = useStore(
+    (s) => s.cachedExhibits.find((e) => e.id === exhibitId)?.displayNumber ?? null
+  )
   const setListenedCurrentExhibit = useStore((s) => s.setListenedCurrentExhibit)
   const markVisited = useStore((s) => s.markVisited)
   const { setExhibitPageData, clearExhibitPageData } = useMapStore()
@@ -97,6 +100,7 @@ export default function ExhibitPageClient({
       qr_code: qrCode,
       facts: exhibit.facts,
       languages: audio.map((a) => a.language),
+      displayNumber,
     }
     setExhibitPageData({
       exhibit: previewExhibit,

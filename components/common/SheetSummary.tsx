@@ -11,6 +11,7 @@ export default function SheetSummary({
   name,
   nameAddon,
   badge,
+  displayNumber,
   onCollapse,
   onExpand,
   count,
@@ -21,6 +22,7 @@ export default function SheetSummary({
   name?: string
   nameAddon?: ReactNode
   badge?: ReactNode
+  displayNumber?: number | null
   onCollapse: () => void
   onExpand?: () => void
   count?: number
@@ -77,10 +79,19 @@ export default function SheetSummary({
           </span>
           {nameAddon}
         </div>
-        {badge && (
-          <span className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-ex-bg border border-ex-border text-ex-ink">
-            {badge}
-          </span>
+        {(badge || (expanded && displayNumber != null)) && (
+          <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+            {badge && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-ex-bg border border-ex-border text-ex-ink">
+                {badge}
+              </span>
+            )}
+            {expanded && displayNumber != null && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-ex-forest text-white">
+                #{displayNumber}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>

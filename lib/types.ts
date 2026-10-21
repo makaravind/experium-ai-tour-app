@@ -79,4 +79,5 @@ export interface PreviewExhibit {
   qr_code: string | null
   facts?: Fact[] | null
   languages?: string[]
+  displayNumber: number | null
 }

@@ -27,6 +27,7 @@ function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
     tier: exhibit.tier,
     qr_code: exhibit.qr_code,
     languages: exhibit.languages,
+    displayNumber: exhibit.displayNumber,
   }
 }
 
