@@ -1,3 +1,5 @@
+import { ConnectionTimeoutError, HANDSHAKE_TIMEOUT_MS } from '@/lib/timeouts'
+
 const ID_KEY = 'experium_visitor_id'
 const LOCK_KEY = 'experium_handshake_lock'
 const LOCK_STALE_MS = 10_000
@@ -36,14 +38,25 @@ async function handshake(): Promise<string> {
   const FingerprintJS = await import('@fingerprintjs/fingerprintjs')
   const fp = await FingerprintJS.load()
   const result = await fp.get()
-  const res = await fetch('/api/user/handshake', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fingerprintHint: result.visitorId }),
-  })
-  const { visitorId } = await res.json()
-  if (!visitorId) throw new Error('handshake returned no visitorId')
-  return visitorId
+
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), HANDSHAKE_TIMEOUT_MS)
+  try {
+    const res = await fetch('/api/user/handshake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fingerprintHint: result.visitorId }),
+      signal: ctrl.signal,
+    })
+    const { visitorId } = await res.json()
+    if (!visitorId) throw new Error('handshake returned no visitorId')
+    return visitorId
+  } catch (err) {
+    if (ctrl.signal.aborted) throw new ConnectionTimeoutError()
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 // Resolves when the id appears, or the lock is released/stale (id still null).

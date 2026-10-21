@@ -1,11 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fetchCachedAmenities, runPrecache } from '@/lib/precache'
+import { fetchCachedAmenities, fetchCachedExhibits, runPrecache } from '@/lib/precache'
 import { useStore } from '@/lib/store'
+import { ConnectionTimeoutError, DATASET_TIMEOUT_MS } from '@/lib/timeouts'
 
 const results: Record<string, { data: unknown; error: { message: string } | null }> = {}
 
+let hang = false
+
 vi.mock('@/lib/supabase', () => ({
-  supabase: { from: (table: string) => ({ select: async () => results[table] }) },
+  supabase: {
+    from: (table: string) => ({
+      select: () => ({
+        abortSignal: (signal: AbortSignal) =>
+          hang
+            ? new Promise((resolve) =>
+                signal.addEventListener('abort', () =>
+                  resolve({ data: null, error: { message: 'AbortError' } })
+                )
+              )
+            : Promise.resolve(results[table]),
+      }),
+    }),
+  },
 }))
 
 const amenityRow = {
@@ -32,6 +48,8 @@ const exhibitRow = {
 }
 
 beforeEach(() => {
+  vi.useRealTimers()
+  hang = false
   vi.stubGlobal('caches', { open: async () => ({ keys: async () => [] }) })
   useStore.setState({ cachedExhibits: [], cachedAmenities: [], assetFailures: {} })
   results.exhibits = { data: [exhibitRow], error: null }
@@ -46,6 +64,24 @@ describe('fetchCachedAmenities', () => {
   it('throws on query error', async () => {
     results.amenities = { data: null, error: { message: 'boom' } }
     await expect(fetchCachedAmenities()).rejects.toThrow('boom')
+  })
+
+  it('throws ConnectionTimeoutError after DATASET_TIMEOUT_MS', async () => {
+    vi.useFakeTimers()
+    hang = true
+    const p = expect(fetchCachedAmenities()).rejects.toBeInstanceOf(ConnectionTimeoutError)
+    await vi.advanceTimersByTimeAsync(DATASET_TIMEOUT_MS)
+    await p
+  })
+})
+
+describe('fetchCachedExhibits', () => {
+  it('throws ConnectionTimeoutError after DATASET_TIMEOUT_MS', async () => {
+    vi.useFakeTimers()
+    hang = true
+    const p = expect(fetchCachedExhibits()).rejects.toBeInstanceOf(ConnectionTimeoutError)
+    await vi.advanceTimersByTimeAsync(DATASET_TIMEOUT_MS)
+    await p
   })
 })
 

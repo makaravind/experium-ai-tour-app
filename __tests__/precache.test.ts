@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createElement } from 'react'
 import { render, waitFor } from '@testing-library/react'
 import AppGate from '@/components/onboarding/AppGate'
@@ -7,10 +7,12 @@ import {
   getAssetGroups,
   precacheGroups,
   findMissing,
+  fetchAssetWithIdleTimeout,
   checkFresh,
   runPrecache,
 } from '@/lib/precache'
 import { useStore } from '@/lib/store'
+import { AUDIO_IDLE_TIMEOUT_MS, ConnectionTimeoutError } from '@/lib/timeouts'
 import type { CachedExhibit } from '@/lib/types'
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
@@ -132,6 +134,104 @@ describe('precacheGroups', () => {
   })
 })
 
+describe('precacheGroups timeout', () => {
+  it('stops on ConnectionTimeoutError: timedOut, failures unchanged, no further urls fetched', async () => {
+    const urls = [u(1), u(2), u(3)]
+    const h = harness(urls)
+    const attempted: string[] = []
+    const failures = { [u(9)]: { count: 1 } }
+    const r = await precacheGroups(h.groups, {
+      ...h.deps,
+      failures,
+      concurrency: 1,
+      fetchAsset: async (url) => {
+        attempted.push(url)
+        throw new ConnectionTimeoutError()
+      },
+    })
+    expect(r.timedOut).toBe(true)
+    expect(r.failures).toEqual(failures)
+    expect(attempted).toEqual([u(1)])
+    expect(r.groups[0].complete).toBe(false)
+  })
+})
+
+describe('fetchAssetWithIdleTimeout', () => {
+  const abortError = (s: AbortSignal) => s.reason ?? new DOMException('aborted', 'AbortError')
+  // a promise that never settles on its own but rejects when the signal aborts, like real fetch/reader
+  const hangUntilAbort = <T>(signal: AbortSignal) =>
+    new Promise<T>((_, reject) =>
+      signal.addEventListener('abort', () => reject(abortError(signal)))
+    )
+  const chunk = new Uint8Array([1, 2, 3])
+
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('rejects with ConnectionTimeoutError when fetch never resolves', async () => {
+    vi.stubGlobal('fetch', (_url: string, init: RequestInit) => hangUntilAbort(init.signal!))
+    const p = expect(fetchAssetWithIdleTimeout(u(1))).rejects.toBeInstanceOf(ConnectionTimeoutError)
+    await vi.advanceTimersByTimeAsync(AUDIO_IDLE_TIMEOUT_MS)
+    await p
+  })
+
+  it('resolves when chunks keep arriving, even past the idle window in total', async () => {
+    vi.stubGlobal('fetch', async () => {
+      let n = 0
+      return {
+        ok: true,
+        body: {
+          getReader: () => ({
+            read: () =>
+              new Promise((resolve) =>
+                setTimeout(
+                  () => resolve(++n <= 6 ? { done: false, value: chunk } : { done: true }),
+                  10_000
+                )
+              ),
+          }),
+        },
+      }
+    })
+    const p = fetchAssetWithIdleTimeout(u(1))
+    await vi.advanceTimersByTimeAsync(70_000)
+    expect((await p).byteLength).toBe(chunk.length * 6)
+  })
+
+  it('rejects with ConnectionTimeoutError when the body stalls after a chunk', async () => {
+    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+      let n = 0
+      return {
+        ok: true,
+        body: {
+          getReader: () => ({
+            read: () =>
+              ++n === 1
+                ? Promise.resolve({ done: false, value: chunk })
+                : hangUntilAbort(init.signal!),
+          }),
+        },
+      }
+    })
+    const p = expect(fetchAssetWithIdleTimeout(u(1))).rejects.toBeInstanceOf(ConnectionTimeoutError)
+    await vi.advanceTimersByTimeAsync(AUDIO_IDLE_TIMEOUT_MS)
+    await p
+  })
+
+  it('rejects with AbortError, not a timeout, on outer abort', async () => {
+    vi.stubGlobal('fetch', (_url: string, init: RequestInit) => hangUntilAbort(init.signal!))
+    const outer = new AbortController()
+    const p = fetchAssetWithIdleTimeout(u(1), outer.signal)
+    const assertion = expect(p).rejects.toMatchObject({ name: 'AbortError' })
+    outer.abort('language-switch')
+    await assertion
+    await expect(p).rejects.not.toBeInstanceOf(ConnectionTimeoutError)
+  })
+})
+
 describe('precacheGroups cancellation', () => {
   it('stops scheduling new fetches once isCancelled flips', async () => {
     const urls = Array.from({ length: 10 }, (_, i) => u(i))
@@ -218,6 +318,7 @@ describe('AppGate Refresh content', () => {
       fetched: 0,
       total: 0,
       offline: false,
+      timedOut: false,
     })
     useStore.setState({
       cachedExhibits: [{ id: 'e1', audio: {} } as CachedExhibit],

@@ -7,6 +7,7 @@ import IntroScreen from '@/components/onboarding/IntroScreen'
 import LoadingScreen from '@/components/onboarding/LoadingScreen'
 import { getOrCreateVisitorId } from '@/lib/handshake-lock'
 import { useDebugStore, type GatePhase } from '@/lib/debug-store'
+import { ConnectionTimeoutError } from '@/lib/timeouts'
 import {
   checkFresh,
   logContinueAnyway,
@@ -87,6 +88,10 @@ export default function AppGate({ children }: { children: ReactNode }) {
 
   const finish = useCallback(
     (result: PrecacheResult) => {
+      if (result.timedOut) {
+        setPhase('weak-connection')
+        return
+      }
       const capped = result.groups.some((g) => g.capped.length > 0)
       if (capped) setPhase('asset-error')
       else if (result.offline) setPhase('blocked-offline')
@@ -158,9 +163,13 @@ export default function AppGate({ children }: { children: ReactNode }) {
       // A picker re-target mid-run queued a restart: this result is for the stale language, so
       // surfacing it (clear/info/error) would flash wrong-language content. The finally block re-runs.
       if (!restartRef.current) finish(result)
-    } catch {
+    } catch (err) {
+      abortRef.current?.abort() // kill orphaned precache if idPromise rejected first
       // handshake or dataset query failed: offline is a connectivity problem, online is a fetch failure
-      if (!restartRef.current) setPhase(navigator.onLine ? 'fetch-error' : 'blocked-offline')
+      if (!restartRef.current) {
+        if (err instanceof ConnectionTimeoutError) setPhase('weak-connection')
+        else setPhase(navigator.onLine ? 'fetch-error' : 'blocked-offline')
+      }
     } finally {
       runningRef.current = false
       if (restartRef.current) {
@@ -177,7 +186,13 @@ export default function AppGate({ children }: { children: ReactNode }) {
     void run()
     return onForeground(() => {
       const p = phaseRef.current
-      if (p === 'loading' || p === 'blocked-offline' || p === 'fetch-error') void run()
+      if (
+        p === 'loading' ||
+        p === 'blocked-offline' ||
+        p === 'fetch-error' ||
+        p === 'weak-connection'
+      )
+        void run()
     })
   }, [run])
 
@@ -252,6 +267,22 @@ export default function AppGate({ children }: { children: ReactNode }) {
       <Screen
         title="Something went wrong"
         body="Couldn't load the tour data. Check your connection and try again."
+      >
+        <button
+          type="button"
+          className={buttonClass}
+          style={{ border: 'none' }}
+          onClick={() => void run()}
+        >
+          Try again
+        </button>
+      </Screen>
+    )
+  } else if (phase === 'weak-connection') {
+    content = (
+      <Screen
+        title="Weak connection"
+        body="The download stalled. Move closer to the park entrance or connect to Wi-Fi, then try again."
       >
         <button
           type="button"
