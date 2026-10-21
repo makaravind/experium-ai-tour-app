@@ -115,6 +115,44 @@ describe('precacheGroups', () => {
     expect(r.groups[0]).toMatchObject({ complete: false, capped: [] })
   })
 
+  // 404 capping is covered by 'caps a permanently bad asset' above (harness throws AssetFetchError(404))
+  it.each([
+    ['5xx', (url: string) => new AssetFetchError(500, url)],
+    ['a network error', () => new Error('network')],
+  ])('does not count %s; stops the run as offline', async (_name, makeErr) => {
+    const h = harness([u(1), u(2)])
+    const r = await precacheGroups(h.groups, {
+      ...h.deps,
+      failures: {},
+      concurrency: 1,
+      fetchAsset: async (url) => {
+        h.attempts[url] = (h.attempts[url] ?? 0) + 1
+        throw makeErr(url)
+      },
+    })
+    expect(r.offline).toBe(true)
+    expect(r.failures).toEqual({})
+    expect(h.attempts[u(1)]).toBe(1)
+    expect(r.groups[0]).toMatchObject({ complete: false, capped: [] })
+  })
+
+  it('counts 410 and caps it after 3 attempts', async () => {
+    const h = harness([u(1)])
+    let calls = 0
+    const r = await precacheGroups(h.groups, {
+      ...h.deps,
+      failures: {},
+      fetchAsset: async (url) => {
+        calls++
+        throw new AssetFetchError(410, url)
+      },
+    })
+    expect(calls).toBe(3)
+    expect(r.offline).toBeFalsy()
+    expect(r.failures[u(1)]).toEqual({ count: 3 })
+    expect(r.groups[0]).toMatchObject({ complete: false, capped: [u(1)] })
+  })
+
   it('respects concurrency limit', async () => {
     const urls = Array.from({ length: 20 }, (_, i) => u(i))
     const cached = new Set<string>()
