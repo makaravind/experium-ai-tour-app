@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import InfoModal from '@/components/onboarding/InfoModal'
+import IntroScreen from '@/components/onboarding/IntroScreen'
 import LoadingScreen from '@/components/onboarding/LoadingScreen'
 import { getOrCreateVisitorId } from '@/lib/handshake-lock'
 import { useDebugStore, type GatePhase } from '@/lib/debug-store'
@@ -66,6 +68,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const [phase, setPhaseState] = useState<GatePhase>('checking')
   const [pct, setPct] = useState(0)
   const [label, setLabel] = useState<string | undefined>()
+  const [introDone, setIntroDone] = useState(process.env.NODE_ENV === 'development')
   const precacheLanguage = useStore((s) => s.precacheLanguage)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const assetFailures = useStore((s) => s.assetFailures)
@@ -200,6 +203,13 @@ export default function AppGate({ children }: { children: ReactNode }) {
     [run]
   )
 
+  const handleIntroEnd = useCallback(() => setIntroDone(true), [])
+
+  const handleInfoDone = useCallback(() => {
+    localStorage.setItem(ONBOARDED_KEY, '1')
+    setPhase('clear')
+  }, [setPhase])
+
   const audioUrlOf = (e: (typeof cachedExhibits)[number]) =>
     precacheLanguage ? e.audio[precacheLanguage] : undefined
   const cappedExhibits = cachedExhibits.filter((e) => {
@@ -207,10 +217,11 @@ export default function AppGate({ children }: { children: ReactNode }) {
     return url && (assetFailures[url]?.count ?? 0) >= MAX_ATTEMPTS
   })
 
-  if (phase === 'clear') return <>{children}</>
-
-  if (phase === 'loading') {
-    return (
+  let content: ReactNode
+  if (phase === 'clear') {
+    content = <>{children}</>
+  } else if (phase === 'loading') {
+    content = (
       <LoadingScreen
         pct={pct}
         phase={label}
@@ -218,18 +229,10 @@ export default function AppGate({ children }: { children: ReactNode }) {
         onLanguageChange={handleLanguageChange}
       />
     )
-  }
-
-  if (phase === 'info') {
-    const done = () => {
-      localStorage.setItem(ONBOARDED_KEY, '1')
-      setPhase('clear')
-    }
-    return <InfoModal onDone={done} />
-  }
-
-  if (phase === 'blocked-offline') {
-    return (
+  } else if (phase === 'info') {
+    content = <InfoModal onDone={handleInfoDone} />
+  } else if (phase === 'blocked-offline') {
+    content = (
       <Screen
         title="Connect to the internet"
         body="We need a connection once to download the audio tour. After that it works offline."
@@ -244,10 +247,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
         </button>
       </Screen>
     )
-  }
-
-  if (phase === 'fetch-error') {
-    return (
+  } else if (phase === 'fetch-error') {
+    content = (
       <Screen
         title="Something went wrong"
         body="Couldn't load the tour data. Check your connection and try again."
@@ -262,11 +263,9 @@ export default function AppGate({ children }: { children: ReactNode }) {
         </button>
       </Screen>
     )
-  }
-
-  if (phase === 'asset-error') {
+  } else if (phase === 'asset-error') {
     const urls = cappedExhibits.flatMap((e) => audioUrlOf(e) ?? [])
-    return (
+    content = (
       <Screen
         title="Some audio couldn't be downloaded"
         body="These exhibits will need a connection to play:"
@@ -289,8 +288,27 @@ export default function AppGate({ children }: { children: ReactNode }) {
         </button>
       </Screen>
     )
+  } else {
+    // 'checking': neutral cover so real content never flashes before the mount check resolves
+    content = <div className="fixed inset-0 bg-ex-bg" />
   }
 
-  // 'checking': neutral cover so real content never flashes before the mount check resolves
-  return <div className="fixed inset-0 bg-ex-bg" />
+  return (
+    <>
+      {content}
+      <AnimatePresence>
+        {!introDone && (
+          <motion.div
+            key="intro"
+            className="fixed inset-0 z-50"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <IntroScreen onEnd={handleIntroEnd} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  )
 }
