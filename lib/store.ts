@@ -50,6 +50,10 @@ interface Store {
   assetFailures: Record<string, { count: number }>
   setAssetFailures: (f: Record<string, { count: number }>) => void
 
+  // capped URLs the visitor chose to "Continue anyway" past
+  acknowledgedCapped: string[]
+  setAcknowledgedCapped: (urls: string[]) => void
+
   // session only
   visitorId: string | null
   setVisitorId: (id: string) => void
@@ -120,6 +124,9 @@ export const useStore = create<Store>()(
       assetFailures: {},
       setAssetFailures: (assetFailures) => set({ assetFailures }),
 
+      acknowledgedCapped: [],
+      setAcknowledgedCapped: (acknowledgedCapped) => set({ acknowledgedCapped }),
+
       visitorId: null,
       setVisitorId: (visitorId) => set({ visitorId }),
 
@@ -173,6 +180,7 @@ export const useStore = create<Store>()(
         precacheLanguage: s.precacheLanguage,
         completionByGroup: s.completionByGroup,
         assetFailures: s.assetFailures,
+        acknowledgedCapped: s.acknowledgedCapped,
       }),
     }
   )
