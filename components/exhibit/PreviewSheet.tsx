@@ -290,19 +290,19 @@ export default function PreviewSheet({
                       }}
                     />
                     {exhibit?.displayNumber != null && (
-                      <div className="absolute" style={{ bottom: -3, right: -3 }}>
-                        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
-                          <circle cx="11" cy="11" r="11" fill="#dda15e" />
-                          <circle cx="11" cy="11" r="7.5" fill="rgba(0,0,0,0.65)" />
-                          <circle cx="11" cy="11" r="6.25" fill="white" />
+                      <div className="absolute" style={{ bottom: -6, right: -6 }}>
+                        <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+                          <circle cx="22" cy="22" r="22" fill="#dda15e" />
+                          <circle cx="22" cy="22" r="15" fill="rgba(0,0,0,0.65)" />
+                          <circle cx="22" cy="22" r="12.5" fill="white" />
                           <text
-                            x="11"
-                            y="11"
+                            x="22"
+                            y="22"
                             textAnchor="middle"
                             dominantBaseline="central"
                             fontFamily="sans-serif"
                             fontWeight="bold"
-                            fontSize="6"
+                            fontSize="12"
                             fill="#1c1c1c"
                           >
                             {exhibit.displayNumber}

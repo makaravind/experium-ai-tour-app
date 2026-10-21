@@ -87,7 +87,7 @@ export default function SheetSummary({
               </span>
             )}
             {expanded && displayNumber != null && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-ex-forest text-white">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-ex-bg border border-ex-border text-ex-muted">
                 #{displayNumber}
               </span>
             )}
