@@ -24,10 +24,8 @@ export default function IntroScreen({ onEnd }: { onEnd: () => void }) {
 
     // bail if video doesn't start playing within 500ms
     const timer = setTimeout(done, 500)
-    video
-      .play()
-      .then(() => clearTimeout(timer))
-      .catch(done)
+    const p = video.play()
+    if (p instanceof Promise) p.then(() => clearTimeout(timer)).catch(done)
 
     return () => {
       video.removeEventListener('ended', done)
