@@ -133,6 +133,7 @@ describe('precacheGroups', () => {
     expect(r.offline).toBe(true)
     expect(r.failures).toEqual({})
     expect(h.attempts[u(1)]).toBe(1)
+    expect(h.attempts[u(2)]).toBeUndefined()
     expect(r.groups[0]).toMatchObject({ complete: false, capped: [] })
   })
 
