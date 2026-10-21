@@ -292,17 +292,18 @@ export default function PreviewSheet({
                     {exhibit?.displayNumber != null && (
                       <div className="absolute" style={{ bottom: -3, right: -3 }}>
                         <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
-                          <circle cx="11" cy="11" r="11" fill="var(--color-ex-forest)" />
-                          <circle cx="11" cy="11" r="9" fill="var(--color-ex-ink)" />
-                          <circle cx="11" cy="11" r="7.5" fill="white" />
+                          <circle cx="11" cy="11" r="11" fill="#dda15e" />
+                          <circle cx="11" cy="11" r="7.5" fill="rgba(0,0,0,0.65)" />
+                          <circle cx="11" cy="11" r="6.25" fill="white" />
                           <text
                             x="11"
-                            y="14.5"
+                            y="11"
                             textAnchor="middle"
+                            dominantBaseline="central"
                             fontFamily="sans-serif"
                             fontWeight="bold"
-                            fontSize="7"
-                            fill="var(--color-ex-forest)"
+                            fontSize="6"
+                            fill="#1c1c1c"
                           >
                             {exhibit.displayNumber}
                           </text>
