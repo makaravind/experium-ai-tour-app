@@ -82,6 +82,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const assetFailures = useStore((s) => s.assetFailures)
   const refreshRequested = useStore((s) => s.refreshRequested)
   const setAcknowledgedCapped = useStore((s) => s.setAcknowledgedCapped)
+  const setAssetFailures = useStore((s) => s.setAssetFailures)
   const phaseRef = useRef<GatePhase>('checking')
   const runningRef = useRef(false)
   const restartRef = useRef(false)
@@ -320,6 +321,21 @@ export default function AppGate({ children }: { children: ReactNode }) {
           type="button"
           className={buttonClass}
           style={{ border: 'none' }}
+          onClick={() => {
+            const next = { ...assetFailures }
+            for (const url of urls) delete next[url]
+            setAssetFailures(next)
+            setAcknowledgedCapped(
+              useStore.getState().acknowledgedCapped.filter((u) => !urls.includes(u))
+            )
+            void run()
+          }}
+        >
+          Try again
+        </button>
+        <button
+          type="button"
+          className="w-full h-14 mt-3 rounded-2xl font-extrabold text-base flex items-center justify-center bg-transparent text-ex-forest border-2 border-ex-forest"
           onClick={() => {
             logContinueAnyway(urls)
             setAcknowledgedCapped([...urls].sort())
