@@ -214,9 +214,11 @@ export default function AppGate({ children }: { children: ReactNode }) {
       if (useDebugStore.getState().isActive) await caches.delete('audio-cache')
       useStore.getState().setCachedExhibits([])
       useStore.getState().setCachedAmenities([])
+      setAssetFailures({})
+      setAcknowledgedCapped([])
       await run()
     })()
-  }, [refreshRequested, run])
+  }, [refreshRequested, run, setAssetFailures, setAcknowledgedCapped])
 
   const handleLanguageChange = useCallback(
     (code: Language) => {
