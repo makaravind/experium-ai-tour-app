@@ -58,62 +58,68 @@ const norm = (u: string) => {
 export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), DATASET_TIMEOUT_MS)
-  const { data, error } = await supabase
-    .from('exhibits')
-    .select(
-      'id, code, name, type, tier, facts, status, gps_lat, gps_lng, exhibit_qr_codes(code, status), exhibit_audio(language, audio_url, status)'
-    )
-    .abortSignal(ctrl.signal)
-  clearTimeout(timer)
-  // postgrest-js returns { error } on abort instead of throwing
-  if (ctrl.signal.aborted) throw new ConnectionTimeoutError()
-  if (error || !data) throw new Error(error?.message ?? 'exhibits query returned no data')
+  try {
+    const { data, error } = await supabase
+      .from('exhibits')
+      .select(
+        'id, code, name, type, tier, facts, status, gps_lat, gps_lng, exhibit_qr_codes(code, status), exhibit_audio(language, audio_url, status)'
+      )
+      .abortSignal(ctrl.signal)
+    // postgrest-js returns { error } on abort instead of throwing
+    if (ctrl.signal.aborted) throw new ConnectionTimeoutError()
+    if (error || !data) throw new Error(error?.message ?? 'exhibits query returned no data')
 
-  return data.map((row) => {
-    const qr = (row.exhibit_qr_codes as { code: string; status: string }[] | null)?.[0]
-    const audio: CachedExhibit['audio'] = {}
-    for (const a of (row.exhibit_audio as
-      { language: string; audio_url: string | null; status: string }[] | null) ?? []) {
-      if (a.status === 'published' && a.audio_url) audio[a.language as Language] = a.audio_url
-    }
-    return {
-      id: row.id,
-      code: qr?.code ?? null,
-      displayNumber: (row.code as number | null) ?? null,
-      status: qr?.status === 'active' ? 'active' : 'coming_soon',
-      name: row.name,
-      type: row.type,
-      tier: row.tier,
-      facts: (row.facts as Fact[] | null) ?? [],
-      audio,
-      gps_lat: row.gps_lat,
-      gps_lng: row.gps_lng,
-      exhibitStatus: (row.status as ExhibitStatus | null) ?? 'live',
-    }
-  })
+    return data.map((row) => {
+      const qr = (row.exhibit_qr_codes as { code: string; status: string }[] | null)?.[0]
+      const audio: CachedExhibit['audio'] = {}
+      for (const a of (row.exhibit_audio as
+        { language: string; audio_url: string | null; status: string }[] | null) ?? []) {
+        if (a.status === 'published' && a.audio_url) audio[a.language as Language] = a.audio_url
+      }
+      return {
+        id: row.id,
+        code: qr?.code ?? null,
+        displayNumber: (row.code as number | null) ?? null,
+        status: qr?.status === 'active' ? 'active' : 'coming_soon',
+        name: row.name,
+        type: row.type,
+        tier: row.tier,
+        facts: (row.facts as Fact[] | null) ?? [],
+        audio,
+        gps_lat: row.gps_lat,
+        gps_lng: row.gps_lng,
+        exhibitStatus: (row.status as ExhibitStatus | null) ?? 'live',
+      }
+    })
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** Bulk amenities query (public-read RLS), same path as exhibits. */
 export async function fetchCachedAmenities(): Promise<CachedAmenity[]> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), DATASET_TIMEOUT_MS)
-  const { data, error } = await supabase
-    .from('amenities')
-    .select('id, name, type, description, photos, gps_lat, gps_lng')
-    .abortSignal(ctrl.signal)
-  clearTimeout(timer)
-  if (ctrl.signal.aborted) throw new ConnectionTimeoutError()
-  if (error || !data) throw new Error(error?.message ?? 'amenities query returned no data')
+  try {
+    const { data, error } = await supabase
+      .from('amenities')
+      .select('id, name, type, description, photos, gps_lat, gps_lng')
+      .abortSignal(ctrl.signal)
+    if (ctrl.signal.aborted) throw new ConnectionTimeoutError()
+    if (error || !data) throw new Error(error?.message ?? 'amenities query returned no data')
 
-  return data.map((row) => ({
-    id: row.id,
-    name: row.name,
-    type: row.type as AmenityType,
-    description: row.description,
-    photos: row.photos,
-    gps_lat: row.gps_lat,
-    gps_lng: row.gps_lng,
-  }))
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      type: row.type as AmenityType,
+      description: row.description,
+      photos: row.photos,
+      gps_lat: row.gps_lat,
+      gps_lng: row.gps_lng,
+    }))
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**
@@ -159,7 +165,8 @@ export async function fetchAssetWithIdleTimeout(
     resetTimer()
     const res = await fetch(url, { signal: inner.signal })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const reader = res.body!.getReader()
+    if (!res.body) return new ArrayBuffer(0)
+    const reader = res.body.getReader()
     const chunks: Uint8Array[] = []
     for (;;) {
       resetTimer()
@@ -169,7 +176,7 @@ export async function fetchAssetWithIdleTimeout(
     }
     return concatChunks(chunks)
   } catch (err) {
-    if (outerSignal?.aborted) throw new DOMException(String(outerSignal.reason), 'AbortError')
+    if (outerSignal?.aborted) throw new DOMException(outerSignal.reason ?? 'aborted', 'AbortError')
     if (inner.signal.aborted && inner.signal.reason === 'timeout')
       throw new ConnectionTimeoutError()
     throw err
@@ -241,6 +248,10 @@ export async function precacheGroups(
 
   const cancelled = () => (opts.signal?.aborted ?? false) || (opts.isCancelled?.() ?? false)
 
+  // Shared controller: aborted when any worker times out, so all peers exit immediately.
+  const groupCtrl = new AbortController()
+  opts.signal?.addEventListener('abort', () => groupCtrl.abort(opts.signal!.reason))
+
   while (todo.length > 0 && !offline && !timedOut && !cancelled()) {
     const retry: string[] = []
     const queue = [...todo]
@@ -251,13 +262,14 @@ export async function precacheGroups(
         url = queue.shift()
       ) {
         try {
-          await deps.fetchAsset(url, opts.signal)
+          await deps.fetchAsset(url, groupCtrl.signal)
           delete failures[url]
           opts.onProgress?.(++fetched, total)
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return
           if (err instanceof ConnectionTimeoutError) {
             timedOut = true
+            groupCtrl.abort('timeout') // wake up all other in-flight workers immediately
             return
           }
           if (!deps.isOnline()) {
