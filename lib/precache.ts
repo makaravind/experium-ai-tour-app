@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/lib/store'
-import { AUDIO_IDLE_TIMEOUT_MS, ConnectionTimeoutError } from '@/lib/timeouts'
+import { AUDIO_IDLE_TIMEOUT_MS, ConnectionTimeoutError, DATASET_TIMEOUT_MS } from '@/lib/timeouts'
 import type {
   AmenityType,
   CachedAmenity,
@@ -56,11 +56,17 @@ const norm = (u: string) => {
 
 /** Bulk dataset query, every published audio language. Mirrors the map layout's exhibits query. */
 export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), DATASET_TIMEOUT_MS)
   const { data, error } = await supabase
     .from('exhibits')
     .select(
       'id, code, name, type, tier, facts, status, gps_lat, gps_lng, exhibit_qr_codes(code, status), exhibit_audio(language, audio_url, status)'
     )
+    .abortSignal(ctrl.signal)
+  clearTimeout(timer)
+  // postgrest-js returns { error } on abort instead of throwing
+  if (ctrl.signal.aborted) throw new ConnectionTimeoutError()
   if (error || !data) throw new Error(error?.message ?? 'exhibits query returned no data')
 
   return data.map((row) => {
@@ -89,9 +95,14 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
 
 /** Bulk amenities query (public-read RLS), same path as exhibits. */
 export async function fetchCachedAmenities(): Promise<CachedAmenity[]> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), DATASET_TIMEOUT_MS)
   const { data, error } = await supabase
     .from('amenities')
     .select('id, name, type, description, photos, gps_lat, gps_lng')
+    .abortSignal(ctrl.signal)
+  clearTimeout(timer)
+  if (ctrl.signal.aborted) throw new ConnectionTimeoutError()
   if (error || !data) throw new Error(error?.message ?? 'amenities query returned no data')
 
   return data.map((row) => ({
