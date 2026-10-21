@@ -10,6 +10,7 @@ beforeEach(() => {
     precacheLanguage: null,
     completionByGroup: {},
     assetFailures: {},
+    acknowledgedCapped: [],
     visitorId: null,
     totalDiscovered: 0,
     discoveredCodes: [],
@@ -147,6 +148,26 @@ describe('persist migration v1 -> v2', () => {
       unknown
     >
     expect(out.cachedAmenities).toEqual([{ id: 'a' }])
+  })
+})
+
+describe('acknowledgedCapped', () => {
+  it('defaults to []', () => {
+    expect(useStore.getState().acknowledgedCapped).toEqual([])
+  })
+
+  it('updates on setAcknowledgedCapped', () => {
+    useStore.getState().setAcknowledgedCapped(['a', 'b'])
+    expect(useStore.getState().acknowledgedCapped).toEqual(['a', 'b'])
+  })
+
+  it('is persisted (partialize)', () => {
+    useStore.setState({ acknowledgedCapped: ['a'] })
+    const out = useStore.persist.getOptions().partialize!(useStore.getState()) as Record<
+      string,
+      unknown
+    >
+    expect(out.acknowledgedCapped).toEqual(['a'])
   })
 })
 

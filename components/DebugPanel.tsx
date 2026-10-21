@@ -73,6 +73,7 @@ export default function DebugPanel() {
     useStore.setState({
       completionByGroup: {},
       assetFailures: {},
+      acknowledgedCapped: [],
       cachedExhibits: [],
       precacheLanguage: null,
       visitorId: null,
@@ -97,6 +98,7 @@ export default function DebugPanel() {
       useStore.setState({
         completionByGroup: {},
         assetFailures: {},
+        acknowledgedCapped: [],
         cachedExhibits: [],
         precacheLanguage: null,
       })

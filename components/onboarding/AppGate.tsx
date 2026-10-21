@@ -39,6 +39,13 @@ async function waitForServiceWorker() {
 
 const nextAfterClear = (): GatePhase => (localStorage.getItem(ONBOARDED_KEY) ? 'clear' : 'info')
 
+// Reads the store directly (not a hook value) so run/finish keep stable identities; a changing
+// callback would re-trigger the mount effect right after "Continue anyway".
+const allAcknowledged = (urls: string[]) => {
+  const acknowledged = new Set(useStore.getState().acknowledgedCapped)
+  return urls.length > 0 && urls.every((u) => acknowledged.has(u))
+}
+
 function Screen({ title, body, children }: { title: string; body?: string; children: ReactNode }) {
   return (
     <div
@@ -74,6 +81,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const assetFailures = useStore((s) => s.assetFailures)
   const refreshRequested = useStore((s) => s.refreshRequested)
+  const setAcknowledgedCapped = useStore((s) => s.setAcknowledgedCapped)
+  const setAssetFailures = useStore((s) => s.setAssetFailures)
   const phaseRef = useRef<GatePhase>('checking')
   const runningRef = useRef(false)
   const restartRef = useRef(false)
@@ -92,10 +101,12 @@ export default function AppGate({ children }: { children: ReactNode }) {
         setPhase('weak-connection')
         return
       }
-      const capped = result.groups.some((g) => g.capped.length > 0)
-      if (capped) setPhase('asset-error')
-      else if (result.offline) setPhase('blocked-offline')
-      else if (result.groups.some((g) => !g.complete)) setPhase('asset-error')
+      const capped = result.groups.flatMap((g) => g.capped)
+      // acknowledged capped URLs stay in `failed` (never retried), so they must not block here
+      const failed = result.groups.flatMap((g) => g.failed)
+      if (result.offline) setPhase('blocked-offline')
+      else if (capped.length > 0 && !allAcknowledged(capped)) setPhase('asset-error')
+      else if (failed.length > 0 && !allAcknowledged(failed)) setPhase('asset-error')
       else setPhase(nextAfterClear())
     },
     [setPhase]
@@ -132,9 +143,9 @@ export default function AppGate({ children }: { children: ReactNode }) {
         return
       }
 
-      // Only capped assets left: nothing to fetch, go straight to the error list.
+      // Only capped assets left: nothing to fetch. Acknowledged -> straight in, else the error list.
       if (hasDataset && gaps.every((u) => (store.assetFailures[u]?.count ?? 0) >= MAX_ATTEMPTS)) {
-        setPhase('asset-error')
+        setPhase(allAcknowledged(gaps) ? nextAfterClear() : 'asset-error')
         return
       }
 
@@ -203,9 +214,11 @@ export default function AppGate({ children }: { children: ReactNode }) {
       if (useDebugStore.getState().isActive) await caches.delete('audio-cache')
       useStore.getState().setCachedExhibits([])
       useStore.getState().setCachedAmenities([])
+      setAssetFailures({})
+      setAcknowledgedCapped([])
       await run()
     })()
-  }, [refreshRequested, run])
+  }, [refreshRequested, run, setAssetFailures, setAcknowledgedCapped])
 
   const handleLanguageChange = useCallback(
     (code: Language) => {
@@ -311,7 +324,23 @@ export default function AppGate({ children }: { children: ReactNode }) {
           className={buttonClass}
           style={{ border: 'none' }}
           onClick={() => {
+            const next = { ...assetFailures }
+            for (const url of urls) delete next[url]
+            setAssetFailures(next)
+            setAcknowledgedCapped(
+              useStore.getState().acknowledgedCapped.filter((u) => !urls.includes(u))
+            )
+            void run()
+          }}
+        >
+          Try again
+        </button>
+        <button
+          type="button"
+          className="w-full h-14 mt-3 rounded-2xl font-extrabold text-base flex items-center justify-center bg-transparent text-ex-forest border-2 border-ex-forest"
+          onClick={() => {
             logContinueAnyway(urls)
+            setAcknowledgedCapped([...urls])
             setPhase(nextAfterClear())
           }}
         >
