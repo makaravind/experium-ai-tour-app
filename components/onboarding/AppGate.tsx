@@ -101,9 +101,11 @@ export default function AppGate({ children }: { children: ReactNode }) {
         return
       }
       const capped = result.groups.flatMap((g) => g.capped)
+      // acknowledged capped URLs stay in `failed` (never retried), so they must not block here
+      const failed = result.groups.flatMap((g) => g.failed)
       if (capped.length > 0 && !allAcknowledged(capped)) setPhase('asset-error')
       else if (result.offline) setPhase('blocked-offline')
-      else if (result.groups.some((g) => !g.complete)) setPhase('asset-error')
+      else if (failed.length > 0 && !allAcknowledged(failed)) setPhase('asset-error')
       else setPhase(nextAfterClear())
     },
     [setPhase]
