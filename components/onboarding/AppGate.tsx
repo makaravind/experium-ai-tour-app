@@ -39,6 +39,13 @@ async function waitForServiceWorker() {
 
 const nextAfterClear = (): GatePhase => (localStorage.getItem(ONBOARDED_KEY) ? 'clear' : 'info')
 
+// Reads the store directly (not a hook value) so run/finish keep stable identities; a changing
+// callback would re-trigger the mount effect right after "Continue anyway".
+const allAcknowledged = (urls: string[]) => {
+  const acknowledged = useStore.getState().acknowledgedCapped
+  return urls.length > 0 && urls.every((u) => acknowledged.includes(u))
+}
+
 function Screen({ title, body, children }: { title: string; body?: string; children: ReactNode }) {
   return (
     <div
@@ -74,6 +81,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const assetFailures = useStore((s) => s.assetFailures)
   const refreshRequested = useStore((s) => s.refreshRequested)
+  const setAcknowledgedCapped = useStore((s) => s.setAcknowledgedCapped)
   const phaseRef = useRef<GatePhase>('checking')
   const runningRef = useRef(false)
   const restartRef = useRef(false)
@@ -92,8 +100,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
         setPhase('weak-connection')
         return
       }
-      const capped = result.groups.some((g) => g.capped.length > 0)
-      if (capped) setPhase('asset-error')
+      const capped = result.groups.flatMap((g) => g.capped)
+      if (capped.length > 0 && !allAcknowledged(capped)) setPhase('asset-error')
       else if (result.offline) setPhase('blocked-offline')
       else if (result.groups.some((g) => !g.complete)) setPhase('asset-error')
       else setPhase(nextAfterClear())
@@ -132,9 +140,9 @@ export default function AppGate({ children }: { children: ReactNode }) {
         return
       }
 
-      // Only capped assets left: nothing to fetch, go straight to the error list.
+      // Only capped assets left: nothing to fetch. Acknowledged -> straight in, else the error list.
       if (hasDataset && gaps.every((u) => (store.assetFailures[u]?.count ?? 0) >= MAX_ATTEMPTS)) {
-        setPhase('asset-error')
+        setPhase(allAcknowledged(gaps) ? nextAfterClear() : 'asset-error')
         return
       }
 
@@ -312,6 +320,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
           style={{ border: 'none' }}
           onClick={() => {
             logContinueAnyway(urls)
+            setAcknowledgedCapped([...urls].sort())
             setPhase(nextAfterClear())
           }}
         >
