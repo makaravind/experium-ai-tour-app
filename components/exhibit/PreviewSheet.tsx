@@ -7,6 +7,7 @@ import BottomSheet, { type BottomSheetHandle } from '@/components/common/BottomS
 import LanguageSelector from '@/components/common/LanguageSelector'
 import SheetSummary from '@/components/common/SheetSummary'
 import { CompassIcon, LeafOutlineIcon, PauseIcon, PlayIcon, StarIcon } from '@/components/icons'
+import { AUDIO_CACHE_NAME } from '@/lib/precache'
 import { useStore } from '@/lib/store'
 import { LANGUAGES, formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
 import type { ExhibitAudio, Language, PreviewExhibit } from '@/lib/types'
@@ -87,7 +88,7 @@ export default function PreviewSheet({
     if (!currentSrc || typeof caches === 'undefined') return
     let cancelled = false
     caches
-      .open('audio-cache')
+      .open(AUDIO_CACHE_NAME)
       .then((cache) => cache.match(currentSrc))
       .then((r) => {
         if (!cancelled) setCacheCheck({ src: currentSrc, cached: !!r })

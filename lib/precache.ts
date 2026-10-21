@@ -23,6 +23,7 @@ export class AssetFetchError extends Error {
 const isPermanent = (err: unknown): err is AssetFetchError =>
   err instanceof AssetFetchError && (err.status === 404 || err.status === 410)
 
+export const AUDIO_CACHE_NAME = 'audio-cache'
 export const MAX_ATTEMPTS = 3
 export const CONCURRENCY = 6
 
@@ -144,7 +145,7 @@ export function getAssetGroups(
   language: Language = useStore.getState().precacheLanguage ?? useStore.getState().language
 ): AssetGroup[] {
   const audio = exhibits.flatMap((e) => (e.audio[language] ? [e.audio[language]!] : []))
-  return [{ cacheName: 'audio-cache', urls: [...new Set(audio)] }]
+  return [{ cacheName: AUDIO_CACHE_NAME, urls: [...new Set(audio)] }]
 }
 
 function concatChunks(chunks: Uint8Array[]): ArrayBuffer {

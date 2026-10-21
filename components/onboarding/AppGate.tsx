@@ -42,8 +42,8 @@ const nextAfterClear = (): GatePhase => (localStorage.getItem(ONBOARDED_KEY) ? '
 // Reads the store directly (not a hook value) so run/finish keep stable identities; a changing
 // callback would re-trigger the mount effect right after "Continue anyway".
 const allAcknowledged = (urls: string[]) => {
-  const acknowledged = useStore.getState().acknowledgedCapped
-  return urls.length > 0 && urls.every((u) => acknowledged.includes(u))
+  const acknowledged = new Set(useStore.getState().acknowledgedCapped)
+  return urls.length > 0 && urls.every((u) => acknowledged.has(u))
 }
 
 function Screen({ title, body, children }: { title: string; body?: string; children: ReactNode }) {
@@ -104,8 +104,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
       const capped = result.groups.flatMap((g) => g.capped)
       // acknowledged capped URLs stay in `failed` (never retried), so they must not block here
       const failed = result.groups.flatMap((g) => g.failed)
-      if (capped.length > 0 && !allAcknowledged(capped)) setPhase('asset-error')
-      else if (result.offline) setPhase('blocked-offline')
+      if (result.offline) setPhase('blocked-offline')
+      else if (capped.length > 0 && !allAcknowledged(capped)) setPhase('asset-error')
       else if (failed.length > 0 && !allAcknowledged(failed)) setPhase('asset-error')
       else setPhase(nextAfterClear())
     },
@@ -340,7 +340,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
           className="w-full h-14 mt-3 rounded-2xl font-extrabold text-base flex items-center justify-center bg-transparent text-ex-forest border-2 border-ex-forest"
           onClick={() => {
             logContinueAnyway(urls)
-            setAcknowledgedCapped([...urls].sort())
+            setAcknowledgedCapped([...urls])
             setPhase(nextAfterClear())
           }}
         >
