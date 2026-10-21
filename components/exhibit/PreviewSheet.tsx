@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import BottomSheet, { type BottomSheetHandle } from '@/components/common/BottomSheet'
@@ -21,6 +21,18 @@ const TOAST_MS = 3000
 type FallbackReason = 'error' | 'timeout' | 'missing'
 
 const langName = (code: Language) => LANGUAGES.find((l) => l.code === code)?.name ?? code
+
+function subscribeOnline(cb: () => void) {
+  window.addEventListener('online', cb)
+  window.addEventListener('offline', cb)
+  return () => {
+    window.removeEventListener('online', cb)
+    window.removeEventListener('offline', cb)
+  }
+}
+
+const getOnline = () => navigator.onLine
+const getServerOnline = () => true
 
 export default function PreviewSheet({
   exhibit,
@@ -66,6 +78,25 @@ export default function PreviewSheet({
 
   const currentSrc = audio.find((a) => a.language === language)?.audio_url ?? null
   const hasAudio = audio.length > 0
+  const online = useSyncExternalStore(subscribeOnline, getOnline, getServerOnline)
+  const [cacheCheck, setCacheCheck] = useState<{ src: string; cached: boolean } | null>(null)
+  // null = unknown (no src, no Cache Storage, or still checking this src)
+  const audioCached = cacheCheck && cacheCheck.src === currentSrc ? cacheCheck.cached : null
+
+  useEffect(() => {
+    if (!currentSrc || typeof caches === 'undefined') return
+    let cancelled = false
+    caches
+      .open('audio-cache')
+      .then((cache) => cache.match(currentSrc))
+      .then((r) => {
+        if (!cancelled) setCacheCheck({ src: currentSrc, cached: !!r })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [currentSrc])
 
   const clearIntent = () => {
     playIntent.current = false
@@ -273,6 +304,15 @@ export default function PreviewSheet({
                 fallbackRef.current('error')
               }}
             />
+
+            {hasAudio && audioCached === false && !online && (
+              <div
+                role="status"
+                className="w-full px-4 py-2 text-sm font-semibold text-center bg-yellow-300 text-black"
+              >
+                Needs internet to play
+              </div>
+            )}
 
             <div className="px-4">
               <SheetSummary
