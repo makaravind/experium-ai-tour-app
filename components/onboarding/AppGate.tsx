@@ -21,6 +21,7 @@ import type { Language } from '@/lib/types'
 
 const ONBOARDED_KEY = 'experium_onboarded'
 export const NO_PRECACHE_KEY = 'experium_debug_no_precache'
+export const CONTINUE_ONLINE_KEY = 'experium_continue_online'
 const SW_WAIT_MS = 20_000
 const SW_CLAIM_GRACE_MS = 1000
 
@@ -84,6 +85,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const [pct, setPct] = useState(0)
   const [label, setLabel] = useState<string | undefined>()
   const [introDone, setIntroDone] = useState(process.env.NODE_ENV === 'development')
+  const [showCopyFallback, setShowCopyFallback] = useState(false)
+  const [copyConfirmed, setCopyConfirmed] = useState(false)
   const precacheLanguage = useStore((s) => s.precacheLanguage)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const assetFailures = useStore((s) => s.assetFailures)
@@ -318,6 +321,58 @@ export default function AppGate({ children }: { children: ReactNode }) {
         title="Weak connection"
         body="The download stalled. Move closer to the park entrance or connect to Wi-Fi, then try again."
       >
+        <button
+          type="button"
+          className={buttonClass}
+          style={{ border: 'none' }}
+          onClick={() => void run()}
+        >
+          Try again
+        </button>
+      </Screen>
+    )
+  } else if (phase === 'no-offline-support') {
+    content = (
+      <Screen
+        title="This browser can't save the tour offline"
+        body="Open this link in Chrome or Safari to use the tour without internet."
+      >
+        {showCopyFallback && (
+          <p className="mt-3 text-sm text-ex-ink break-all select-all rounded-lg bg-ex-bg p-2">
+            {location.href}
+          </p>
+        )}
+        {copyConfirmed && <p className="mt-2 text-sm text-ex-forest font-bold">Link copied!</p>}
+        <button
+          type="button"
+          className={buttonClass}
+          style={{ border: 'none' }}
+          onClick={() => {
+            // clipboard is undefined in some webviews, so guard before .then
+            const write = navigator.clipboard?.writeText(location.href) ?? Promise.reject()
+            write.then(
+              () => setCopyConfirmed(true),
+              () => setShowCopyFallback(true)
+            )
+          }}
+        >
+          Copy link
+        </button>
+        <button
+          type="button"
+          className="w-full h-14 mt-3 rounded-2xl font-extrabold text-base flex items-center justify-center bg-transparent text-ex-forest border-2 border-ex-forest"
+          onClick={() => {
+            sessionStorage.setItem(CONTINUE_ONLINE_KEY, '1')
+            void run()
+          }}
+        >
+          Continue online
+        </button>
+      </Screen>
+    )
+  } else if (phase === 'storage-error') {
+    content = (
+      <Screen title="Your phone is low on storage" body="Free some space and try again.">
         <button
           type="button"
           className={buttonClass}
