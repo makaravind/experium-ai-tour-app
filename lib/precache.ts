@@ -311,7 +311,8 @@ export async function precacheGroups(
           await deps.fetchAsset(url, groupCtrl.signal)
           if (await pollIsCached(deps, cacheName, url)) {
             delete failures[url]
-            opts.onProgress?.(++fetched, total)
+            fetched++
+            opts.onProgress?.(fetched, total)
             consecutiveNotSaved = 0
           } else if (++consecutiveNotSaved >= MAX_CONSECUTIVE_NOT_SAVED) {
             saveFailed = true // downloads succeed but nothing sticks; not a failed attempt

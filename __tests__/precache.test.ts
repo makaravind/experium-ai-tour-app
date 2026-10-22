@@ -5,6 +5,7 @@ import AppGate from '@/components/onboarding/AppGate'
 import { useDebugStore } from '@/lib/debug-store'
 import {
   AssetFetchError,
+  CONCURRENCY,
   getAssetGroups,
   precacheGroups,
   findMissing,
@@ -271,6 +272,91 @@ describe('fetchAssetWithIdleTimeout', () => {
     outer.abort('language-switch')
     await assertion
     await expect(p).rejects.not.toBeInstanceOf(ConnectionTimeoutError)
+  })
+})
+
+describe('precacheGroups isCached verification', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('stops with saveFailed when isCached always returns false', async () => {
+    const h = harness(Array.from({ length: 20 }, (_, i) => u(i)))
+    const fetchAsset = vi.fn().mockResolvedValue(undefined)
+    const p = precacheGroups(h.groups, {
+      ...h.deps,
+      failures: {},
+      listCached: async () => [],
+      isCached: async () => false,
+      fetchAsset,
+    })
+    await vi.runAllTimersAsync()
+    const r = await p
+    expect(r.saveFailed).toBe(true)
+    // workers already past the fetch finish their poll before the stop flag is seen
+    expect(fetchAsset.mock.calls.length).toBeLessThanOrEqual(3 + CONCURRENCY - 1)
+    expect(r.failures).toEqual({})
+    expect(r.offline).toBe(false)
+  })
+
+  it('resets the consecutive counter after a verified save', async () => {
+    const h = harness([u(1), u(2), u(3), u(4), u(5)])
+    const saved = new Set([u(3)])
+    const onProgress = vi.fn()
+    const p = precacheGroups(h.groups, {
+      ...h.deps,
+      failures: {},
+      onProgress,
+      concurrency: 1,
+      listCached: async () => [],
+      isCached: async (_cache, url) => saved.has(url),
+    })
+    await vi.runAllTimersAsync()
+    const r = await p
+    // not-saved x2, saved, not-saved x2: never 3 in a row
+    expect(r.saveFailed).toBe(false)
+    expect(onProgress).toHaveBeenLastCalledWith(1, 5)
+    expect(h.attempts).toEqual({ [u(1)]: 1, [u(2)]: 1, [u(3)]: 1, [u(4)]: 1, [u(5)]: 1 })
+  })
+
+  it('counts asset as saved when isCached returns true on the 3rd poll', async () => {
+    let polls = 0
+    const isCached = vi.fn(async () => ++polls >= 3)
+    const onProgress = vi.fn()
+    const p = precacheGroups([{ cacheName: 'audio-cache', urls: [u(1)] }], {
+      failures: {},
+      onProgress,
+      listCached: async () => [],
+      isOnline: () => true,
+      fetchAsset: vi.fn().mockResolvedValue(undefined),
+      isCached,
+    })
+    await vi.advanceTimersByTimeAsync(600)
+    const r = await p
+    expect(r.saveFailed).toBe(false)
+    expect(onProgress).toHaveBeenLastCalledWith(1, 1)
+    expect(r.fetched).toBe(1)
+    expect(isCached).toHaveBeenCalledTimes(3)
+  })
+
+  it('verifies each url against its own cache', async () => {
+    const isCached = vi.fn(async () => true)
+    await precacheGroups(
+      [
+        { cacheName: 'audio-cache', urls: ['a.mp3'] },
+        { cacheName: 'map-tiles-cache', urls: ['map.pmtiles'] },
+      ],
+      {
+        failures: {},
+        listCached: async () => [],
+        isOnline: () => true,
+        fetchAsset: vi.fn().mockResolvedValue(undefined),
+        isCached,
+      }
+    )
+    expect(isCached).toHaveBeenCalledWith('audio-cache', 'a.mp3')
+    expect(isCached).toHaveBeenCalledWith('map-tiles-cache', 'map.pmtiles')
+    expect(isCached).not.toHaveBeenCalledWith('audio-cache', 'map.pmtiles')
+    expect(isCached).not.toHaveBeenCalledWith('map-tiles-cache', 'a.mp3')
   })
 })
 
