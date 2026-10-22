@@ -22,6 +22,7 @@ import { useStore } from '@/lib/store'
 import type { Language } from '@/lib/types'
 
 const ONBOARDED_KEY = 'experium_onboarded'
+const INTRO_DONE_KEY = 'experium_intro_done'
 export const NO_PRECACHE_KEY = 'experium_debug_no_precache'
 export const CONTINUE_ONLINE_KEY = 'experium_continue_online'
 const SW_WAIT_MS = 20_000
@@ -86,7 +87,10 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const [phase, setPhaseState] = useState<GatePhase>('checking')
   const [pct, setPct] = useState(0)
   const [label, setLabel] = useState<string | undefined>()
-  const [introDone, setIntroDone] = useState(process.env.NODE_ENV === 'development')
+  const [introDone, setIntroDone] = useState(() => {
+    if (process.env.NODE_ENV === 'development') return true
+    try { return !!sessionStorage.getItem(INTRO_DONE_KEY) } catch { return false }
+  })
   const [showCopyFallback, setShowCopyFallback] = useState(false)
   const [copyConfirmed, setCopyConfirmed] = useState(false)
   const precacheLanguage = useStore((s) => s.precacheLanguage)
@@ -291,7 +295,10 @@ export default function AppGate({ children }: { children: ReactNode }) {
     [run]
   )
 
-  const handleIntroEnd = useCallback(() => setIntroDone(true), [])
+  const handleIntroEnd = useCallback(() => {
+    try { sessionStorage.setItem(INTRO_DONE_KEY, '1') } catch { /* storage blocked */ }
+    setIntroDone(true)
+  }, [])
 
   const handleInfoDone = useCallback(() => {
     localStorage.setItem(ONBOARDED_KEY, '1')
