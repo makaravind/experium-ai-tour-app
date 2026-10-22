@@ -84,14 +84,23 @@ const serwist = new Serwist({
       // always returns the full file, which the pmtiles reader rejects). Instead, cache the
       // whole file ourselves on first use and slice every read from that one cached copy.
       matcher: ({ url }) => url.pathname.toLowerCase().endsWith('.pmtiles'),
-      handler: async ({ request, url }) => {
+      handler: async ({ event, request, url }) => {
         const cache = await caches.open(MAP_CACHE)
-        let full = await cache.match(url.pathname)
-        if (!full) {
-          full = await fetch(url.href)
-          if (full.ok) await cache.put(url.pathname, full.clone())
+        const isRange = request.headers.has('range')
+        const cached = await cache.match(url.pathname)
+        if (cached) return isRange ? createPartialResponse(request, cached.clone()) : cached
+        const net = await fetch(url.href)
+        if (!net.ok || !net.body) return net
+        // Tee so a non-range page fetch gets bytes as they arrive (the precache idle timeout needs
+        // them) while the other branch is stored. Range reads must slice the stored copy, so they wait.
+        const [toCache, toPage] = net.body.tee()
+        const stored = cache.put(url.pathname, new Response(toCache, { headers: net.headers }))
+        event.waitUntil(stored)
+        if (isRange) {
+          await stored
+          return createPartialResponse(request, (await cache.match(url.pathname))!)
         }
-        return request.headers.has('range') ? createPartialResponse(request, full.clone()) : full
+        return new Response(toPage, { headers: net.headers })
       },
     },
   ],
