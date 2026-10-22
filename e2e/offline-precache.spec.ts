@@ -349,10 +349,7 @@ test.describe('Map tiles in offline guarantee', () => {
     expect(requestOrder.lastIndexOf('audio')).toBeLessThan(firstMap)
   })
 
-  // fixme: runPrecache only calls onProgress after a file completes, with that file's group. While the
-  // map downloads the label stays "Downloading 1 of 2"; "Downloading map…" would only flash after it
-  // finishes. Needs an onProgress call when a group starts (lib/precache.ts precacheGroups).
-  test.fixme('loading screen shows "Downloading map…" during the map step', async ({
+  test('loading screen shows "Downloading map…" during the map step', async ({
     page,
     browserName,
   }) => {

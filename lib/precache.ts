@@ -286,7 +286,6 @@ export async function precacheGroups(
   let timedOut = false
   let saveFailed = false
   let notSavedCount = 0
-  opts.onProgress?.(fetched, total, groups[0]?.cacheName ?? '')
   if (todoCount > 0 && fetched > 0) {
     console.log(`[precache] gap-fill: ${todoCount}/${total} assets missing`)
   }
@@ -300,6 +299,9 @@ export async function precacheGroups(
   // Groups run one at a time in array order; fetched/total stay global so the bar is continuous.
   for (const g of groups) {
     if (offline || timedOut || saveFailed || cancelled()) break
+
+    // Fire at group start so the label updates immediately (e.g. "Downloading map…" before any map bytes arrive).
+    opts.onProgress?.(fetched, total, g.cacheName)
 
     let todo = (missing[g.cacheName] ?? []).filter((url) => (failures[url]?.count ?? 0) < max)
 
