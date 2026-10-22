@@ -167,7 +167,7 @@ test.describe('Asset failure handling', () => {
     await expect(page.getByText('Needs internet to play')).toBeVisible({ timeout: 10000 })
   })
 
-  test('Try again after 404 recovers once the file is served', async ({ page }) => {
+  test('Try again after 404 recovers once the file is served', async ({ page, context }) => {
     test.setTimeout(60000)
     await mockPrecacheDataset(page, { seedCache: false })
     await page.route(FAKE_AUDIO_URL, (route) => route.fulfill({ status: 404, body: 'not found' }))
@@ -175,8 +175,10 @@ test.describe('Asset failure handling', () => {
     await page.goto('/')
     await expect(page.getByText(ASSET_ERROR)).toBeVisible({ timeout: 25000 })
 
-    // Later routes win: serve the file now
-    await page.route(FAKE_AUDIO_URL, (route) =>
+    // page.route stops intercepting this cross-origin URL after multiple 404s (Playwright quirk).
+    // Clear all page-level handlers and use context.route so the 4th request is intercepted.
+    await page.unroute(FAKE_AUDIO_URL)
+    await context.route(FAKE_AUDIO_URL, (route) =>
       route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
     )
     const refetched = page.waitForResponse(

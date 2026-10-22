@@ -91,27 +91,20 @@ export async function seedAudioCache(page: Page) {
 
 /** Puts /park.pmtiles in `map-tiles-cache` at every document load so the gate passes. */
 export async function seedMapCache(page: Page, body = 'fake-pmtiles') {
-  // Store the put promise so the open-patch below can await it.
   await page.addInitScript(
     (args: string[]) => {
-      ;(window as any).__mapCacheSeedDone = caches
+      void caches
         .open('map-tiles-cache')
         .then((c) => c.put(args[0], new Response(args[1], { status: 200 })))
     },
     ['/park.pmtiles', body]
   )
-  // Delay any caches.open('map-tiles-cache') call until the put settles, so findMissing
-  // never races the seed and incorrectly returns '/park.pmtiles' as missing.
-  await page.addInitScript(() => {
-    const orig = CacheStorage.prototype.open
-    CacheStorage.prototype.open = async function (this: CacheStorage, name: string) {
-      const cache = await orig.call(this, name)
-      if (name === 'map-tiles-cache' && (window as any).__mapCacheSeedDone) {
-        await (window as any).__mapCacheSeedDone
-      }
-      return cache
-    }
-  })
+  // Route mock ensures the download is instant even if the addInitScript put races findMissing
+  // (under dev there is no SW to cache the response, but notSavedCount stays well below the
+  // MAX_CONSECUTIVE_NOT_SAVED threshold so saveFailed never triggers).
+  await page.route('**/park.pmtiles', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/octet-stream', body: Buffer.from(body) })
+  )
 }
 
 /** Fresh visitor: AppGate starts the precache on mount; wait for it to hand off to the info modal. */
