@@ -21,20 +21,27 @@ import type { Language } from '@/lib/types'
 
 const ONBOARDED_KEY = 'experium_onboarded'
 export const NO_PRECACHE_KEY = 'experium_debug_no_precache'
-const SW_WAIT_MS = 4000
+const SW_WAIT_MS = 20_000
+const SW_CLAIM_GRACE_MS = 1000
 
 // Fetches issued before the SW controls the page bypass its CacheFirst rules and never get cached.
-async function waitForServiceWorker() {
-  if (process.env.NODE_ENV === 'development' || !('serviceWorker' in navigator)) return
+// A shift-reload leaves an active SW that never claims the page, so ask it to claim after a grace period.
+async function waitForServiceWorker(): Promise<'controlled' | 'unsupported' | 'timeout'> {
+  if (process.env.NODE_ENV === 'development') return 'controlled'
+  if (!('serviceWorker' in navigator)) return 'unsupported'
   const sw = navigator.serviceWorker
-  const controlling = sw.ready.then(() => {
-    if (sw.controller) return
-    return new Promise<void>((resolve) =>
-      sw.addEventListener('controllerchange', () => resolve(), { once: true })
+  const controlled = new Promise<'controlled'>((resolve) => {
+    if (sw.controller) return resolve('controlled')
+    sw.addEventListener('controllerchange', () => resolve('controlled'), { once: true })
+    void sw.ready.then((registration) =>
+      setTimeout(() => {
+        if (!sw.controller) registration.active?.postMessage({ type: 'CLAIM' })
+      }, SW_CLAIM_GRACE_MS)
     )
   })
-  // don't strand the visitor if the SW never takes control (unsupported, blocked)
-  await Promise.race([controlling, new Promise((r) => setTimeout(r, SW_WAIT_MS))])
+  // don't strand the visitor if the SW never takes control (blocked, registration failed)
+  const timeout = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), SW_WAIT_MS))
+  return Promise.race([controlled, timeout])
 }
 
 const nextAfterClear = (): GatePhase => (localStorage.getItem(ONBOARDED_KEY) ? 'clear' : 'info')
