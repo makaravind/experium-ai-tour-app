@@ -8,6 +8,7 @@ import LoadingScreen from '@/components/onboarding/LoadingScreen'
 import { getOrCreateVisitorId } from '@/lib/handshake-lock'
 import { useDebugStore, type GatePhase } from '@/lib/debug-store'
 import { ConnectionTimeoutError } from '@/lib/timeouts'
+import { MAP_URL } from '@/lib/cache-names'
 import {
   checkFresh,
   loadDataset,
@@ -419,7 +420,11 @@ export default function AppGate({ children }: { children: ReactNode }) {
       </Screen>
     )
   } else if (phase === 'asset-error') {
-    const urls = cappedExhibits.flatMap((e) => audioUrlOf(e) ?? [])
+    const mapCapped = (assetFailures[MAP_URL]?.count ?? 0) >= MAX_ATTEMPTS
+    const urls = [
+      ...cappedExhibits.flatMap((e) => audioUrlOf(e) ?? []),
+      ...(mapCapped ? [MAP_URL] : []),
+    ]
     content = (
       <Screen
         title="Some audio couldn't be downloaded"
@@ -429,6 +434,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
           {cappedExhibits.map((e) => (
             <li key={e.id}>{e.name}</li>
           ))}
+          {mapCapped && <li key="__map">Park map</li>}
         </ul>
         <button
           type="button"
