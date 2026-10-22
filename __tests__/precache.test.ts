@@ -36,6 +36,7 @@ function harness(urls: string[], preCached: string[] = [], bad: string[] = []) {
       if (bad.includes(url)) throw new AssetFetchError(404, url)
       cached.add(url)
     },
+    isCached: async () => true,
     isOnline: () => true,
   }
   return { groups: [{ cacheName: 'audio-cache', urls }], deps, attempts }
@@ -162,6 +163,7 @@ describe('precacheGroups', () => {
     await precacheGroups([{ cacheName: 'audio-cache', urls }], {
       failures: {},
       listCached: async () => cached,
+      isCached: async () => true,
       isOnline: () => true,
       fetchAsset: async (url) => {
         peak = Math.max(peak, ++inFlight)
@@ -359,6 +361,7 @@ describe('AppGate Refresh content', () => {
       total: 0,
       offline: false,
       timedOut: false,
+      saveFailed: false,
     })
     useStore.setState({
       cachedExhibits: [{ id: 'e1', audio: {} } as CachedExhibit],
