@@ -5,6 +5,7 @@ import {
   mockAmenities,
   mockPrecacheDataset,
   seedAudioCache,
+  seedMapCache,
 } from './gate-helpers'
 
 const QR_CODE = 'baobab-forest'
@@ -23,6 +24,7 @@ const DESCRIPTION = 'Near Gate 2 · Token ₹5'
 /** Returning visitor with a complete EN cache: the gate passes and the map reads the stored dataset. */
 async function seedVisitor(page: Page) {
   await seedAudioCache(page)
+  await seedMapCache(page)
   await page.addInitScript(
     ({ en, hi, code, washroom }) => {
       if (localStorage.getItem('experium-store')) return
@@ -138,7 +140,8 @@ test.describe('Amenities', () => {
   })
 
   test('map failure hides chips, pill and sheet; search still lists exhibits', async ({ page }) => {
-    await page.route('**/park.pmtiles', (route) => route.abort())
+    // Gate is satisfied by beforeEach seedMapCache('fake-pmtiles'); the invalid bytes cause the
+    // pmtiles reader to throw on ParkMap mount → onLoadError → MapStub, same end state as before.
     await page.goto('/map')
     await expect(page.getByRole('button', { name: 'Amenities' })).toBeHidden()
     await expect(chip(page)).toBeHidden()

@@ -167,7 +167,7 @@ test.describe('Asset failure handling', () => {
     await expect(page.getByText('Needs internet to play')).toBeVisible({ timeout: 10000 })
   })
 
-  test('Try again after 404 recovers once the file is served', async ({ page }) => {
+  test('Try again after 404 recovers once the file is served', async ({ page, context }) => {
     test.setTimeout(60000)
     await mockPrecacheDataset(page, { seedCache: false })
     await page.route(FAKE_AUDIO_URL, (route) => route.fulfill({ status: 404, body: 'not found' }))
@@ -175,8 +175,10 @@ test.describe('Asset failure handling', () => {
     await page.goto('/')
     await expect(page.getByText(ASSET_ERROR)).toBeVisible({ timeout: 25000 })
 
-    // Later routes win: serve the file now
-    await page.route(FAKE_AUDIO_URL, (route) =>
+    // page.route stops intercepting this cross-origin URL after multiple 404s (Playwright quirk).
+    // Clear all page-level handlers and use context.route so the 4th request is intercepted.
+    await page.unroute(FAKE_AUDIO_URL)
+    await context.route(FAKE_AUDIO_URL, (route) =>
       route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
     )
     const refetched = page.waitForResponse(
@@ -298,5 +300,78 @@ test.describe('Shift-reload CLAIM recovery', () => {
       timeout: 15000,
     })
     await expect(page.getByText("This browser can't save the tour offline")).toBeHidden()
+  })
+})
+
+// Map tiles are part of the offline guarantee (#90): a second asset group, downloaded after audio.
+test.describe('Map tiles in offline guarantee', () => {
+  test.skip(!process.env.E2E_PROD, 'needs a production build (service worker is off in dev)')
+
+  test('fresh gate caches park.pmtiles in map-tiles-cache', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'offline + service worker is only reliable in chromium')
+    test.setTimeout(90000)
+
+    // Fresh visitor: only on the first navigation
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('e2e-seeded')) return
+      sessionStorage.setItem('e2e-seeded', '1')
+      localStorage.clear()
+    })
+
+    await page.goto('/')
+    // The real 11.8MB map downloads during the gate
+    await page.getByRole('button', { name: 'Skip for now' }).click({ timeout: 60000 })
+
+    const mapCached = await page.evaluate(async () => {
+      const keys = await (await caches.open('map-tiles-cache')).keys()
+      return keys.some((r) => r.url.endsWith('/park.pmtiles'))
+    })
+    expect(mapCached).toBe(true)
+  })
+
+  // The SW fetches audio/map itself, so page.route can't intercept them (and the fake example.test
+  // audio from mockPrecacheDataset is unreachable). Use the real dataset: one small mp3 + the real map.
+  test('audio completes before map download starts', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'offline + service worker is only reliable in chromium')
+    test.setTimeout(90000)
+
+    const requestOrder: string[] = []
+    page.on('request', (req) => {
+      const { pathname } = new URL(req.url())
+      if (pathname.endsWith('.mp3')) requestOrder.push('audio')
+      if (pathname === '/park.pmtiles') requestOrder.push('map')
+    })
+
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Skip for now' }).click({ timeout: 60000 })
+
+    const firstMap = requestOrder.indexOf('map')
+    expect(firstMap).toBeGreaterThanOrEqual(0)
+    expect(requestOrder.indexOf('audio')).toBeGreaterThanOrEqual(0)
+    expect(requestOrder.lastIndexOf('audio')).toBeLessThan(firstMap)
+  })
+
+  test('loading screen shows "Downloading map…" during the map step', async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'offline + service worker is only reliable in chromium')
+    test.setTimeout(90000)
+
+    // Hold the page's map fetch so the map step lasts long enough to assert on
+    await page.addInitScript(() => {
+      const realFetch = window.fetch.bind(window)
+      window.fetch = async (input, init) => {
+        const url = input instanceof Request ? input.url : String(input)
+        if (new URL(url, location.href).pathname === '/park.pmtiles') {
+          await new Promise((r) => setTimeout(r, 4000))
+        }
+        return realFetch(input, init)
+      }
+    })
+
+    await page.goto('/')
+    await expect(page.getByText('Downloading map…')).toBeVisible({ timeout: 30000 })
+    await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 60000 })
   })
 })

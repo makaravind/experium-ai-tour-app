@@ -5,6 +5,7 @@ import { ExpirationPlugin } from 'serwist'
 import { CacheableResponsePlugin } from 'serwist'
 import { RangeRequestsPlugin } from 'serwist'
 import { createPartialResponse } from 'serwist'
+import { MAP_CACHE } from '@/lib/cache-names'
 
 declare global {
   interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -83,14 +84,24 @@ const serwist = new Serwist({
       // always returns the full file, which the pmtiles reader rejects). Instead, cache the
       // whole file ourselves on first use and slice every read from that one cached copy.
       matcher: ({ url }) => url.pathname.toLowerCase().endsWith('.pmtiles'),
-      handler: async ({ request, url }) => {
-        const cache = await caches.open('map-tiles-cache')
-        let full = await cache.match(url.pathname)
-        if (!full) {
-          full = await fetch(url.href)
-          if (full.ok) await cache.put(url.pathname, full.clone())
+      handler: async ({ event, request, url }) => {
+        const cache = await caches.open(MAP_CACHE)
+        const isRange = request.headers.has('range')
+        const cached = await cache.match(url.pathname)
+        if (cached) return isRange ? createPartialResponse(request, cached.clone()) : cached
+        const net = await fetch(url.href)
+        if (!net.ok || !net.body) return net
+        if (isRange) {
+          // Store the full file first (net is fully consumed here), then slice from the cached copy.
+          // Tee is not used: an unread tee branch causes backpressure that stalls the put indefinitely.
+          await cache.put(url.pathname, net)
+          return createPartialResponse(request, (await cache.match(url.pathname))!)
         }
-        return request.headers.has('range') ? createPartialResponse(request, full.clone()) : full
+        // Non-range (e.g. precache): tee so bytes flow to the page while storing in parallel.
+        const [toCache, toPage] = net.body.tee()
+        const stored = cache.put(url.pathname, new Response(toCache, { headers: net.headers }))
+        event.waitUntil(stored)
+        return new Response(toPage, { headers: net.headers })
       },
     },
   ],

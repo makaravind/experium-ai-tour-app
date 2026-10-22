@@ -53,14 +53,21 @@ describe('getAssetGroups', () => {
   ] as CachedExhibit[]
 
   it('picks one language, deduped, skipping exhibits with no audio in it', () => {
-    expect(getAssetGroups(ex, 'en')).toEqual([{ cacheName: 'audio-cache', urls: [u(1), u(2)] }])
+    expect(getAssetGroups(ex, 'en')).toEqual([
+      { cacheName: 'audio-cache', urls: [u(1), u(2)] },
+      { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
+    ])
     expect(getAssetGroups(ex, 'hi')).toEqual([
       { cacheName: 'audio-cache', urls: [u(10), u(11), u(12)] },
+      { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
     ])
   })
 
   it('returns an empty audio group when no exhibit has the language', () => {
-    expect(getAssetGroups(ex, 'te')).toEqual([{ cacheName: 'audio-cache', urls: [] }])
+    expect(getAssetGroups(ex, 'te')).toEqual([
+      { cacheName: 'audio-cache', urls: [] },
+      { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
+    ])
   })
 })
 
@@ -70,8 +77,8 @@ describe('precacheGroups', () => {
     const onProgress = vi.fn()
     const r = await precacheGroups(h.groups, { ...h.deps, failures: {}, onProgress })
     expect(r.groups[0]).toMatchObject({ complete: true, failed: [], capped: [] })
-    expect(onProgress).toHaveBeenLastCalledWith(3, 3)
-    expect(onProgress).toHaveBeenCalledWith(0, 3)
+    expect(onProgress).toHaveBeenLastCalledWith(3, 3, 'audio-cache')
+    expect(onProgress).toHaveBeenCalledWith(0, 3, 'audio-cache')
   })
 
   it('only fetches missing assets (gap-fill)', async () => {
@@ -314,7 +321,7 @@ describe('precacheGroups isCached verification', () => {
     await vi.runAllTimersAsync()
     const r = await p
     expect(r.saveFailed).toBe(false)
-    expect(onProgress).toHaveBeenLastCalledWith(4, 5)
+    expect(onProgress).toHaveBeenLastCalledWith(4, 5, 'audio-cache')
     expect(h.attempts).toEqual({ [u(1)]: 1, [u(2)]: 1, [u(3)]: 1, [u(4)]: 1, [u(5)]: 1 })
   })
 
@@ -333,7 +340,7 @@ describe('precacheGroups isCached verification', () => {
     await vi.advanceTimersByTimeAsync(600)
     const r = await p
     expect(r.saveFailed).toBe(false)
-    expect(onProgress).toHaveBeenLastCalledWith(1, 1)
+    expect(onProgress).toHaveBeenLastCalledWith(1, 1, 'audio-cache')
     expect(r.fetched).toBe(1)
     expect(isCached).toHaveBeenCalledTimes(3)
   })

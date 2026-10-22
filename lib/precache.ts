@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { MAP_CACHE, MAP_URL } from '@/lib/cache-names'
 import { useStore } from '@/lib/store'
 import { AUDIO_IDLE_TIMEOUT_MS, ConnectionTimeoutError, DATASET_TIMEOUT_MS } from '@/lib/timeouts'
 import type {
@@ -141,7 +142,7 @@ export async function fetchCachedAmenities(): Promise<CachedAmenity[]> {
 }
 
 /**
- * One group today (audio, one language). Add future asset types by returning more entries here.
+ * Two groups: audio (one language) then map tiles. Add future asset types by appending entries here.
  * Defaults to the precache language, falling back to the playback language.
  */
 export function getAssetGroups(
@@ -149,7 +150,10 @@ export function getAssetGroups(
   language: Language = useStore.getState().precacheLanguage ?? useStore.getState().language
 ): AssetGroup[] {
   const audio = exhibits.flatMap((e) => (e.audio[language] ? [e.audio[language]!] : []))
-  return [{ cacheName: AUDIO_CACHE_NAME, urls: [...new Set(audio)] }]
+  return [
+    { cacheName: AUDIO_CACHE_NAME, urls: [...new Set(audio)] },
+    { cacheName: MAP_CACHE, urls: [MAP_URL] },
+  ]
 }
 
 function concatChunks(chunks: Uint8Array[]): ArrayBuffer {
@@ -261,7 +265,7 @@ export async function precacheGroups(
   groups: AssetGroup[],
   opts: {
     failures: Record<string, { count: number }>
-    onProgress?: (fetched: number, total: number) => void
+    onProgress?: (fetched: number, total: number, cacheName: string) => void
     concurrency?: number
     maxAttempts?: number
     /** checked before each fetch; once true no new urls are taken and no retry rounds run */
@@ -282,14 +286,9 @@ export async function precacheGroups(
   let timedOut = false
   let saveFailed = false
   let notSavedCount = 0
-  opts.onProgress?.(fetched, total)
   if (todoCount > 0 && fetched > 0) {
     console.log(`[precache] gap-fill: ${todoCount}/${total} assets missing`)
   }
-
-  let todo = Object.entries(missing)
-    .flatMap(([cacheName, urls]) => urls.map((url) => ({ url, cacheName })))
-    .filter(({ url }) => (failures[url]?.count ?? 0) < max)
 
   const cancelled = () => (opts.signal?.aborted ?? false) || (opts.isCancelled?.() ?? false)
 
@@ -297,49 +296,58 @@ export async function precacheGroups(
   const groupCtrl = new AbortController()
   opts.signal?.addEventListener('abort', () => groupCtrl.abort(opts.signal!.reason))
 
-  while (todo.length > 0 && !offline && !timedOut && !saveFailed && !cancelled()) {
-    const retry: { url: string; cacheName: string }[] = []
-    const queue: { url: string; cacheName: string }[] = [...todo]
-    const worker = async () => {
-      for (
-        let item = queue.shift();
-        item && !offline && !timedOut && !saveFailed && !cancelled();
-        item = queue.shift()
-      ) {
-        const { url, cacheName } = item
-        try {
-          await deps.fetchAsset(url, groupCtrl.signal)
-          if (await pollIsCached(deps, cacheName, url)) {
-            delete failures[url]
-            fetched++
-            opts.onProgress?.(fetched, total)
-          } else if (++notSavedCount >= MAX_CONSECUTIVE_NOT_SAVED) {
-            saveFailed = true // downloads succeed but nothing sticks; not a failed attempt
-            groupCtrl.abort('save-failed')
-            return
+  // Groups run one at a time in array order; fetched/total stay global so the bar is continuous.
+  for (const g of groups) {
+    if (offline || timedOut || saveFailed || cancelled()) break
+
+    // Fire at group start so the label updates immediately (e.g. "Downloading map…" before any map bytes arrive).
+    opts.onProgress?.(fetched, total, g.cacheName)
+
+    let todo = (missing[g.cacheName] ?? []).filter((url) => (failures[url]?.count ?? 0) < max)
+
+    while (todo.length > 0 && !offline && !timedOut && !saveFailed && !cancelled()) {
+      const retry: string[] = []
+      const queue = [...todo]
+      const worker = async () => {
+        for (
+          let url = queue.shift();
+          url && !offline && !timedOut && !saveFailed && !cancelled();
+          url = queue.shift()
+        ) {
+          try {
+            await deps.fetchAsset(url, groupCtrl.signal)
+            if (await pollIsCached(deps, g.cacheName, url)) {
+              delete failures[url]
+              fetched++
+              opts.onProgress?.(fetched, total, g.cacheName)
+            } else if (++notSavedCount >= MAX_CONSECUTIVE_NOT_SAVED) {
+              saveFailed = true // downloads succeed but nothing sticks; not a failed attempt
+              groupCtrl.abort('save-failed')
+              return
+            }
+          } catch (err) {
+            if (err instanceof DOMException && err.name === 'AbortError') return
+            if (err instanceof ConnectionTimeoutError) {
+              timedOut = true
+              groupCtrl.abort('timeout') // wake up all other in-flight workers immediately
+              return
+            }
+            if (!isPermanent(err) || !deps.isOnline()) {
+              offline = true // connectivity or server trouble, not a bad asset: don't burn an attempt
+              return
+            }
+            const count = (failures[url]?.count ?? 0) + 1
+            failures[url] = { count }
+            if (count >= max) console.log(`[precache] retry cap hit: ${url}`)
+            else retry.push(url)
           }
-        } catch (err) {
-          if (err instanceof DOMException && err.name === 'AbortError') return
-          if (err instanceof ConnectionTimeoutError) {
-            timedOut = true
-            groupCtrl.abort('timeout') // wake up all other in-flight workers immediately
-            return
-          }
-          if (!isPermanent(err) || !deps.isOnline()) {
-            offline = true // connectivity or server trouble, not a bad asset: don't burn an attempt
-            return
-          }
-          const count = (failures[url]?.count ?? 0) + 1
-          failures[url] = { count }
-          if (count >= max) console.log(`[precache] retry cap hit: ${url}`)
-          else retry.push(item)
         }
       }
+      await Promise.all(
+        Array.from({ length: Math.min(opts.concurrency ?? CONCURRENCY, queue.length) }, worker)
+      )
+      todo = retry
     }
-    await Promise.all(
-      Array.from({ length: Math.min(opts.concurrency ?? CONCURRENCY, queue.length) }, worker)
-    )
-    todo = retry
   }
 
   // verify against Cache Storage rather than trusting our own counters
@@ -369,7 +377,7 @@ export async function loadDataset(): Promise<void> {
  */
 export async function runPrecache(
   language: Language,
-  onProgress?: (fetched: number, total: number) => void,
+  onProgress?: (fetched: number, total: number, cacheName: string) => void,
   isCancelled?: () => boolean,
   signal?: AbortSignal
 ): Promise<PrecacheResult> {
