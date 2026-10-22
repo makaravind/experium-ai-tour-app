@@ -176,7 +176,7 @@ export default function UserMenu() {
                       </span>
                       <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
                         {online
-                          ? 'Download the latest exhibit audio & data'
+                          ? 'Delete and re-download all exhibit audio, map & data'
                           : 'Connect to Wi-Fi or mobile data to refresh'}
                       </span>
                     </span>
