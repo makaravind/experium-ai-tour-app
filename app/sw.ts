@@ -91,15 +91,16 @@ const serwist = new Serwist({
         if (cached) return isRange ? createPartialResponse(request, cached.clone()) : cached
         const net = await fetch(url.href)
         if (!net.ok || !net.body) return net
-        // Tee so a non-range page fetch gets bytes as they arrive (the precache idle timeout needs
-        // them) while the other branch is stored. Range reads must slice the stored copy, so they wait.
+        if (isRange) {
+          // Store the full file first (net is fully consumed here), then slice from the cached copy.
+          // Tee is not used: an unread tee branch causes backpressure that stalls the put indefinitely.
+          await cache.put(url.pathname, net)
+          return createPartialResponse(request, (await cache.match(url.pathname))!)
+        }
+        // Non-range (e.g. precache): tee so bytes flow to the page while storing in parallel.
         const [toCache, toPage] = net.body.tee()
         const stored = cache.put(url.pathname, new Response(toCache, { headers: net.headers }))
         event.waitUntil(stored)
-        if (isRange) {
-          await stored
-          return createPartialResponse(request, (await cache.match(url.pathname))!)
-        }
         return new Response(toPage, { headers: net.headers })
       },
     },
