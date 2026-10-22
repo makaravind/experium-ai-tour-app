@@ -10,6 +10,7 @@ import { useDebugStore, type GatePhase } from '@/lib/debug-store'
 import { ConnectionTimeoutError } from '@/lib/timeouts'
 import { MAP_URL } from '@/lib/cache-names'
 import {
+  CONTENT_CACHE_NAMES,
   checkFresh,
   loadDataset,
   logContinueAnyway,
@@ -275,14 +276,17 @@ export default function AppGate({ children }: { children: ReactNode }) {
     if (!refreshRequested || phaseRef.current !== 'clear') return
     useStore.getState().setRefreshRequested(false)
     void (async () => {
-      if (useDebugStore.getState().isActive) await caches.delete('audio-cache')
-      useStore.getState().setCachedExhibits([])
-      useStore.getState().setCachedAmenities([])
-      setAssetFailures({})
-      setAcknowledgedCapped([])
+      await Promise.all(CONTENT_CACHE_NAMES.map((n) => caches.delete(n)))
+      useStore.setState({
+        cachedExhibits: [],
+        cachedAmenities: [],
+        assetFailures: {},
+        acknowledgedCapped: [],
+        completionByGroup: {},
+      })
       await run()
     })()
-  }, [refreshRequested, run, setAssetFailures, setAcknowledgedCapped])
+  }, [refreshRequested, run])
 
   const handleLanguageChange = useCallback(
     (code: Language) => {

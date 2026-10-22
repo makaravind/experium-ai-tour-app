@@ -6,6 +6,7 @@ import { useDebugStore } from '@/lib/debug-store'
 import {
   AssetFetchError,
   CONCURRENCY,
+  CONTENT_CACHE_NAMES,
   getAssetGroups,
   precacheGroups,
   findMissing,
@@ -449,9 +450,12 @@ describe('AppGate Refresh content', () => {
   })
   afterEach(() => {
     delete (navigator as { serviceWorker?: unknown }).serviceWorker
+    vi.unstubAllGlobals()
   })
 
-  it('clears cachedExhibits and cachedAmenities, then re-runs the precache', async () => {
+  it('wipes both content caches and content state, then re-runs the precache', async () => {
+    const del = vi.fn(async (_name: string) => true)
+    vi.stubGlobal('caches', { delete: del })
     localStorage.clear()
     localStorage.setItem('experium_onboarded', '1')
     Object.defineProperty(navigator, 'onLine', { value: true, writable: true, configurable: true })
@@ -470,13 +474,31 @@ describe('AppGate Refresh content', () => {
     useStore.setState({
       cachedExhibits: [{ id: 'e1', audio: {} } as CachedExhibit],
       cachedAmenities: [{ id: 'a1' } as never],
+      assetFailures: { 'http://x': { count: 3 } } as never,
+      acknowledgedCapped: ['http://x'],
+      completionByGroup: { 'audio-cache': { language: 'en', complete: true } },
     })
     render(createElement(AppGate, null, 'app'))
     await waitFor(() => expect(useDebugStore.getState().cacheDebug).toBe('clear'))
+    // run() re-resolves visitorId via the mocked getOrCreateVisitorId, so seed its value (stable id)
+    useStore.setState({ visitorId: 'visitor-1', discoveredCodes: ['A01'], language: 'hi' })
 
     useStore.getState().setRefreshRequested(true)
     await waitFor(() => expect(runPrecache).toHaveBeenCalled())
+    // content fields wiped
     expect(useStore.getState().cachedExhibits).toEqual([])
     expect(useStore.getState().cachedAmenities).toEqual([])
+    expect(useStore.getState().assetFailures).toEqual({})
+    expect(useStore.getState().acknowledgedCapped).toEqual([])
+    expect(useStore.getState().completionByGroup).toEqual({})
+    // kept fields unchanged
+    expect(useStore.getState().visitorId).toBe('visitor-1')
+    expect(useStore.getState().discoveredCodes).toEqual(['A01'])
+    expect(useStore.getState().language).toBe('hi')
+    expect(del.mock.calls.map((c) => c[0]).sort()).toEqual([...CONTENT_CACHE_NAMES].sort())
+    // caches deleted before run
+    expect(Math.max(...del.mock.invocationCallOrder)).toBeLessThan(
+      (runPrecache as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+    )
   })
 })

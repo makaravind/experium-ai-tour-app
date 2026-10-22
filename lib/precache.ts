@@ -27,6 +27,7 @@ const isPermanent = (err: unknown): err is AssetFetchError =>
 export const AUDIO_CACHE_NAME = 'audio-cache'
 export const MAX_ATTEMPTS = 3
 export const CONCURRENCY = 6
+export const CONTENT_CACHE_NAMES = [AUDIO_CACHE_NAME, MAP_CACHE] as const
 
 export interface AssetGroup {
   cacheName: string

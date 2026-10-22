@@ -4,9 +4,13 @@ import { useEffect, useState } from 'react'
 import { NO_PRECACHE_KEY } from '@/components/onboarding/AppGate'
 import { useStore } from '@/lib/store'
 import { useDebugStore } from '@/lib/debug-store'
-import { MAX_ATTEMPTS, fetchCachedExhibits, findMissing, getAssetGroups } from '@/lib/precache'
-
-const PRECACHE_CACHE_NAMES = ['audio-cache', 'map-tiles-cache']
+import {
+  CONTENT_CACHE_NAMES,
+  MAX_ATTEMPTS,
+  fetchCachedExhibits,
+  findMissing,
+  getAssetGroups,
+} from '@/lib/precache'
 
 export default function DebugPanel() {
   const [open, setOpen] = useState(false)
@@ -69,7 +73,7 @@ export default function DebugPanel() {
   }
 
   const resetCache = async () => {
-    await Promise.all(PRECACHE_CACHE_NAMES.map((n) => caches.delete(n)))
+    await Promise.all(CONTENT_CACHE_NAMES.map((n) => caches.delete(n)))
     useStore.setState({
       completionByGroup: {},
       assetFailures: {},
@@ -94,7 +98,7 @@ export default function DebugPanel() {
       sessionStorage.removeItem(NO_PRECACHE_KEY)
     } else {
       sessionStorage.setItem(NO_PRECACHE_KEY, '1')
-      await Promise.all(PRECACHE_CACHE_NAMES.map((n) => caches.delete(n)))
+      await Promise.all(CONTENT_CACHE_NAMES.map((n) => caches.delete(n)))
       useStore.setState({
         completionByGroup: {},
         assetFailures: {},

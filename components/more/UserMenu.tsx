@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import { AnimatePresence, animate, motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
 
@@ -86,8 +86,10 @@ export default function UserMenu() {
   const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
   const online = useSyncExternalStore(subscribeOnline, getOnline, getServerOnline)
   const refreshRowRef = useRef<HTMLButtonElement>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [estimatedMb, setEstimatedMb] = useState<number | null>(null)
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     if (!online) {
       if (refreshRowRef.current) {
         animate(refreshRowRef.current, { x: [0, -6, 6, -4, 4, 0] }, { duration: 0.26 })
@@ -95,145 +97,197 @@ export default function UserMenu() {
       return
     }
     setOpen(false)
+    try {
+      const est = await navigator.storage?.estimate?.()
+      if (est?.usage) setEstimatedMb(Math.round(est.usage / 1_048_576))
+    } catch {
+      // size hint is optional
+    }
+    setConfirmOpen(true)
+  }
+
+  const onConfirm = () => {
     useStore.getState().setRefreshRequested(true)
+    setConfirmOpen(false)
   }
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            className="absolute inset-0"
-            style={{ background: 'rgba(43,43,43,.38)', zIndex: 38 }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.16 }}
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-          <motion.div
-            role="dialog"
-            aria-label="More options"
-            className="absolute left-3 right-3 rounded-[28px] bg-ex-paper border border-ex-border"
-            style={{
-              bottom: 106,
-              zIndex: 39,
-              boxShadow: 'var(--ex-shadow-modal)',
-              fontFamily: 'var(--font-body)',
-              padding: '6px 0 10px',
-            }}
-            initial={{ opacity: 0, y: 12, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-          >
-            <div className="px-5 pt-4 pb-1.5">
-              <div
-                className="font-extrabold text-[19px] leading-tight tracking-tight text-ex-ink"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                Account &amp; App
-              </div>
-              <div className="text-[13px] text-ex-muted mt-0.5">Manage your experience</div>
-            </div>
-
-            <div className="px-5 pt-3.5 pb-1 text-[11px] font-extrabold tracking-[0.08em] uppercase text-ex-muted">
-              Content
-            </div>
-            <ul>
-              <li>
-                <button
-                  ref={refreshRowRef}
-                  type="button"
-                  role="menuitem"
-                  aria-disabled={!online}
-                  onClick={onRefresh}
-                  className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg`}
-                >
-                  <span
-                    className={`${ICON_BASE} ${online ? 'bg-ex-forest/10 text-ex-forest' : 'bg-ex-bg text-ex-muted'}`}
-                  >
-                    <RefreshIcon />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
-                      Refresh content
-                    </span>
-                    <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
-                      {online
-                        ? 'Download the latest exhibit audio & data'
-                        : 'Connect to Wi-Fi or mobile data to refresh'}
-                    </span>
-                  </span>
-                  {!online && (
-                    <span className="shrink-0 inline-block text-[11px] font-extrabold tracking-[0.02em] rounded-full px-[9px] py-[3px] border bg-ex-orange/10 text-ex-orange border-ex-orange/40">
-                      Offline
-                    </span>
-                  )}
-                </button>
-              </li>
-            </ul>
-
-            <div className="px-5 pt-3.5 pb-1 text-[11px] font-extrabold tracking-[0.08em] uppercase text-ex-muted">
-              Account
-            </div>
-            <ul>
-              <li>
-                <button
-                  type="button"
-                  role="menuitem"
-                  aria-disabled="true"
-                  className={`${ROW} cursor-not-allowed`}
-                >
-                  <span className={`${ICON_BASE} bg-ex-bg text-ex-muted`}>
-                    <LogoutIcon />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-extrabold text-[15px] text-ex-muted leading-snug">
-                      Log out
-                    </span>
-                    <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
-                      Sign out of your account
-                    </span>
-                  </span>
-                  <span className="shrink-0 inline-block text-[11px] font-extrabold tracking-[0.02em] rounded-full px-[9px] py-[3px] border bg-ex-sage/10 text-ex-sage border-ex-sage/40">
-                    Soon
-                  </span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setOpen(false)
-                    setTimeout(() => setProfileModalOpen(true), 200)
-                  }}
-                  className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg`}
-                >
-                  <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
-                    <UserIcon />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
-                      Profile &amp; preferences
-                    </span>
-                    <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
-                      Edit your name, phone &amp; email
-                    </span>
-                  </span>
-                </button>
-              </li>
-            </ul>
-
-            <span
+    <>
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              className="absolute inset-0"
+              style={{ background: 'rgba(43,43,43,.38)', zIndex: 38 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16 }}
+              onClick={() => setOpen(false)}
               aria-hidden="true"
-              className="absolute -bottom-[7px] right-[28px] h-3.5 w-3.5 rotate-45 border-b border-r border-ex-border bg-ex-paper"
             />
-          </motion.div>
-        </>
+            <motion.div
+              role="dialog"
+              aria-label="More options"
+              className="absolute left-3 right-3 rounded-[28px] bg-ex-paper border border-ex-border"
+              style={{
+                bottom: 106,
+                zIndex: 39,
+                boxShadow: 'var(--ex-shadow-modal)',
+                fontFamily: 'var(--font-body)',
+                padding: '6px 0 10px',
+              }}
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+            >
+              <div className="px-5 pt-4 pb-1.5">
+                <div
+                  className="font-extrabold text-[19px] leading-tight tracking-tight text-ex-ink"
+                  style={{ fontFamily: 'var(--font-display)' }}
+                >
+                  Account &amp; App
+                </div>
+                <div className="text-[13px] text-ex-muted mt-0.5">Manage your experience</div>
+              </div>
+
+              <div className="px-5 pt-3.5 pb-1 text-[11px] font-extrabold tracking-[0.08em] uppercase text-ex-muted">
+                Content
+              </div>
+              <ul>
+                <li>
+                  <button
+                    ref={refreshRowRef}
+                    type="button"
+                    role="menuitem"
+                    aria-disabled={!online}
+                    onClick={onRefresh}
+                    className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg`}
+                  >
+                    <span
+                      className={`${ICON_BASE} ${online ? 'bg-ex-forest/10 text-ex-forest' : 'bg-ex-bg text-ex-muted'}`}
+                    >
+                      <RefreshIcon />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
+                        Refresh content
+                      </span>
+                      <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
+                        {online
+                          ? 'Delete and re-download all exhibit audio, map & data'
+                          : 'Connect to Wi-Fi or mobile data to refresh'}
+                      </span>
+                    </span>
+                    {!online && (
+                      <span className="shrink-0 inline-block text-[11px] font-extrabold tracking-[0.02em] rounded-full px-[9px] py-[3px] border bg-ex-orange/10 text-ex-orange border-ex-orange/40">
+                        Offline
+                      </span>
+                    )}
+                  </button>
+                </li>
+              </ul>
+
+              <div className="px-5 pt-3.5 pb-1 text-[11px] font-extrabold tracking-[0.08em] uppercase text-ex-muted">
+                Account
+              </div>
+              <ul>
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    aria-disabled="true"
+                    className={`${ROW} cursor-not-allowed`}
+                  >
+                    <span className={`${ICON_BASE} bg-ex-bg text-ex-muted`}>
+                      <LogoutIcon />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-extrabold text-[15px] text-ex-muted leading-snug">
+                        Log out
+                      </span>
+                      <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
+                        Sign out of your account
+                      </span>
+                    </span>
+                    <span className="shrink-0 inline-block text-[11px] font-extrabold tracking-[0.02em] rounded-full px-[9px] py-[3px] border bg-ex-sage/10 text-ex-sage border-ex-sage/40">
+                      Soon
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false)
+                      setTimeout(() => setProfileModalOpen(true), 200)
+                    }}
+                    className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg`}
+                  >
+                    <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
+                      <UserIcon />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
+                        Profile &amp; preferences
+                      </span>
+                      <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
+                        Edit your name, phone &amp; email
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              </ul>
+
+              <span
+                aria-hidden="true"
+                className="absolute -bottom-[7px] right-[28px] h-3.5 w-3.5 rotate-45 border-b border-r border-ex-border bg-ex-paper"
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      {confirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          style={{ fontFamily: 'var(--font-body)' }}
+        >
+          <div
+            role="alertdialog"
+            aria-labelledby="refresh-confirm-title"
+            className="bg-ex-paper rounded-2xl p-6 mx-4 max-w-sm w-full shadow-xl"
+            style={{ boxShadow: 'var(--ex-shadow-modal)' }}
+          >
+            <h2
+              id="refresh-confirm-title"
+              className="text-lg font-bold text-ex-ink"
+              style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.3px' }}
+            >
+              Re-download all content?
+            </h2>
+            <p className="mt-2 text-sm text-ex-muted">
+              This deletes the saved tour and downloads it again
+              {estimatedMb ? ` (~${estimatedMb} MB)` : ''}. Use good Wi-Fi.
+            </p>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="btn-3d-green w-full h-14 mt-5 rounded-2xl font-extrabold text-base flex items-center justify-center bg-ex-forest text-white"
+            >
+              Re-download
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(false)}
+              className="mt-3 w-full text-sm font-semibold text-ex-muted bg-transparent border-none cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   )
 }
