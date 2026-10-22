@@ -375,3 +375,53 @@ test.describe('Map tiles in offline guarantee', () => {
     await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 60000 })
   })
 })
+
+// Refresh is a full wipe (#89): content caches are deleted and every asset is downloaded again.
+test.describe('Refresh content full wipe', () => {
+  test.skip(!process.env.E2E_PROD, 'needs a production build (service worker is off in dev)')
+
+  const storedVisitorId = (page: Page) =>
+    page.evaluate(() => {
+      const raw = localStorage.getItem('experium-store')
+      return raw ? (JSON.parse(raw).state?.visitorId ?? null) : null
+    })
+
+  // The SW fetches audio itself, so page.route can't see it; page 'request' events do.
+  // Real dataset: one small mp3 + the real map.
+  test('Refresh wipes caches and re-fetches all audio', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'offline + service worker is only reliable in chromium')
+    test.setTimeout(120000)
+
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Skip for now' }).click({ timeout: 60000 })
+    await expect(page.getByRole('link', { name: 'Scan Now' })).toBeVisible()
+
+    const visitorId = await storedVisitorId(page)
+    expect(visitorId).toBeTruthy()
+
+    // Count only the re-download: start after the first precache has finished
+    let audioFetchCount = 0
+    page.on('request', (req) => {
+      if (new URL(req.url()).pathname.endsWith('.mp3')) audioFetchCount++
+    })
+
+    await page.getByRole('button', { name: 'More', exact: true }).click()
+    await page.getByText(/delete and re-download/i).click()
+    await page.getByRole('button', { name: 'Re-download' }).click()
+
+    // Gate re-runs the precache; an onboarded visitor goes straight back to the app.
+    // Full wipe, not gap-fill: gap-fill would find the cached mp3 and never request it again
+    await expect.poll(() => audioFetchCount, { timeout: 60000 }).toBeGreaterThan(0)
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () =>
+            (await (await caches.open('audio-cache')).keys()).some((r) => r.url.endsWith('.mp3'))
+          ),
+        { timeout: 60000 }
+      )
+      .toBe(true)
+
+    expect(await storedVisitorId(page)).toBe(visitorId)
+  })
+})
