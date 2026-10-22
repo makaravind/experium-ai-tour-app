@@ -88,7 +88,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const [phase, setPhaseState] = useState<GatePhase>('checking')
   const [pct, setPct] = useState(0)
   const [label, setLabel] = useState<string | undefined>()
-  const [introDone] = useState(() => {
+  const [introDone, setIntroDone] = useState(() => {
     if (process.env.NODE_ENV === 'development') return true
     try {
       return !!sessionStorage.getItem(INTRO_DONE_KEY)
@@ -96,8 +96,6 @@ export default function AppGate({ children }: { children: ReactNode }) {
       return false
     }
   })
-  const [pendingIntroDone, setPendingIntroDone] = useState(false)
-  const [introForceDismiss, setIntroForceDismiss] = useState(false)
   const [showCopyFallback, setShowCopyFallback] = useState(false)
   const [copyConfirmed, setCopyConfirmed] = useState(false)
   const precacheLanguage = useStore((s) => s.precacheLanguage)
@@ -294,13 +292,6 @@ export default function AppGate({ children }: { children: ReactNode }) {
     })()
   }, [refreshRequested, run])
 
-  // If gate is still checking 3s after intro ends, force-hide intro so it never appears stuck
-  useEffect(() => {
-    if (!pendingIntroDone) return
-    const id = setTimeout(() => setIntroForceDismiss(true), 3000)
-    return () => clearTimeout(id)
-  }, [pendingIntroDone])
-
   const handleLanguageChange = useCallback(
     (code: Language) => {
       if (code === useStore.getState().precacheLanguage) return
@@ -318,8 +309,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
     } catch {
       /* storage blocked */
     }
-    setPendingIntroDone(true)
-  }, [])
+    setIntroDone(true)
+  }, [setIntroDone])
 
   const handleInfoDone = useCallback(() => {
     localStorage.setItem(ONBOARDED_KEY, '1')
@@ -502,7 +493,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
     <>
       {content}
       <AnimatePresence>
-        {!introDone && !(pendingIntroDone && (phase !== 'checking' || introForceDismiss)) && (
+        {!introDone && (
           <motion.div
             key="intro"
             className="fixed inset-0 z-50"
