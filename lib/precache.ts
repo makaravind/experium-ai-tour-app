@@ -281,7 +281,7 @@ export async function precacheGroups(
   let offline = false
   let timedOut = false
   let saveFailed = false
-  let consecutiveNotSaved = 0
+  let notSavedCount = 0
   opts.onProgress?.(fetched, total)
   if (todoCount > 0 && fetched > 0) {
     console.log(`[precache] gap-fill: ${todoCount}/${total} assets missing`)
@@ -313,13 +313,12 @@ export async function precacheGroups(
             delete failures[url]
             fetched++
             opts.onProgress?.(fetched, total)
-            consecutiveNotSaved = 0
-          } else if (++consecutiveNotSaved >= MAX_CONSECUTIVE_NOT_SAVED) {
+          } else if (++notSavedCount >= MAX_CONSECUTIVE_NOT_SAVED) {
             saveFailed = true // downloads succeed but nothing sticks; not a failed attempt
+            groupCtrl.abort('save-failed')
             return
           }
         } catch (err) {
-          consecutiveNotSaved = 0 // fetch errors are connectivity, not storage
           if (err instanceof DOMException && err.name === 'AbortError') return
           if (err instanceof ConnectionTimeoutError) {
             timedOut = true

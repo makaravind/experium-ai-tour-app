@@ -298,9 +298,10 @@ describe('precacheGroups isCached verification', () => {
     expect(r.offline).toBe(false)
   })
 
-  it('resets the consecutive counter after a verified save', async () => {
+  it('completes when total not-saved stays below threshold', async () => {
     const h = harness([u(1), u(2), u(3), u(4), u(5)])
-    const saved = new Set([u(3)])
+    // only u(5) not saved → 1 total, well below threshold of 3
+    const saved = new Set([u(1), u(2), u(3), u(4)])
     const onProgress = vi.fn()
     const p = precacheGroups(h.groups, {
       ...h.deps,
@@ -312,9 +313,8 @@ describe('precacheGroups isCached verification', () => {
     })
     await vi.runAllTimersAsync()
     const r = await p
-    // not-saved x2, saved, not-saved x2: never 3 in a row
     expect(r.saveFailed).toBe(false)
-    expect(onProgress).toHaveBeenLastCalledWith(1, 5)
+    expect(onProgress).toHaveBeenLastCalledWith(4, 5)
     expect(h.attempts).toEqual({ [u(1)]: 1, [u(2)]: 1, [u(3)]: 1, [u(4)]: 1, [u(5)]: 1 })
   })
 

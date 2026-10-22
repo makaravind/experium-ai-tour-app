@@ -108,21 +108,21 @@ export default function AppGate({ children }: { children: ReactNode }) {
 
   const finish = useCallback(
     (result: PrecacheResult) => {
+      if (result.saveFailed) {
+        setPhase('storage-error')
+        return
+      }
       if (result.timedOut) {
         setPhase('weak-connection')
         return
       }
-      if (result.saveFailed) {
-        setPhase('storage-error')
+      if (result.offline) {
+        setPhase('blocked-offline')
         return
       }
       const capped = result.groups.flatMap((g) => g.capped)
       if (capped.length > 0 && !allAcknowledged(capped)) {
         setPhase('asset-error')
-        return
-      }
-      if (result.offline) {
-        setPhase('blocked-offline')
         return
       }
       // acknowledged capped URLs stay in `failed` (never retried), so they must not count as incomplete
@@ -253,7 +253,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
         p === 'loading' ||
         p === 'blocked-offline' ||
         p === 'fetch-error' ||
-        p === 'weak-connection'
+        p === 'weak-connection' ||
+        p === 'storage-error'
       )
         void run()
     })
