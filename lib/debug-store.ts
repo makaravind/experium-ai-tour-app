@@ -28,6 +28,8 @@ export type GatePhase =
   | 'loading'
   | 'asset-error'
   | 'weak-connection'
+  | 'no-offline-support'
+  | 'storage-error'
   | 'info'
   | 'clear'
 
