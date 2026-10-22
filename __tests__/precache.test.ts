@@ -433,6 +433,17 @@ describe('AppGate offline with gaps', () => {
 })
 
 describe('AppGate Refresh content', () => {
+  // The download path requires a controlling SW (otherwise 'no-offline-support').
+  beforeEach(() => {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { controller: {} },
+      configurable: true,
+    })
+  })
+  afterEach(() => {
+    delete (navigator as { serviceWorker?: unknown }).serviceWorker
+  })
+
   it('clears cachedExhibits and cachedAmenities, then re-runs the precache', async () => {
     localStorage.clear()
     localStorage.setItem('experium_onboarded', '1')
