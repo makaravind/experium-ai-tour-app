@@ -10,6 +10,7 @@ import { useDebugStore, type GatePhase } from '@/lib/debug-store'
 import { ConnectionTimeoutError } from '@/lib/timeouts'
 import {
   checkFresh,
+  loadDataset,
   logContinueAnyway,
   MAX_ATTEMPTS,
   onForeground,
@@ -148,7 +149,27 @@ export default function AppGate({ children }: { children: ReactNode }) {
         setPhase('clear')
         return
       }
-      await waitForServiceWorker()
+      // Continue-online: visitor chose to skip offline guarantee (e.g. in-app browser).
+      // Session-scoped: reload in the same tab skips this screen; new session re-offers the offline path.
+      if (sessionStorage.getItem(CONTINUE_ONLINE_KEY)) {
+        if (!navigator.onLine) {
+          setPhase(
+            useStore.getState().cachedExhibits.length > 0 ? nextAfterClear() : 'blocked-offline'
+          )
+          return
+        }
+        try {
+          await loadDataset()
+        } catch {
+          setPhase(navigator.onLine ? 'fetch-error' : 'blocked-offline')
+          return
+        }
+        setPhase(nextAfterClear())
+        return
+      }
+
+      // Start the SW wait early but only block on it if we actually need to download.
+      const swResultPromise = waitForServiceWorker()
       const online = navigator.onLine
       const store = useStore.getState()
       const idPromise = getOrCreateVisitorId().then((id) => store.setVisitorId(id))
@@ -175,6 +196,13 @@ export default function AppGate({ children }: { children: ReactNode }) {
 
       if (!online) {
         setPhase(hasDataset ? nextAfterClear() : 'blocked-offline')
+        return
+      }
+
+      // Only block on SW control if we're about to download (already-cached visitors skip the wait).
+      const swResult = await swResultPromise
+      if (swResult !== 'controlled') {
+        setPhase('no-offline-support')
         return
       }
 
