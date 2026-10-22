@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { MAP_CACHE, MAP_URL } from '@/lib/cache-names'
 import { useStore } from '@/lib/store'
 import { AUDIO_IDLE_TIMEOUT_MS, ConnectionTimeoutError, DATASET_TIMEOUT_MS } from '@/lib/timeouts'
 import type {
@@ -141,7 +142,7 @@ export async function fetchCachedAmenities(): Promise<CachedAmenity[]> {
 }
 
 /**
- * One group today (audio, one language). Add future asset types by returning more entries here.
+ * Two groups: audio (one language) then map tiles. Add future asset types by appending entries here.
  * Defaults to the precache language, falling back to the playback language.
  */
 export function getAssetGroups(
@@ -149,7 +150,10 @@ export function getAssetGroups(
   language: Language = useStore.getState().precacheLanguage ?? useStore.getState().language
 ): AssetGroup[] {
   const audio = exhibits.flatMap((e) => (e.audio[language] ? [e.audio[language]!] : []))
-  return [{ cacheName: AUDIO_CACHE_NAME, urls: [...new Set(audio)] }]
+  return [
+    { cacheName: AUDIO_CACHE_NAME, urls: [...new Set(audio)] },
+    { cacheName: MAP_CACHE, urls: [MAP_URL] },
+  ]
 }
 
 function concatChunks(chunks: Uint8Array[]): ArrayBuffer {
