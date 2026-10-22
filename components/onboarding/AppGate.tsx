@@ -88,10 +88,15 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const [phase, setPhaseState] = useState<GatePhase>('checking')
   const [pct, setPct] = useState(0)
   const [label, setLabel] = useState<string | undefined>()
-  const [introDone, setIntroDone] = useState(() => {
+  const [introDone] = useState(() => {
     if (process.env.NODE_ENV === 'development') return true
-    try { return !!sessionStorage.getItem(INTRO_DONE_KEY) } catch { return false }
+    try {
+      return !!sessionStorage.getItem(INTRO_DONE_KEY)
+    } catch {
+      return false
+    }
   })
+  const [pendingIntroDone, setPendingIntroDone] = useState(false)
   const [showCopyFallback, setShowCopyFallback] = useState(false)
   const [copyConfirmed, setCopyConfirmed] = useState(false)
   const precacheLanguage = useStore((s) => s.precacheLanguage)
@@ -300,8 +305,12 @@ export default function AppGate({ children }: { children: ReactNode }) {
   )
 
   const handleIntroEnd = useCallback(() => {
-    try { sessionStorage.setItem(INTRO_DONE_KEY, '1') } catch { /* storage blocked */ }
-    setIntroDone(true)
+    try {
+      sessionStorage.setItem(INTRO_DONE_KEY, '1')
+    } catch {
+      /* storage blocked */
+    }
+    setPendingIntroDone(true)
   }, [])
 
   const handleInfoDone = useCallback(() => {
@@ -485,7 +494,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
     <>
       {content}
       <AnimatePresence>
-        {!introDone && (
+        {!introDone && !(pendingIntroDone && phase !== 'checking') && (
           <motion.div
             key="intro"
             className="fixed inset-0 z-50"
