@@ -66,9 +66,13 @@ async function seedVisitor(page: Page) {
 }
 
 const chip = (page: Page) => page.getByRole('button', { name: WASHROOM.name })
-// PreviewSheet's handle is in the DOM too (parked off-screen); AmenitySheet mounts after it
+// PreviewSheet's handle is in the DOM too; filter to elements with aria-expanded so we never
+// accidentally target SheetSummary's <div role="button"> which lacks that attribute.
 const amenityHandle = (page: Page) =>
-  page.getByRole('button', { name: /Expand to full view|Collapse details/ }).last()
+  page
+    .getByRole('button', { name: /Expand to full view|Collapse details/ })
+    .and(page.locator('[aria-expanded]'))
+    .last()
 // Retries: while the expanded sheet is still sliding down, the tap lands on it instead of the scrim
 const scrimTap = (page: Page) =>
   expect(async () => {
@@ -140,8 +144,8 @@ test.describe('Amenities', () => {
   })
 
   test('map failure hides chips, pill and sheet; search still lists exhibits', async ({ page }) => {
-    // Gate is satisfied by beforeEach seedMapCache('fake-pmtiles'); the invalid bytes cause the
-    // pmtiles reader to throw on ParkMap mount → onLoadError → MapStub, same end state as before.
+    // beforeEach seeds valid pmtiles; override here with invalid bytes to trigger map failure.
+    await seedMapCache(page, 'not-pmtiles')
     await page.goto('/map')
     await expect(page.getByRole('button', { name: 'Amenities' })).toBeHidden()
     await expect(chip(page)).toBeHidden()

@@ -35,9 +35,18 @@ const retry = (page: Page) => page.getByRole('button', { name: 'Retry' })
 
 test.describe('Map error recovery', () => {
   test.beforeEach(async ({ page }) => {
-    // Gate passes on fake pmtiles bytes; the pmtiles reader then throws on ParkMap mount → startup failure
+    // mockPrecacheDataset seeds map-tiles-cache with valid bytes (gate passes) and registers a
+    // page.route that also serves valid bytes. Override the network route after setup so ParkMap
+    // reads invalid bytes → throws before `load` → shows "Map couldn't load" strip.
     await mockPrecacheDataset(page)
     await seedVisitor(page)
+    await page.route('**/park.pmtiles', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        body: Buffer.from('x'),
+      })
+    )
   })
 
   test('startup failure shows strip; Retry remounts ParkMap', async ({ page }) => {
