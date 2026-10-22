@@ -70,8 +70,8 @@ describe('precacheGroups', () => {
     const onProgress = vi.fn()
     const r = await precacheGroups(h.groups, { ...h.deps, failures: {}, onProgress })
     expect(r.groups[0]).toMatchObject({ complete: true, failed: [], capped: [] })
-    expect(onProgress).toHaveBeenLastCalledWith(3, 3)
-    expect(onProgress).toHaveBeenCalledWith(0, 3)
+    expect(onProgress).toHaveBeenLastCalledWith(3, 3, 'audio-cache')
+    expect(onProgress).toHaveBeenCalledWith(0, 3, 'audio-cache')
   })
 
   it('only fetches missing assets (gap-fill)', async () => {
@@ -314,7 +314,7 @@ describe('precacheGroups isCached verification', () => {
     await vi.runAllTimersAsync()
     const r = await p
     expect(r.saveFailed).toBe(false)
-    expect(onProgress).toHaveBeenLastCalledWith(4, 5)
+    expect(onProgress).toHaveBeenLastCalledWith(4, 5, 'audio-cache')
     expect(h.attempts).toEqual({ [u(1)]: 1, [u(2)]: 1, [u(3)]: 1, [u(4)]: 1, [u(5)]: 1 })
   })
 
@@ -333,7 +333,7 @@ describe('precacheGroups isCached verification', () => {
     await vi.advanceTimersByTimeAsync(600)
     const r = await p
     expect(r.saveFailed).toBe(false)
-    expect(onProgress).toHaveBeenLastCalledWith(1, 1)
+    expect(onProgress).toHaveBeenLastCalledWith(1, 1, 'audio-cache')
     expect(r.fetched).toBe(1)
     expect(isCached).toHaveBeenCalledTimes(3)
   })
