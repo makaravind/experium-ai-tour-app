@@ -108,13 +108,25 @@ export default function AppGate({ children }: { children: ReactNode }) {
         setPhase('weak-connection')
         return
       }
+      if (result.saveFailed) {
+        setPhase('storage-error')
+        return
+      }
       const capped = result.groups.flatMap((g) => g.capped)
-      // acknowledged capped URLs stay in `failed` (never retried), so they must not block here
-      const failed = result.groups.flatMap((g) => g.failed)
-      if (result.offline) setPhase('blocked-offline')
-      else if (capped.length > 0 && !allAcknowledged(capped)) setPhase('asset-error')
-      else if (failed.length > 0 && !allAcknowledged(failed)) setPhase('asset-error')
-      else setPhase(nextAfterClear())
+      if (capped.length > 0 && !allAcknowledged(capped)) {
+        setPhase('asset-error')
+        return
+      }
+      if (result.offline) {
+        setPhase('blocked-offline')
+        return
+      }
+      const incomplete = result.groups.some((g) => !g.complete)
+      if (incomplete) {
+        setPhase('fetch-error')
+        return
+      }
+      setPhase(nextAfterClear())
     },
     [setPhase]
   )
