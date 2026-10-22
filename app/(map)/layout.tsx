@@ -46,7 +46,6 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<{ total: number; saved: boolean } | null>(null)
 
-  const listenedCurrentExhibit = useStore((s) => s.listenedCurrentExhibit)
   const userInfo = useStore((s) => s.userInfo)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const mapExhibits = useMemo(() => toMapExhibits(cachedExhibits), [cachedExhibits])
@@ -213,7 +212,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ fontFamily: 'var(--font-body)' }}>
       {mapFailed ? (
-        <MapStub discovered={isExhibitPage ? listenedCurrentExhibit : false} />
+        <MapStub />
       ) : (
         <ParkMap
           onLoadError={() => setMapFailed(true)}
@@ -225,8 +224,26 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
+      {/* Map failure strip — shown instead of GPS banner while map is failed */}
+      {mapFailed && (
+        <div
+          role="alert"
+          className="absolute left-0 right-0 top-0 flex items-center justify-center gap-3 px-4 py-2 text-sm font-semibold bg-yellow-300 text-black"
+          style={{ zIndex: 30 }}
+        >
+          <span>Map couldn&apos;t load</span>
+          <button
+            type="button"
+            onClick={() => setMapFailed(false)}
+            className="px-3 py-1 rounded-full bg-black text-white"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* GPS error banner — persists until geoError clears (not a toast) */}
-      {geoError && (
+      {geoError && !mapFailed && (
         <div
           role="alert"
           className="absolute left-0 right-0 top-0 flex items-center justify-center gap-3 px-4 py-2 text-sm font-semibold bg-yellow-300 text-black"
