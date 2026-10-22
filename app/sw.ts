@@ -5,6 +5,7 @@ import { ExpirationPlugin } from 'serwist'
 import { CacheableResponsePlugin } from 'serwist'
 import { RangeRequestsPlugin } from 'serwist'
 import { createPartialResponse } from 'serwist'
+import { MAP_CACHE } from '@/lib/cache-names'
 
 declare global {
   interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -84,7 +85,7 @@ const serwist = new Serwist({
       // whole file ourselves on first use and slice every read from that one cached copy.
       matcher: ({ url }) => url.pathname.toLowerCase().endsWith('.pmtiles'),
       handler: async ({ request, url }) => {
-        const cache = await caches.open('map-tiles-cache')
+        const cache = await caches.open(MAP_CACHE)
         let full = await cache.match(url.pathname)
         if (!full) {
           full = await fetch(url.href)
