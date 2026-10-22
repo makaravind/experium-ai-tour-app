@@ -27,6 +27,13 @@ self.addEventListener('install', (event) => {
   )
 })
 
+// Shift-reload leaves the page uncontrolled; clientsClaim only runs on activate, so the page asks for control
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CLAIM') {
+    event.waitUntil(self.clients.claim())
+  }
+})
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
