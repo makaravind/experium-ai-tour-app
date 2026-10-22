@@ -17,6 +17,7 @@ export const FAKE_HI_AUDIO_URL = 'https://example.test/audio/baobab-forest-hi.mp
  */
 export async function mockPrecacheDataset(page: Page, { seedCache = true } = {}) {
   if (seedCache) await seedAudioCache(page)
+  await seedMapCache(page)
   await mockAmenities(page)
   await page.route(FAKE_AUDIO_URL, (route) =>
     route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
@@ -86,6 +87,18 @@ export async function seedAudioCache(page: Page) {
       .open('audio-cache')
       .then((c) => c.put(url, new Response('fake-audio', { status: 200 })))
   }, FAKE_AUDIO_URL)
+}
+
+/** Puts /park.pmtiles in `map-tiles-cache` at every document load so the gate passes. */
+export async function seedMapCache(page: Page, body = 'fake-pmtiles') {
+  await page.addInitScript(
+    (args: string[]) => {
+      void caches
+        .open('map-tiles-cache')
+        .then((c) => c.put(args[0], new Response(args[1], { status: 200 })))
+    },
+    ['/park.pmtiles', body]
+  )
 }
 
 /** Fresh visitor: AppGate starts the precache on mount; wait for it to hand off to the info modal. */

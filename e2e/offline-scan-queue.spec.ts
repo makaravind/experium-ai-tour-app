@@ -4,6 +4,7 @@ import {
   FAKE_HI_AUDIO_URL,
   mockPrecacheDataset,
   seedAudioCache,
+  seedMapCache,
   silentWav,
 } from './gate-helpers'
 
@@ -28,6 +29,7 @@ async function seedVisitor(
   { totalDiscovered = 0, discoveredCodes = [] as string[] } = {}
 ) {
   await seedAudioCache(page)
+  await seedMapCache(page)
   await page.addInitScript(
     ({ en, hi, code, totalDiscovered, discoveredCodes }) => {
       if (localStorage.getItem('experium-store')) return

@@ -5,6 +5,7 @@ import {
   mockAmenities,
   mockPrecacheDataset,
   seedAudioCache,
+  seedMapCache,
 } from './gate-helpers'
 
 const QR_CODE = 'baobab-forest'
@@ -23,6 +24,7 @@ const DESCRIPTION = 'Near Gate 2 · Token ₹5'
 /** Returning visitor with a complete EN cache: the gate passes and the map reads the stored dataset. */
 async function seedVisitor(page: Page) {
   await seedAudioCache(page)
+  await seedMapCache(page)
   await page.addInitScript(
     ({ en, hi, code, washroom }) => {
       if (localStorage.getItem('experium-store')) return
