@@ -6,6 +6,7 @@ import { useDebugStore } from '@/lib/debug-store'
 import {
   AssetFetchError,
   CONCURRENCY,
+  CONTENT_CACHE_NAMES,
   getAssetGroups,
   precacheGroups,
   findMissing,
@@ -449,9 +450,12 @@ describe('AppGate Refresh content', () => {
   })
   afterEach(() => {
     delete (navigator as { serviceWorker?: unknown }).serviceWorker
+    vi.unstubAllGlobals()
   })
 
-  it('clears cachedExhibits and cachedAmenities, then re-runs the precache', async () => {
+  it('wipes both content caches and content state, then re-runs the precache', async () => {
+    const del = vi.fn(async (_name: string) => true)
+    vi.stubGlobal('caches', { delete: del })
     localStorage.clear()
     localStorage.setItem('experium_onboarded', '1')
     Object.defineProperty(navigator, 'onLine', { value: true, writable: true, configurable: true })
@@ -478,5 +482,6 @@ describe('AppGate Refresh content', () => {
     await waitFor(() => expect(runPrecache).toHaveBeenCalled())
     expect(useStore.getState().cachedExhibits).toEqual([])
     expect(useStore.getState().cachedAmenities).toEqual([])
+    expect(del.mock.calls.map((c) => c[0]).sort()).toEqual([...CONTENT_CACHE_NAMES].sort())
   })
 })
