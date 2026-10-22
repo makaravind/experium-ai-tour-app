@@ -5,6 +5,11 @@ import type { NextConfig } from 'next'
 import withSerwist from '@serwist/next'
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // 6h ≈ one park visit; keeps prefetched prerendered routes (/, /map, /scan, /collection)
+    // in the router cache without any network request, covering offline tab-bar taps.
+    staleTimes: { static: 6 * 60 * 60 },
+  },
   async headers() {
     return [
       {
