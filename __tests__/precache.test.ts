@@ -5,6 +5,7 @@ import AppGate from '@/components/onboarding/AppGate'
 import { useDebugStore } from '@/lib/debug-store'
 import {
   AssetFetchError,
+  CONCURRENCY,
   getAssetGroups,
   precacheGroups,
   findMissing,
@@ -36,6 +37,7 @@ function harness(urls: string[], preCached: string[] = [], bad: string[] = []) {
       if (bad.includes(url)) throw new AssetFetchError(404, url)
       cached.add(url)
     },
+    isCached: async () => true,
     isOnline: () => true,
   }
   return { groups: [{ cacheName: 'audio-cache', urls }], deps, attempts }
@@ -162,6 +164,7 @@ describe('precacheGroups', () => {
     await precacheGroups([{ cacheName: 'audio-cache', urls }], {
       failures: {},
       listCached: async () => cached,
+      isCached: async () => true,
       isOnline: () => true,
       fetchAsset: async (url) => {
         peak = Math.max(peak, ++inFlight)
@@ -272,6 +275,91 @@ describe('fetchAssetWithIdleTimeout', () => {
   })
 })
 
+describe('precacheGroups isCached verification', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('stops with saveFailed when isCached always returns false', async () => {
+    const h = harness(Array.from({ length: 20 }, (_, i) => u(i)))
+    const fetchAsset = vi.fn().mockResolvedValue(undefined)
+    const p = precacheGroups(h.groups, {
+      ...h.deps,
+      failures: {},
+      listCached: async () => [],
+      isCached: async () => false,
+      fetchAsset,
+    })
+    await vi.runAllTimersAsync()
+    const r = await p
+    expect(r.saveFailed).toBe(true)
+    // workers already past the fetch finish their poll before the stop flag is seen
+    expect(fetchAsset.mock.calls.length).toBeLessThanOrEqual(3 + CONCURRENCY - 1)
+    expect(r.failures).toEqual({})
+    expect(r.offline).toBe(false)
+  })
+
+  it('completes when total not-saved stays below threshold', async () => {
+    const h = harness([u(1), u(2), u(3), u(4), u(5)])
+    // only u(5) not saved → 1 total, well below threshold of 3
+    const saved = new Set([u(1), u(2), u(3), u(4)])
+    const onProgress = vi.fn()
+    const p = precacheGroups(h.groups, {
+      ...h.deps,
+      failures: {},
+      onProgress,
+      concurrency: 1,
+      listCached: async () => [],
+      isCached: async (_cache, url) => saved.has(url),
+    })
+    await vi.runAllTimersAsync()
+    const r = await p
+    expect(r.saveFailed).toBe(false)
+    expect(onProgress).toHaveBeenLastCalledWith(4, 5)
+    expect(h.attempts).toEqual({ [u(1)]: 1, [u(2)]: 1, [u(3)]: 1, [u(4)]: 1, [u(5)]: 1 })
+  })
+
+  it('counts asset as saved when isCached returns true on the 3rd poll', async () => {
+    let polls = 0
+    const isCached = vi.fn(async () => ++polls >= 3)
+    const onProgress = vi.fn()
+    const p = precacheGroups([{ cacheName: 'audio-cache', urls: [u(1)] }], {
+      failures: {},
+      onProgress,
+      listCached: async () => [],
+      isOnline: () => true,
+      fetchAsset: vi.fn().mockResolvedValue(undefined),
+      isCached,
+    })
+    await vi.advanceTimersByTimeAsync(600)
+    const r = await p
+    expect(r.saveFailed).toBe(false)
+    expect(onProgress).toHaveBeenLastCalledWith(1, 1)
+    expect(r.fetched).toBe(1)
+    expect(isCached).toHaveBeenCalledTimes(3)
+  })
+
+  it('verifies each url against its own cache', async () => {
+    const isCached = vi.fn(async () => true)
+    await precacheGroups(
+      [
+        { cacheName: 'audio-cache', urls: ['a.mp3'] },
+        { cacheName: 'map-tiles-cache', urls: ['map.pmtiles'] },
+      ],
+      {
+        failures: {},
+        listCached: async () => [],
+        isOnline: () => true,
+        fetchAsset: vi.fn().mockResolvedValue(undefined),
+        isCached,
+      }
+    )
+    expect(isCached).toHaveBeenCalledWith('audio-cache', 'a.mp3')
+    expect(isCached).toHaveBeenCalledWith('map-tiles-cache', 'map.pmtiles')
+    expect(isCached).not.toHaveBeenCalledWith('audio-cache', 'map.pmtiles')
+    expect(isCached).not.toHaveBeenCalledWith('map-tiles-cache', 'a.mp3')
+  })
+})
+
 describe('precacheGroups cancellation', () => {
   it('stops scheduling new fetches once isCancelled flips', async () => {
     const urls = Array.from({ length: 10 }, (_, i) => u(i))
@@ -345,6 +433,17 @@ describe('AppGate offline with gaps', () => {
 })
 
 describe('AppGate Refresh content', () => {
+  // The download path requires a controlling SW (otherwise 'no-offline-support').
+  beforeEach(() => {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { controller: {} },
+      configurable: true,
+    })
+  })
+  afterEach(() => {
+    delete (navigator as { serviceWorker?: unknown }).serviceWorker
+  })
+
   it('clears cachedExhibits and cachedAmenities, then re-runs the precache', async () => {
     localStorage.clear()
     localStorage.setItem('experium_onboarded', '1')
@@ -359,6 +458,7 @@ describe('AppGate Refresh content', () => {
       total: 0,
       offline: false,
       timedOut: false,
+      saveFailed: false,
     })
     useStore.setState({
       cachedExhibits: [{ id: 'e1', audio: {} } as CachedExhibit],

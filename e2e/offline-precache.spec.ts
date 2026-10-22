@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { FAKE_AUDIO_URL, mockPrecacheDataset, silentWav } from './gate-helpers'
+import { FAKE_AUDIO_URL, mockPrecacheDataset, passLoadingGate, silentWav } from './gate-helpers'
 
 // "Baobab Forest" — the only active QR code seeded in Supabase (and its only published audio row,
 // so the real upfront precache is a single small mp3 — no mocking needed)
@@ -198,5 +198,105 @@ test.describe('Asset failure handling', () => {
       await expect(page.getByText(ASSET_ERROR)).toBeHidden({ timeout: 15000 })
       await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 15000 })
     }
+  })
+})
+
+// Cache save verification (#88). Blocked registration leaves `'serviceWorker' in navigator` true, so
+// the gate gets 'timeout' (not 'unsupported') after the full 20s SW wait; same screen either way.
+test.describe('No offline support (SW blocked)', () => {
+  test.use({ serviceWorkers: 'block' })
+  test.skip(!process.env.E2E_PROD, 'needs a production build (service worker is off in dev)')
+  test.setTimeout(60000)
+
+  const NO_SUPPORT = "This browser can't save the tour offline"
+
+  test('shows the no-offline-support screen when the SW never controls', async ({ page }) => {
+    await mockPrecacheDataset(page, { seedCache: false })
+    await page.goto('/')
+    await expect(page.getByText(NO_SUPPORT)).toBeVisible({ timeout: 25000 })
+    await expect(page.getByRole('button', { name: 'Copy link' })).toBeVisible()
+  })
+
+  test('Continue online reaches the app; reload in the same session skips the screen', async ({
+    page,
+  }) => {
+    // Audio is never downloaded on this path, so no cache seeding is needed
+    await mockPrecacheDataset(page, { seedCache: false })
+    await page.goto('/')
+    await expect(page.getByText(NO_SUPPORT)).toBeVisible({ timeout: 25000 })
+
+    await page.getByRole('button', { name: 'Continue online' }).click()
+    await passLoadingGate(page)
+
+    // sessionStorage survives the reload: dataset reloads, straight to onboarding, no 20s wait
+    await page.reload()
+    await passLoadingGate(page)
+    await expect(page.getByText(NO_SUPPORT)).toBeHidden()
+  })
+})
+
+// Shift-reload leaves an active SW that never claims the page; the gate must ask it to (CLAIM).
+test.describe('Shift-reload CLAIM recovery', () => {
+  test.skip(!process.env.E2E_PROD, 'needs a production build (service worker is off in dev)')
+
+  // fixme: CDP bypass can't leave the page uncontrolled in Chromium, so this fakes the controller and
+  // never exercises the real clients.claim() in sw.ts. Verify the shift-reload manually in the field.
+  test.fixme('uncontrolled page gains control via CLAIM instead of showing the browser screen', async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'service worker control is only reliable in chromium')
+    test.slow() // up to 20s SW wait on top of two precache runs
+
+    // Audio is seeded on every load until the flag below flips, so the first run finishes without
+    // a network download (SW-originated requests bypass page.route; example.test is unreachable)
+    await mockPrecacheDataset(page, { seedCache: false })
+    await page.addInitScript((url) => {
+      if (sessionStorage.getItem('e2e-no-seed')) return
+      void caches.open('audio-cache').then((c) => c.put(url, new Response('x', { status: 200 })))
+    }, FAKE_AUDIO_URL)
+    await page.goto('/')
+    await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 30000 })
+    await page.waitForFunction(() => navigator.serviceWorker.controller != null)
+
+    // Open a gap: dataset stays in the store, audio is gone, so the next run needs SW control
+    const removed = await page.evaluate(async () => {
+      sessionStorage.setItem('e2e-no-seed', '1')
+      const cache = await caches.open('audio-cache')
+      const keys = await cache.keys()
+      await Promise.all(keys.map((r) => cache.delete(r)))
+      return keys.length
+    })
+    expect(removed).toBeGreaterThan(0)
+
+    // Shift-reload: Chromium keeps `controller` set even with CDP bypass, so fake the uncontrolled
+    // document: hide the controller until the page posts CLAIM, then reveal it + fire controllerchange.
+    // (Covers the gate's CLAIM + controllerchange handling; the real clients.claim() isn't exercised.)
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('e2e-shift-reload')) return
+      const container = navigator.serviceWorker
+      const real = Object.getOwnPropertyDescriptor(ServiceWorkerContainer.prototype, 'controller')!
+      let claimed = false
+      Object.defineProperty(container, 'controller', {
+        get: () => (claimed ? real.get!.call(container) : null),
+      })
+      const post = ServiceWorker.prototype.postMessage
+      ServiceWorker.prototype.postMessage = function (this: ServiceWorker, msg: unknown) {
+        if ((msg as { type?: string } | null)?.type === 'CLAIM') {
+          claimed = true
+          container.dispatchEvent(new Event('controllerchange'))
+        }
+        return post.apply(this, arguments as unknown as [unknown])
+      }
+    })
+    await page.evaluate(() => sessionStorage.setItem('e2e-shift-reload', '1'))
+    await page.reload()
+
+    // The gate posts CLAIM after its 1s grace; control arrives well inside the 20s wait, so the
+    // browser screen never shows. (The re-download itself can't succeed: example.test is fake.)
+    await page.waitForFunction(() => navigator.serviceWorker.controller != null, null, {
+      timeout: 15000,
+    })
+    await expect(page.getByText("This browser can't save the tour offline")).toBeHidden()
   })
 })

@@ -50,6 +50,8 @@ export interface PrecacheResult {
   offline: boolean
   /** run aborted because a request stalled (idle timeout); no attempts counted */
   timedOut: boolean
+  /** run aborted because assets were downloading but not being saved (storage full / SW not caching) */
+  saveFailed: boolean
 }
 
 export interface PrecacheDeps {
@@ -57,6 +59,8 @@ export interface PrecacheDeps {
   listCached: (cacheName: string) => Promise<Iterable<string>>
   /** fetch one asset so the SW caches it; throws on failure */
   fetchAsset: (url: string, signal?: AbortSignal) => Promise<void>
+  /** true if the url is currently in the named cache */
+  isCached: (cacheName: string, url: string) => Promise<boolean>
   isOnline: () => boolean
 }
 
@@ -208,6 +212,11 @@ const realDeps: PrecacheDeps = {
   fetchAsset: async (url, signal) => {
     await fetchAssetWithIdleTimeout(url, signal) // finish the download before counting it
   },
+  isCached: async (cacheName, url) => {
+    const cache = await caches.open(cacheName)
+    const match = await cache.match(url)
+    return match !== undefined
+  },
   isOnline: () => navigator.onLine,
 }
 
@@ -223,6 +232,26 @@ export async function findMissing(
   }
   return out
 }
+
+const ICACHED_POLL_MS = 250
+const ICACHED_MAX_WAIT_MS = 2000
+
+/** The SW writes the cache in waitUntil, which may finish after the body is read; poll briefly. */
+async function pollIsCached(
+  deps: Pick<PrecacheDeps, 'isCached'>,
+  cacheName: string,
+  url: string
+): Promise<boolean> {
+  const deadline = Date.now() + ICACHED_MAX_WAIT_MS
+  do {
+    if (await deps.isCached(cacheName, url)) return true
+    await new Promise<void>((r) => setTimeout(r, ICACHED_POLL_MS))
+  } while (Date.now() < deadline)
+  return false
+}
+
+/** Consecutive downloaded-but-unsaved assets that abort the run. */
+const MAX_CONSECUTIVE_NOT_SAVED = 3
 
 /**
  * Pure core: fills the gaps in Cache Storage, retrying each asset up to
@@ -251,14 +280,16 @@ export async function precacheGroups(
   let fetched = total - todoCount
   let offline = false
   let timedOut = false
+  let saveFailed = false
+  let notSavedCount = 0
   opts.onProgress?.(fetched, total)
   if (todoCount > 0 && fetched > 0) {
     console.log(`[precache] gap-fill: ${todoCount}/${total} assets missing`)
   }
 
-  let todo = Object.values(missing)
-    .flat()
-    .filter((u) => (failures[u]?.count ?? 0) < max)
+  let todo = Object.entries(missing)
+    .flatMap(([cacheName, urls]) => urls.map((url) => ({ url, cacheName })))
+    .filter(({ url }) => (failures[url]?.count ?? 0) < max)
 
   const cancelled = () => (opts.signal?.aborted ?? false) || (opts.isCancelled?.() ?? false)
 
@@ -266,19 +297,27 @@ export async function precacheGroups(
   const groupCtrl = new AbortController()
   opts.signal?.addEventListener('abort', () => groupCtrl.abort(opts.signal!.reason))
 
-  while (todo.length > 0 && !offline && !timedOut && !cancelled()) {
-    const retry: string[] = []
-    const queue = [...todo]
+  while (todo.length > 0 && !offline && !timedOut && !saveFailed && !cancelled()) {
+    const retry: { url: string; cacheName: string }[] = []
+    const queue: { url: string; cacheName: string }[] = [...todo]
     const worker = async () => {
       for (
-        let url = queue.shift();
-        url && !offline && !timedOut && !cancelled();
-        url = queue.shift()
+        let item = queue.shift();
+        item && !offline && !timedOut && !saveFailed && !cancelled();
+        item = queue.shift()
       ) {
+        const { url, cacheName } = item
         try {
           await deps.fetchAsset(url, groupCtrl.signal)
-          delete failures[url]
-          opts.onProgress?.(++fetched, total)
+          if (await pollIsCached(deps, cacheName, url)) {
+            delete failures[url]
+            fetched++
+            opts.onProgress?.(fetched, total)
+          } else if (++notSavedCount >= MAX_CONSECUTIVE_NOT_SAVED) {
+            saveFailed = true // downloads succeed but nothing sticks; not a failed attempt
+            groupCtrl.abort('save-failed')
+            return
+          }
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return
           if (err instanceof ConnectionTimeoutError) {
@@ -293,7 +332,7 @@ export async function precacheGroups(
           const count = (failures[url]?.count ?? 0) + 1
           failures[url] = { count }
           if (count >= max) console.log(`[precache] retry cap hit: ${url}`)
-          else retry.push(url)
+          else retry.push(item)
         }
       }
     }
@@ -314,7 +353,14 @@ export async function precacheGroups(
       capped: failed.filter((u) => (failures[u]?.count ?? 0) >= max),
     }
   })
-  return { groups: results, failures, fetched, total, offline, timedOut }
+  return { groups: results, failures, fetched, total, offline, timedOut, saveFailed }
+}
+
+/** Query the dataset and persist it to the store. Throws if either query fails. */
+export async function loadDataset(): Promise<void> {
+  const [exhibits, amenities] = await Promise.all([fetchCachedExhibits(), fetchCachedAmenities()])
+  useStore.getState().setCachedExhibits(exhibits)
+  useStore.getState().setCachedAmenities(amenities)
 }
 
 /**
@@ -327,15 +373,16 @@ export async function runPrecache(
   isCancelled?: () => boolean,
   signal?: AbortSignal
 ): Promise<PrecacheResult> {
-  const [exhibits, amenities] = await Promise.all([fetchCachedExhibits(), fetchCachedAmenities()])
-  useStore.getState().setCachedExhibits(exhibits)
-  useStore.getState().setCachedAmenities(amenities)
-  const result = await precacheGroups(getAssetGroups(exhibits, language), {
-    failures: useStore.getState().assetFailures,
-    onProgress,
-    isCancelled,
-    signal,
-  })
+  await loadDataset()
+  const result = await precacheGroups(
+    getAssetGroups(useStore.getState().cachedExhibits, language),
+    {
+      failures: useStore.getState().assetFailures,
+      onProgress,
+      isCancelled,
+      signal,
+    }
+  )
   const s = useStore.getState()
   s.setAssetFailures(result.failures)
   for (const g of result.groups)

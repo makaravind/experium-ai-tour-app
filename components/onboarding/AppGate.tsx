@@ -10,6 +10,7 @@ import { useDebugStore, type GatePhase } from '@/lib/debug-store'
 import { ConnectionTimeoutError } from '@/lib/timeouts'
 import {
   checkFresh,
+  loadDataset,
   logContinueAnyway,
   MAX_ATTEMPTS,
   onForeground,
@@ -21,20 +22,28 @@ import type { Language } from '@/lib/types'
 
 const ONBOARDED_KEY = 'experium_onboarded'
 export const NO_PRECACHE_KEY = 'experium_debug_no_precache'
-const SW_WAIT_MS = 4000
+export const CONTINUE_ONLINE_KEY = 'experium_continue_online'
+const SW_WAIT_MS = 20_000
+const SW_CLAIM_GRACE_MS = 1000
 
 // Fetches issued before the SW controls the page bypass its CacheFirst rules and never get cached.
-async function waitForServiceWorker() {
-  if (process.env.NODE_ENV === 'development' || !('serviceWorker' in navigator)) return
+// A shift-reload leaves an active SW that never claims the page, so ask it to claim after a grace period.
+async function waitForServiceWorker(): Promise<'controlled' | 'unsupported' | 'timeout'> {
+  if (process.env.NODE_ENV === 'development') return 'controlled'
+  if (!('serviceWorker' in navigator)) return 'unsupported'
   const sw = navigator.serviceWorker
-  const controlling = sw.ready.then(() => {
-    if (sw.controller) return
-    return new Promise<void>((resolve) =>
-      sw.addEventListener('controllerchange', () => resolve(), { once: true })
+  const controlled = new Promise<'controlled'>((resolve) => {
+    if (sw.controller) return resolve('controlled')
+    sw.addEventListener('controllerchange', () => resolve('controlled'), { once: true })
+    void sw.ready.then((registration) =>
+      setTimeout(() => {
+        if (!sw.controller) registration.active?.postMessage({ type: 'CLAIM' })
+      }, SW_CLAIM_GRACE_MS)
     )
   })
-  // don't strand the visitor if the SW never takes control (unsupported, blocked)
-  await Promise.race([controlling, new Promise((r) => setTimeout(r, SW_WAIT_MS))])
+  // don't strand the visitor if the SW never takes control (blocked, registration failed)
+  const timeout = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), SW_WAIT_MS))
+  return Promise.race([controlled, timeout])
 }
 
 const nextAfterClear = (): GatePhase => (localStorage.getItem(ONBOARDED_KEY) ? 'clear' : 'info')
@@ -77,6 +86,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const [pct, setPct] = useState(0)
   const [label, setLabel] = useState<string | undefined>()
   const [introDone, setIntroDone] = useState(process.env.NODE_ENV === 'development')
+  const [showCopyFallback, setShowCopyFallback] = useState(false)
+  const [copyConfirmed, setCopyConfirmed] = useState(false)
   const precacheLanguage = useStore((s) => s.precacheLanguage)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const assetFailures = useStore((s) => s.assetFailures)
@@ -97,17 +108,31 @@ export default function AppGate({ children }: { children: ReactNode }) {
 
   const finish = useCallback(
     (result: PrecacheResult) => {
+      if (result.saveFailed) {
+        setPhase('storage-error')
+        return
+      }
       if (result.timedOut) {
         setPhase('weak-connection')
         return
       }
+      if (result.offline) {
+        setPhase('blocked-offline')
+        return
+      }
       const capped = result.groups.flatMap((g) => g.capped)
-      // acknowledged capped URLs stay in `failed` (never retried), so they must not block here
-      const failed = result.groups.flatMap((g) => g.failed)
-      if (result.offline) setPhase('blocked-offline')
-      else if (capped.length > 0 && !allAcknowledged(capped)) setPhase('asset-error')
-      else if (failed.length > 0 && !allAcknowledged(failed)) setPhase('asset-error')
-      else setPhase(nextAfterClear())
+      if (capped.length > 0 && !allAcknowledged(capped)) {
+        setPhase('asset-error')
+        return
+      }
+      // acknowledged capped URLs stay in `failed` (never retried), so they must not count as incomplete
+      const acknowledged = new Set(useStore.getState().acknowledgedCapped)
+      const incomplete = result.groups.some((g) => g.failed.some((u) => !acknowledged.has(u)))
+      if (incomplete) {
+        setPhase('fetch-error')
+        return
+      }
+      setPhase(nextAfterClear())
     },
     [setPhase]
   )
@@ -124,7 +149,27 @@ export default function AppGate({ children }: { children: ReactNode }) {
         setPhase('clear')
         return
       }
-      await waitForServiceWorker()
+      // Continue-online: visitor chose to skip offline guarantee (e.g. in-app browser).
+      // Session-scoped: reload in the same tab skips this screen; new session re-offers the offline path.
+      if (sessionStorage.getItem(CONTINUE_ONLINE_KEY)) {
+        if (!navigator.onLine) {
+          setPhase(
+            useStore.getState().cachedExhibits.length > 0 ? nextAfterClear() : 'blocked-offline'
+          )
+          return
+        }
+        try {
+          await loadDataset()
+        } catch {
+          setPhase(navigator.onLine ? 'fetch-error' : 'blocked-offline')
+          return
+        }
+        setPhase(nextAfterClear())
+        return
+      }
+
+      // Start the SW wait early but only block on it if we actually need to download.
+      const swResultPromise = waitForServiceWorker()
       const online = navigator.onLine
       const store = useStore.getState()
       const idPromise = getOrCreateVisitorId().then((id) => store.setVisitorId(id))
@@ -151,6 +196,13 @@ export default function AppGate({ children }: { children: ReactNode }) {
 
       if (!online) {
         setPhase(hasDataset ? nextAfterClear() : 'blocked-offline')
+        return
+      }
+
+      // Only block on SW control if we're about to download (already-cached visitors skip the wait).
+      const swResult = await swResultPromise
+      if (swResult !== 'controlled') {
+        setPhase('no-offline-support')
         return
       }
 
@@ -201,7 +253,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
         p === 'loading' ||
         p === 'blocked-offline' ||
         p === 'fetch-error' ||
-        p === 'weak-connection'
+        p === 'weak-connection' ||
+        p === 'storage-error'
       )
         void run()
     })
@@ -297,6 +350,58 @@ export default function AppGate({ children }: { children: ReactNode }) {
         title="Weak connection"
         body="The download stalled. Move closer to the park entrance or connect to Wi-Fi, then try again."
       >
+        <button
+          type="button"
+          className={buttonClass}
+          style={{ border: 'none' }}
+          onClick={() => void run()}
+        >
+          Try again
+        </button>
+      </Screen>
+    )
+  } else if (phase === 'no-offline-support') {
+    content = (
+      <Screen
+        title="This browser can't save the tour offline"
+        body="Open this link in Chrome or Safari to use the tour without internet."
+      >
+        {showCopyFallback && (
+          <p className="mt-3 text-sm text-ex-ink break-all select-all rounded-lg bg-ex-bg p-2">
+            {location.href}
+          </p>
+        )}
+        {copyConfirmed && <p className="mt-2 text-sm text-ex-forest font-bold">Link copied!</p>}
+        <button
+          type="button"
+          className={buttonClass}
+          style={{ border: 'none' }}
+          onClick={() => {
+            // clipboard is undefined in some webviews, so guard before .then
+            const write = navigator.clipboard?.writeText(location.href) ?? Promise.reject()
+            write.then(
+              () => setCopyConfirmed(true),
+              () => setShowCopyFallback(true)
+            )
+          }}
+        >
+          Copy link
+        </button>
+        <button
+          type="button"
+          className="w-full h-14 mt-3 rounded-2xl font-extrabold text-base flex items-center justify-center bg-transparent text-ex-forest border-2 border-ex-forest"
+          onClick={() => {
+            sessionStorage.setItem(CONTINUE_ONLINE_KEY, '1')
+            void run()
+          }}
+        >
+          Continue online
+        </button>
+      </Screen>
+    )
+  } else if (phase === 'storage-error') {
+    content = (
+      <Screen title="Your phone is low on storage" body="Free some space and try again.">
         <button
           type="button"
           className={buttonClass}
