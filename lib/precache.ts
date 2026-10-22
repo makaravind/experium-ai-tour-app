@@ -317,6 +317,13 @@ export async function precacheGroups(
   return { groups: results, failures, fetched, total, offline, timedOut }
 }
 
+/** Query the dataset and persist it to the store. Throws if either query fails. */
+export async function loadDataset(): Promise<void> {
+  const [exhibits, amenities] = await Promise.all([fetchCachedExhibits(), fetchCachedAmenities()])
+  useStore.getState().setCachedExhibits(exhibits)
+  useStore.getState().setCachedAmenities(amenities)
+}
+
 /**
  * Full run for AppGate: query dataset, fill gaps for `language`, persist to the store.
  * Throws if the dataset query fails (caller treats as network failure).
@@ -327,15 +334,16 @@ export async function runPrecache(
   isCancelled?: () => boolean,
   signal?: AbortSignal
 ): Promise<PrecacheResult> {
-  const [exhibits, amenities] = await Promise.all([fetchCachedExhibits(), fetchCachedAmenities()])
-  useStore.getState().setCachedExhibits(exhibits)
-  useStore.getState().setCachedAmenities(amenities)
-  const result = await precacheGroups(getAssetGroups(exhibits, language), {
-    failures: useStore.getState().assetFailures,
-    onProgress,
-    isCancelled,
-    signal,
-  })
+  await loadDataset()
+  const result = await precacheGroups(
+    getAssetGroups(useStore.getState().cachedExhibits, language),
+    {
+      failures: useStore.getState().assetFailures,
+      onProgress,
+      isCancelled,
+      signal,
+    }
+  )
   const s = useStore.getState()
   s.setAssetFailures(result.failures)
   for (const g of result.groups)
