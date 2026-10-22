@@ -375,7 +375,7 @@ export async function loadDataset(): Promise<void> {
  */
 export async function runPrecache(
   language: Language,
-  onProgress?: (fetched: number, total: number) => void,
+  onProgress?: (fetched: number, total: number, cacheName: string) => void,
   isCancelled?: () => boolean,
   signal?: AbortSignal
 ): Promise<PrecacheResult> {
