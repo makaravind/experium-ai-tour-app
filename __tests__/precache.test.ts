@@ -53,14 +53,21 @@ describe('getAssetGroups', () => {
   ] as CachedExhibit[]
 
   it('picks one language, deduped, skipping exhibits with no audio in it', () => {
-    expect(getAssetGroups(ex, 'en')).toEqual([{ cacheName: 'audio-cache', urls: [u(1), u(2)] }])
+    expect(getAssetGroups(ex, 'en')).toEqual([
+      { cacheName: 'audio-cache', urls: [u(1), u(2)] },
+      { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
+    ])
     expect(getAssetGroups(ex, 'hi')).toEqual([
       { cacheName: 'audio-cache', urls: [u(10), u(11), u(12)] },
+      { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
     ])
   })
 
   it('returns an empty audio group when no exhibit has the language', () => {
-    expect(getAssetGroups(ex, 'te')).toEqual([{ cacheName: 'audio-cache', urls: [] }])
+    expect(getAssetGroups(ex, 'te')).toEqual([
+      { cacheName: 'audio-cache', urls: [] },
+      { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
+    ])
   })
 })
 
