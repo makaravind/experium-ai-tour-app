@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
-import { CacheFirst, NetworkFirst, Serwist } from 'serwist'
+import { CacheFirst, NetworkFirst, NetworkOnly, Serwist } from 'serwist'
 import { ExpirationPlugin } from 'serwist'
 import { CacheableResponsePlugin } from 'serwist'
 import { RangeRequestsPlugin } from 'serwist'
@@ -41,6 +41,11 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
+    {
+      // RSC payloads: never cache; timeout makes Next fall back to hard nav → pages-cache
+      matcher: ({ request }) => request.headers.get('RSC') === '1',
+      handler: new NetworkOnly({ networkTimeoutSeconds: 3 }),
+    },
     {
       matcher: /^https:\/\/fonts\.googleapis\.com\/.*/i,
       handler: new CacheFirst({
