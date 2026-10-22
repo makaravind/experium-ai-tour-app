@@ -97,6 +97,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
     }
   })
   const [pendingIntroDone, setPendingIntroDone] = useState(false)
+  const [introForceDismiss, setIntroForceDismiss] = useState(false)
   const [showCopyFallback, setShowCopyFallback] = useState(false)
   const [copyConfirmed, setCopyConfirmed] = useState(false)
   const precacheLanguage = useStore((s) => s.precacheLanguage)
@@ -292,6 +293,13 @@ export default function AppGate({ children }: { children: ReactNode }) {
       await run()
     })()
   }, [refreshRequested, run])
+
+  // If gate is still checking 3s after intro ends, force-hide intro so it never appears stuck
+  useEffect(() => {
+    if (!pendingIntroDone) return
+    const id = setTimeout(() => setIntroForceDismiss(true), 3000)
+    return () => clearTimeout(id)
+  }, [pendingIntroDone])
 
   const handleLanguageChange = useCallback(
     (code: Language) => {
@@ -494,7 +502,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
     <>
       {content}
       <AnimatePresence>
-        {!introDone && !(pendingIntroDone && phase !== 'checking') && (
+        {!introDone && !(pendingIntroDone && (phase !== 'checking' || introForceDismiss)) && (
           <motion.div
             key="intro"
             className="fixed inset-0 z-50"
