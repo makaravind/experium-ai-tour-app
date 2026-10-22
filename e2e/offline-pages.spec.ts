@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { FAKE_AUDIO_URL, mockAmenities, seedAudioCache } from './gate-helpers'
+import { FAKE_AUDIO_URL, mockAmenities, seedAudioCache, seedMapCache } from './gate-helpers'
 
 const tabBar = (page: Page) => page.getByRole('navigation', { name: 'Primary' })
 // Screens render only once AppGate clears, so a visible marker means the app itself loaded
@@ -100,6 +100,7 @@ test.describe('Offline pages', () => {
   }) => {
     // Two exhibits on the seeded audio URL (getAssetGroups dedupes it), so precache is instant
     await seedAudioCache(page)
+    await seedMapCache(page)
     let datasetHits = 0
     await page.route('**/rest/v1/exhibits?*', (route) => {
       if (!decodeURIComponent(route.request().url()).includes('audio_url')) return route.fallback()

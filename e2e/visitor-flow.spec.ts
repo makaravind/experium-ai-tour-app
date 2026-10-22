@@ -5,6 +5,7 @@ import {
   mockPrecacheDataset,
   passLoadingGate,
   seedAudioCache,
+  seedMapCache,
 } from './gate-helpers'
 
 // "Baobab Forest" — the only active QR code seeded in Supabase
@@ -106,6 +107,7 @@ test.describe('Visitor flow — returning visitor', () => {
     // and the matching Cache Storage entry. Cache is seeded from a throwaway page first so it
     // exists before AppGate's mount check runs.
     await seedAudioCache(page)
+    await seedMapCache(page)
 
     await page.addInitScript(
       ({ url, hiUrl, code }) => {
