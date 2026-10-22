@@ -277,7 +277,10 @@ export default function ParkMap({
 
     mapRef.current = map
 
+    let loaded = false
+
     map.on('load', async () => {
+      loaded = true
       if (cancelled) return
       exhibitsRef.current = toMapExhibits(useStore.getState().cachedExhibits)
 
@@ -520,13 +523,21 @@ export default function ParkMap({
       setMapReady(true)
     })
 
-    map.on('error', onLoadError)
+    const handleMapError = (e: { error?: { message?: string } }) => {
+      if (!loaded) {
+        onLoadError()
+      } else {
+        console.warn('[map] error after load', e.error?.message)
+        useDebugStore.getState().logApi('map error', { message: e.error?.message })
+      }
+    }
+    map.on('error', handleMapError)
 
     return () => {
       cancelled = true
       unsubscribeMock?.()
       stopWatcherRef?.()
-      map.off('error', onLoadError)
+      map.off('error', handleMapError)
       map.remove()
       maplibregl.removeProtocol('pmtiles')
       useMapStore.getState().setRecenterTrigger(null)
