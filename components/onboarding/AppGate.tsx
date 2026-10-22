@@ -121,7 +121,9 @@ export default function AppGate({ children }: { children: ReactNode }) {
         setPhase('blocked-offline')
         return
       }
-      const incomplete = result.groups.some((g) => !g.complete)
+      // acknowledged capped URLs stay in `failed` (never retried), so they must not count as incomplete
+      const acknowledged = new Set(useStore.getState().acknowledgedCapped)
+      const incomplete = result.groups.some((g) => g.failed.some((u) => !acknowledged.has(u)))
       if (incomplete) {
         setPhase('fetch-error')
         return
