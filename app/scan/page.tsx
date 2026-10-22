@@ -21,6 +21,8 @@ export default function ScanPage() {
   const redirectedRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  // Never cleared: overlay goes away when this page unmounts or the document unloads.
+  const [opening, setOpening] = useState(false)
 
   function stopCamera() {
     cancelAnimationFrame(rafRef.current)
@@ -49,6 +51,7 @@ export default function ScanPage() {
         const scan = extractExhibitScan(code.data)
         if (scan && !redirectedRef.current) {
           redirectedRef.current = true
+          setOpening(true)
           stopCamera()
           router.replace(`/s/${scan.code}?scan=1&scansrc=${scan.scansrc ?? 'camera'}`)
           return
@@ -142,15 +145,28 @@ export default function ScanPage() {
         </span>
       </div>
 
-      {error && (
+      {error && !opening && (
         <div className="absolute inset-x-4 top-32 bg-red-900/90 text-white text-sm rounded-xl px-4 py-3 text-center">
           {error}
         </div>
       )}
 
-      {toast && (
+      {toast && !opening && (
         <div className="absolute inset-x-8 top-32 bg-black/80 text-white text-sm rounded-xl px-4 py-3 text-center border border-white/20">
           {toast}
+        </div>
+      )}
+
+      {opening && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white"
+          style={{ zIndex: 20 }}
+          aria-live="polite"
+        >
+          <div className="mb-3 h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+          <p className="text-sm" style={{ fontFamily: 'var(--font-body)' }}>
+            Opening exhibit…
+          </p>
         </div>
       )}
     </div>
