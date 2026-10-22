@@ -214,9 +214,15 @@ export default function AppGate({ children }: { children: ReactNode }) {
       const [result] = await Promise.all([
         runPrecache(
           target,
-          (fetched, total) => {
+          (fetched, total, cacheName) => {
             setPct(total ? (fetched / total) * 100 : 0)
-            setLabel(total ? `Downloading ${fetched} of ${total}` : undefined)
+            setLabel(
+              total
+                ? cacheName === 'map-tiles-cache'
+                  ? 'Downloading map…'
+                  : `Downloading ${fetched} of ${total}`
+                : undefined
+            )
           },
           () => restartRef.current,
           controller.signal
