@@ -14,7 +14,7 @@ const MAP = {
   treeStroke: '#5f7f4d',
 } as const
 
-export default function MapStub({ discovered: _discovered }: { discovered?: boolean } = {}) {
+export default function MapStub() {
   return (
     <div
       className="absolute inset-0 overflow-hidden pointer-events-none"
