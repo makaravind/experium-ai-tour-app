@@ -334,6 +334,7 @@ describe('precacheGroups isCached verification', () => {
     const r = await p
     expect(r.saveFailed).toBe(false)
     expect(onProgress).toHaveBeenLastCalledWith(1, 1)
+    expect(r.fetched).toBe(1)
     expect(isCached).toHaveBeenCalledTimes(3)
   })
 
