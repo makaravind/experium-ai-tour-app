@@ -24,7 +24,9 @@ interface ParkMapProps {
   onMapTap?: () => void
 }
 
-const ORTHO_BOUNDS: [number, number, number, number] = [78.187123, 17.378546, 78.196134, 17.383978]
+export const ORTHO_BOUNDS: [number, number, number, number] = [
+  78.187123, 17.378546, 78.196134, 17.383978,
+]
 const MAX_BOUNDS: [number, number, number, number] = [
   ORTHO_BOUNDS[0] - 0.001,
   ORTHO_BOUNDS[1] - 0.001,
@@ -35,7 +37,7 @@ const STARTING_CENTER: [number, number] = [
   (ORTHO_BOUNDS[0] + ORTHO_BOUNDS[2]) / 2,
   (ORTHO_BOUNDS[1] + ORTHO_BOUNDS[3]) / 2,
 ]
-const STARTING_ZOOM = 18
+const STARTING_ZOOM = 19.5
 const POSITION_UNAVAILABLE = 2
 const MOCK_WALK_MS = 5000
 const MOCK_ACCURACY_M = 15
@@ -375,14 +377,27 @@ export default function ParkMap({
 
       const handlePosition = (lat: number, lng: number, accuracyM: number) => {
         const mapStore = useMapStore.getState()
+        const outOfBounds = isOutOfOrthoBounds({ lng, lat } as maplibregl.LngLat)
+
+        mapStore.setGpsOutOfBounds(outOfBounds)
+        mapStore.setUserPosition({ lat, lng, accuracyM })
+        mapStore.setGeoError(null)
+
+        if (outOfBounds) {
+          if (markerAdded) {
+            youMarker.remove()
+            markerAdded = false
+          }
+          mapStore.setNearbyExhibitIds([])
+          return
+        }
+
         if (!markerAdded) {
           youMarker.setLngLat([lng, lat]).addTo(map)
           markerAdded = true
         } else {
           youMarker.setLngLat([lng, lat])
         }
-        mapStore.setUserPosition({ lat, lng, accuracyM })
-        mapStore.setGeoError(null)
 
         const visitedIds = useStore.getState().visitedExhibits
         const ids = nearestWithin(
@@ -469,6 +484,9 @@ export default function ParkMap({
         useMapStore.getState().setFollowMode('following')
         map.flyTo({ center: [pos.lng, pos.lat] })
       })
+      useMapStore.getState().setFlyToParkTrigger(() => {
+        map.flyTo({ center: STARTING_CENTER, zoom: STARTING_ZOOM })
+      })
       useMapStore.getState().setRetryGpsTrigger(startWatcher)
       map.on('dragstart', () => useMapStore.getState().setFollowMode('idle'))
 
@@ -548,6 +566,8 @@ export default function ParkMap({
       maplibregl.removeProtocol('pmtiles')
       useMapStore.getState().setRecenterTrigger(null)
       useMapStore.getState().setRetryGpsTrigger(null)
+      useMapStore.getState().setFlyToParkTrigger(null)
+      useMapStore.getState().setGpsOutOfBounds(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- map initialises once; callbacks are stable refs
   }, [])

@@ -31,6 +31,10 @@ interface MapStoreState {
   setFollowMode: (mode: 'idle' | 'following') => void
   geoError: 'denied' | 'unavailable' | null
   setGeoError: (err: 'denied' | 'unavailable' | null) => void
+  gpsOutOfBounds: boolean
+  setGpsOutOfBounds: (v: boolean) => void
+  flyToParkTrigger: (() => void) | null
+  setFlyToParkTrigger: (fn: (() => void) | null) => void
   recenterTrigger: (() => void) | null
   setRecenterTrigger: (fn: (() => void) | null) => void
   retryGpsTrigger: (() => void) | null
@@ -66,6 +70,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   setFollowMode: (mode) => set({ followMode: mode }),
   geoError: null,
   setGeoError: (err) => set({ geoError: err }),
+  gpsOutOfBounds: false,
+  setGpsOutOfBounds: (v) => set({ gpsOutOfBounds: v }),
+  flyToParkTrigger: null,
+  setFlyToParkTrigger: (fn) => set({ flyToParkTrigger: fn }),
   recenterTrigger: null,
   setRecenterTrigger: (fn) => set({ recenterTrigger: fn }),
   retryGpsTrigger: null,

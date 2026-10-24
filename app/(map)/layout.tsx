@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
-import ParkMap from '@/components/map/ParkMap'
+import ParkMap, { ORTHO_BOUNDS } from '@/components/map/ParkMap'
 import AmenitiesPill from '@/components/amenity/AmenitiesPill'
 import AmenitySheet from '@/components/amenity/AmenitySheet'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
@@ -56,6 +56,23 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const followMode = useMapStore((s) => s.followMode)
   const geoError = useMapStore((s) => s.geoError)
   const retryGpsTrigger = useMapStore((s) => s.retryGpsTrigger)
+  const gpsOutOfBounds = useMapStore((s) => s.gpsOutOfBounds)
+  const flyToParkTrigger = useMapStore((s) => s.flyToParkTrigger)
+  const mapViewport = useStore((s) => s.mapViewport)
+  // Map stays at the park when GPS is out of bounds, so only show "Go to Park" if the
+  // user has manually panned the view outside the park.
+  const mapViewportOutOfPark =
+    !!mapViewport &&
+    (mapViewport.center[0] < ORTHO_BOUNDS[0] ||
+      mapViewport.center[0] > ORTHO_BOUNDS[2] ||
+      mapViewport.center[1] < ORTHO_BOUNDS[1] ||
+      mapViewport.center[1] > ORTHO_BOUNDS[3])
+  const [outOfBoundsDismissed, setOutOfBoundsDismissed] = useState(false)
+  const prevGpsOutOfBoundsRef = useRef(gpsOutOfBounds)
+  useEffect(() => {
+    if (prevGpsOutOfBoundsRef.current && !gpsOutOfBounds) setOutOfBoundsDismissed(false)
+    prevGpsOutOfBoundsRef.current = gpsOutOfBounds
+  }, [gpsOutOfBounds])
   const nearbyExhibitIds = useMapStore((s) => s.nearbyExhibitIds)
   const userPosition = useMapStore((s) => s.userPosition)
   const activeAmenityId = useMapStore((s) => s.activeAmenityId)
@@ -365,6 +382,25 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           />
         )}
       </AnimatePresence>
+
+      {gpsOutOfBounds && mapViewportOutOfPark && !outOfBoundsDismissed && !mapFailed && (
+        <div
+          className="absolute left-0 right-0 flex justify-center"
+          style={{ bottom: 104, zIndex: 40 }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              flyToParkTrigger?.()
+              setOutOfBoundsDismissed(true)
+            }}
+            className="px-5 py-2.5 rounded-full text-sm font-semibold bg-ex-forest text-white"
+            style={{ boxShadow: 'var(--ex-shadow-soft)' }}
+          >
+            Go to Park
+          </button>
+        </div>
+      )}
 
       <TabBar />
       <UserMenu />
