@@ -24,9 +24,7 @@ interface ParkMapProps {
   onMapTap?: () => void
 }
 
-const ORTHO_BOUNDS: [number, number, number, number] = [
-  78.45778053580075, 17.934780490162368, 78.46515161551673, 17.940598787066882,
-]
+const ORTHO_BOUNDS: [number, number, number, number] = [78.187123, 17.378546, 78.196134, 17.383978]
 const MAX_BOUNDS: [number, number, number, number] = [
   ORTHO_BOUNDS[0] - 0.001,
   ORTHO_BOUNDS[1] - 0.001,
@@ -47,9 +45,9 @@ const MOCK_ACCURACY_M = 15
 // grows upward. Sampled at min/starting/max zoom using pinPixelHeight's own clamp curve; a
 // generous (not tight) target, so radius is half the pin's on-screen height and the disc is
 // translated up by that same amount.
-const HIT_CIRCLE_RADIUS_MIN = 0.5 * pinPixelHeight(14, STARTING_CENTER[1])
+const HIT_CIRCLE_RADIUS_MIN = 0.5 * pinPixelHeight(15, STARTING_CENTER[1])
 const HIT_CIRCLE_RADIUS_START = 0.5 * pinPixelHeight(STARTING_ZOOM, STARTING_CENTER[1])
-const HIT_CIRCLE_RADIUS_MAX = 0.5 * pinPixelHeight(22, STARTING_CENTER[1])
+const HIT_CIRCLE_RADIUS_MAX = 0.5 * pinPixelHeight(21, STARTING_CENTER[1])
 
 function isOutOfOrthoBounds(center: maplibregl.LngLat): boolean {
   return (
@@ -247,7 +245,15 @@ export default function ParkMap({
     let stopWatcherRef: (() => void) | null = null
     let unsubscribeMock: (() => void) | null = null
 
-    const savedViewport = useStore.getState().mapViewport
+    const rawViewport = useStore.getState().mapViewport
+    const savedViewport =
+      rawViewport &&
+      rawViewport.center[0] >= ORTHO_BOUNDS[0] &&
+      rawViewport.center[0] <= ORTHO_BOUNDS[2] &&
+      rawViewport.center[1] >= ORTHO_BOUNDS[1] &&
+      rawViewport.center[1] <= ORTHO_BOUNDS[3]
+        ? rawViewport
+        : null
     const protocol = new Protocol()
     maplibregl.addProtocol('pmtiles', protocol.tile.bind(protocol))
 
@@ -260,8 +266,8 @@ export default function ParkMap({
             type: 'raster',
             url: 'pmtiles:///park.pmtiles',
             tileSize: 256,
-            minzoom: 14,
-            maxzoom: 19,
+            minzoom: 15,
+            maxzoom: 21,
           },
         },
         layers: [
@@ -272,7 +278,7 @@ export default function ParkMap({
       center: savedViewport?.center ?? STARTING_CENTER,
       zoom: savedViewport?.zoom ?? STARTING_ZOOM,
       maxBounds: MAX_BOUNDS,
-      minZoom: 14,
+      minZoom: 15,
     })
 
     mapRef.current = map
@@ -313,22 +319,22 @@ export default function ParkMap({
             'interpolate',
             ['linear'],
             ['zoom'],
-            14,
+            15,
             HIT_CIRCLE_RADIUS_MIN,
             STARTING_ZOOM,
             HIT_CIRCLE_RADIUS_START,
-            22,
+            21,
             HIT_CIRCLE_RADIUS_MAX,
           ],
           'circle-translate': [
             'interpolate',
             ['linear'],
             ['zoom'],
-            14,
+            15,
             ['literal', [0, 0]],
             STARTING_ZOOM,
             ['literal', [0, 0]],
-            22,
+            21,
             ['literal', [0, 0]],
           ],
           'circle-color': ['case', ['==', ['get', 'discovered'], true], '#588157', '#dda15e'],

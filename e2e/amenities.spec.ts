@@ -9,15 +9,15 @@ import {
 } from './gate-helpers'
 
 const QR_CODE = 'baobab-forest'
-// ≈ 39 m from Baobab Forest (17.937484, 78.460897)
+// ≈ 37 m from Baobab Forest (17.3816, 78.1916283)
 const WASHROOM = {
   id: 'e2e-washroom',
   name: 'Main Washroom',
   type: 'washroom',
   description: 'Near Gate 2 · Token ₹5',
   photos: [],
-  gps_lat: 17.937684,
-  gps_lng: 78.461197,
+  gps_lat: 17.381282,
+  gps_lng: 78.1916483,
 }
 const DESCRIPTION = 'Near Gate 2 · Token ₹5'
 
@@ -50,8 +50,8 @@ async function seedVisitor(page: Page) {
                 tier: 'free',
                 facts: [],
                 audio: { en, hi },
-                gps_lat: 17.937484,
-                gps_lng: 78.460897,
+                gps_lat: 17.3816,
+                gps_lng: 78.1916283,
                 exhibitStatus: 'live',
               },
             ],
@@ -174,7 +174,7 @@ test.describe('Amenities', () => {
 
   test.describe('with a GPS fix at Baobab Forest', () => {
     test.use({
-      geolocation: { latitude: 17.937484, longitude: 78.460897 },
+      geolocation: { latitude: 17.3816, longitude: 78.1916283 },
       permissions: ['geolocation'],
     })
 

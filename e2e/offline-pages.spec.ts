@@ -13,8 +13,8 @@ const exhibitRow = (code: string, name: string) => ({
   tier: 'free',
   facts: [],
   status: 'live',
-  gps_lat: 17.937484,
-  gps_lng: 78.460897,
+  gps_lat: 17.3816,
+  gps_lng: 78.1916283,
   exhibit_qr_codes: [{ code, status: 'active' }],
   exhibit_audio: [{ language: 'en', audio_url: FAKE_AUDIO_URL, status: 'published' }],
 })
