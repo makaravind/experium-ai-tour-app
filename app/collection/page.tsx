@@ -43,7 +43,10 @@ function CollectionView() {
             </button>
             <h1 className="text-ex-ink font-extrabold">{achieved.length}/9 cards collected</h1>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-3 content-start gap-3 px-4 pt-2 pb-6" style={{ perspective: 600 }}>
+          <div
+            className="flex-1 min-h-0 overflow-y-auto grid grid-cols-3 content-start gap-3 px-4 pt-2 pb-6"
+            style={{ perspective: 600 }}
+          >
             {TRAIL_MILESTONES.map((m) => (
               <motion.button
                 key={m}
@@ -56,26 +59,30 @@ function CollectionView() {
                   background: CARD_GRADIENT_CSS,
                   filter: achieved.includes(m) ? undefined : 'grayscale(1)',
                   opacity: achieved.includes(m) ? 1 : 0.35,
+                  boxShadow: achieved.includes(m) ? '0 4px 12px rgba(43,43,43,0.18)' : 'none',
                   transformStyle: 'preserve-3d',
                 }}
                 animate={
                   lifting?.m === m && lifting.phase === 'raise'
                     ? { y: -24, scale: 1.1, rotateY: 0 }
                     : lifting?.m === m && lifting.phase === 'flip'
-                    ? { y: -24, scale: 1.1, rotateY: 90 }
-                    : { y: 0, scale: 1, rotateY: 0 }
+                      ? { y: -24, scale: 1.1, rotateY: 90 }
+                      : { y: 0, scale: 1, rotateY: 0 }
                 }
                 transition={
                   lifting?.m === m && lifting.phase === 'raise'
                     ? { duration: 0.2, ease: 'easeOut' }
                     : lifting?.m === m && lifting.phase === 'flip'
-                    ? { duration: 0.2, ease: 'easeIn' }
-                    : { duration: 0 }
+                      ? { duration: 0.2, ease: 'easeIn' }
+                      : { duration: 0 }
                 }
                 onAnimationComplete={() => {
                   if (lifting?.m === m) {
                     if (lifting.phase === 'raise') setLifting({ m, phase: 'flip' })
-                    if (lifting.phase === 'flip') { setSelected(m); setLifting(null) }
+                    if (lifting.phase === 'flip') {
+                      setSelected(m)
+                      setLifting(null)
+                    }
                   }
                 }}
               >
