@@ -16,6 +16,7 @@ import { CompassIcon, HomeIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
 import { getCrossedMilestone } from '@/lib/trail'
+import { loadParkPaths, findRoute, type ParkPaths } from '@/lib/park-paths'
 import { toMapExhibits } from '@/lib/map-exhibits'
 import type { MapExhibit, PreviewExhibit } from '@/lib/types'
 
@@ -44,7 +45,9 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [searchMode, setSearchMode] = useState<'exhibits' | 'amenities'>('exhibits')
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
   const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const parkPathsRef = useRef<ParkPaths | null>(null)
   const [toast, setToast] = useState<{ total: number; saved: boolean } | null>(null)
+  const [navigationPathCoords, setNavigationPathCoords] = useState<[number, number][] | null>(null)
 
   const userInfo = useStore((s) => s.userInfo)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
@@ -81,6 +84,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isExhibitPage) {
+      setNavigationPathCoords(null) // eslint-disable-line react-hooks/set-state-in-effect
       const pending = pendingSearchSelectRef.current
       pendingSearchSelectRef.current = null
       if (pending) {
@@ -143,6 +147,12 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    loadParkPaths().then((p) => {
+      parkPathsRef.current = p
+    })
+  }, [])
+
+  useEffect(() => {
     return () => {
       if (audioEndTimerRef.current) clearTimeout(audioEndTimerRef.current)
     }
@@ -171,6 +181,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   }
 
   const handleMapTap = () => {
+    setNavigationPathCoords(null)
     useMapStore.getState().setActiveAmenityId(null)
     if (isExhibitPage) {
       setMapSelectedExhibit(null)
@@ -185,6 +196,18 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     if (!target) return
     setFlyToTarget(target.id)
     if (!isExhibitPage) setMapSelectedExhibit(null)
+    const paths = parkPathsRef.current
+    if (paths && userPosition && userPosition.accuracyM <= 60) {
+      const exhibit = mapExhibits.find((e) => e.id === target.id)
+      if (exhibit?.gps_lat != null && exhibit?.gps_lng != null) {
+        const route = findRoute(
+          { lat: userPosition.lat, lng: userPosition.lng },
+          { lat: exhibit.gps_lat, lng: exhibit.gps_lng },
+          paths
+        )
+        setNavigationPathCoords(route)
+      }
+    }
   }
 
   const handleOpenSearch = () => {
@@ -238,6 +261,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           hideAmenities={isExhibitPage}
           flyToTarget={flyToTarget}
           onMapTap={handleMapTap}
+          navigationPath={navigationPathCoords}
         />
       )}
 
@@ -334,7 +358,14 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         exhibit={sheetExhibit}
         audio={sheetAudio}
         autoPlay={sheetAutoPlay}
-        onClose={showClose ? () => setMapSelectedExhibit(null) : undefined}
+        onClose={
+          showClose
+            ? () => {
+                setMapSelectedExhibit(null)
+                setNavigationPathCoords(null)
+              }
+            : undefined
+        }
         onNavigate={navigateEnabled ? handleNavigate : undefined}
         onFirstPlay={sheetOnFirstPlay}
         onQuartile={sheetOnQuartile}

@@ -22,6 +22,7 @@ interface ParkMapProps {
   hideAmenities?: boolean
   flyToTarget?: string | null
   onMapTap?: () => void
+  navigationPath?: [number, number][] | null
 }
 
 export const ORTHO_BOUNDS: [number, number, number, number] = [
@@ -41,6 +42,23 @@ const STARTING_ZOOM = 19.5
 const POSITION_UNAVAILABLE = 2
 const MOCK_WALK_MS = 5000
 const MOCK_ACCURACY_M = 15
+
+const NAV_DASH_SEQ: number[][] = [
+  [0, 4, 3],
+  [0.5, 4, 2.5],
+  [1, 4, 2],
+  [1.5, 4, 1.5],
+  [2, 4, 1],
+  [2.5, 4, 0.5],
+  [3, 4, 0],
+  [0, 0.5, 3, 3.5],
+  [0, 1, 3, 3],
+  [0, 1.5, 3, 2.5],
+  [0, 2, 3, 2],
+  [0, 2.5, 3, 1.5],
+  [0, 3, 3, 1],
+  [0, 3.5, 3, 0.5],
+]
 
 // The `exhibit-pins` circle layer is invisible (opacity 0) once the 3D marker layer loads, but
 // stays the hit target — sized/translated to sit over the drawn pin, which is tip-anchored and
@@ -214,10 +232,14 @@ export default function ParkMap({
   hideAmenities,
   flyToTarget,
   onMapTap,
+  navigationPath,
 }: ParkMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const navPathRafRef = useRef<number | null>(null)
+  const navDashStepRef = useRef(0)
+  const navDashLastRef = useRef(0)
   const flyToTargetRef = useRef(flyToTarget)
   const onPinTapRef = useRef(onPinTap)
   const onAmenityTapRef = useRef(onAmenityTap)
@@ -346,6 +368,60 @@ export default function ParkMap({
           'circle-stroke-opacity': 0,
         },
       })
+
+      map.addSource('nav-path', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: [] },
+          properties: {},
+        },
+      })
+      map.addLayer(
+        {
+          id: 'nav-path-glow',
+          type: 'line',
+          source: 'nav-path',
+          layout: { 'line-join': 'round', 'line-cap': 'round', visibility: 'none' },
+          paint: {
+            'line-color': '#60a5fa',
+            'line-width': 12,
+            'line-opacity': 0.4,
+            'line-blur': 5,
+          },
+        },
+        'exhibit-pins'
+      )
+      map.addLayer(
+        {
+          id: 'nav-path-halo',
+          type: 'line',
+          source: 'nav-path',
+          layout: { 'line-join': 'round', 'line-cap': 'round', visibility: 'none' },
+          paint: {
+            'line-color': '#93c5fd',
+            'line-width': 6,
+            'line-opacity': 0.55,
+            'line-blur': 1.5,
+          },
+        },
+        'exhibit-pins'
+      )
+      map.addLayer(
+        {
+          id: 'nav-path-line',
+          type: 'line',
+          source: 'nav-path',
+          layout: { 'line-join': 'round', 'line-cap': 'round', visibility: 'none' },
+          paint: {
+            'line-color': '#ffffff',
+            'line-width': 3,
+            'line-opacity': 0.98,
+            'line-dasharray': [0, 4, 3],
+          },
+        },
+        'exhibit-pins'
+      )
 
       const markerInputs = exhibitsRef.current.map((exhibit) => ({
         id: exhibit.id,
@@ -624,6 +700,66 @@ export default function ParkMap({
       el.setAttribute('aria-pressed', String(amenity.id === activeAmenityId))
     )
   }, [amenityChips, activeAmenityId])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!mapReady || !map) return
+
+    if (navPathRafRef.current !== null) {
+      cancelAnimationFrame(navPathRafRef.current)
+      navPathRafRef.current = null
+    }
+
+    const source = map.getSource('nav-path') as maplibregl.GeoJSONSource | undefined
+    if (!source) return
+
+    if (!navigationPath || navigationPath.length < 2) {
+      source.setData({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: [] },
+        properties: {},
+      })
+      map.setLayoutProperty('nav-path-line', 'visibility', 'none')
+      map.setLayoutProperty('nav-path-halo', 'visibility', 'none')
+      map.setLayoutProperty('nav-path-glow', 'visibility', 'none')
+      return
+    }
+
+    source.setData({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: navigationPath.map(([lat, lng]) => [lng, lat]) },
+      properties: {},
+    })
+    map.setLayoutProperty('nav-path-line', 'visibility', 'visible')
+    map.setLayoutProperty('nav-path-halo', 'visibility', 'visible')
+    map.setLayoutProperty('nav-path-glow', 'visibility', 'visible')
+
+    navDashStepRef.current = 0
+    navDashLastRef.current = 0
+    const breatheStart = Date.now()
+    const animate = (now: number) => {
+      if (now - navDashLastRef.current >= 80) {
+        navDashLastRef.current = now
+        navDashStepRef.current = (navDashStepRef.current + 1) % NAV_DASH_SEQ.length
+        map.setPaintProperty(
+          'nav-path-line',
+          'line-dasharray',
+          NAV_DASH_SEQ[navDashStepRef.current]
+        )
+      }
+      const breathe = 0.5 - 0.5 * Math.cos(((Date.now() - breatheStart) / 2000) * Math.PI * 2)
+      map.setPaintProperty('nav-path-glow', 'line-opacity', 0.15 + breathe * 0.35)
+      navPathRafRef.current = requestAnimationFrame(animate)
+    }
+    navPathRafRef.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (navPathRafRef.current !== null) {
+        cancelAnimationFrame(navPathRafRef.current)
+        navPathRafRef.current = null
+      }
+    }
+  }, [navigationPath, mapReady])
 
   return (
     <div className="absolute inset-0">
