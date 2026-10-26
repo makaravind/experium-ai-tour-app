@@ -154,9 +154,9 @@ export default function DiscoveryCard({ milestone, onBack }: Props) {
   return (
     <motion.div
       className="fixed inset-0 z-50 flex flex-col bg-ex-bg"
-      initial={{ rotateY: 90, opacity: 0 }}
-      animate={{ rotateY: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: [0.4, 0.1, 0.2, 1] }}
+      initial={{ rotateY: -90, scale: 0.6 }}
+      animate={{ rotateY: 0, scale: 1 }}
+      transition={{ duration: 0.35, ease: [0.4, 0.1, 0.2, 1] }}
       style={{ transformStyle: 'preserve-3d' }}
     >
       <div className="flex items-center gap-3 px-4 h-14">
