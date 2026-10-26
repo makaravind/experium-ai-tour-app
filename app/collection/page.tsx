@@ -43,7 +43,7 @@ function CollectionView() {
             </button>
             <h1 className="text-ex-ink font-extrabold">{achieved.length}/9 cards collected</h1>
           </div>
-          <div className="grid grid-cols-3 gap-3 px-4 pt-2 pb-6" style={{ perspective: 600 }}>
+          <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-3 content-start gap-3 px-4 pt-2 pb-6" style={{ perspective: 600 }}>
             {/* Step 3 will fill this with grid cells */}
           </div>
         </div>
