@@ -53,7 +53,7 @@ export default function InfoModal({ onDone, initialValues, onCancel }: InfoModal
   return (
     <div
       className="fixed inset-0 flex flex-col items-center justify-center px-6 bg-ex-bg"
-      style={{ fontFamily: 'var(--font-body)' }}
+      style={{ fontFamily: 'var(--font-body)', zIndex: 60 }}
     >
       <motion.div
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
