@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
-import { getDeviceInfo } from '@/lib/utils'
 import { enqueueScan } from '@/lib/scan-queue'
 import type { ExhibitAudio, ExhibitData, PreviewExhibit } from '@/lib/types'
 
@@ -32,7 +31,6 @@ export default function ExhibitPageClient({
   const setListenedCurrentExhibit = useStore((s) => s.setListenedCurrentExhibit)
   const markVisited = useStore((s) => s.markVisited)
   const { setExhibitPageData, clearExhibitPageData } = useMapStore()
-  const deviceRef = useRef(getDeviceInfo())
 
   // Page land — fires once visitorId has resolved (cached or via handshake); the queue
   // flush needs it to send.
@@ -57,7 +55,7 @@ export default function ExhibitPageClient({
       listen_duration_sec: 0,
       is_qr_scan: isQrScan,
       ...(scanSrc ? { scan_src: scanSrc } : {}),
-      device_info: { language, ...deviceRef.current },
+      language,
     })
   }, [visitorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -66,7 +64,7 @@ export default function ExhibitPageClient({
     enqueueScan(qrCode, {
       listened: true,
       ...(scanSrc ? { scan_src: scanSrc } : {}),
-      device_info: { language, ...deviceRef.current },
+      language,
     })
     markVisited(exhibitId)
   }, [language, qrCode, exhibitId, scanSrc, setListenedCurrentExhibit, markVisited])
@@ -78,7 +76,7 @@ export default function ExhibitPageClient({
         listen_duration_sec: sec,
         listen_quartile: quartile,
         ...(scanSrc ? { scan_src: scanSrc } : {}),
-        device_info: { language, ...deviceRef.current },
+        language,
       })
     },
     [language, qrCode, scanSrc]
