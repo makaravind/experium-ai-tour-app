@@ -32,19 +32,6 @@ export async function POST(req: NextRequest) {
   }
 
   const isQrScan = is_qr_scan === true
-  let qrCodeId: string | null = null
-  if (isQrScan) {
-    const { data: qr, error: qrErr } = await supabaseAdmin
-      .from('exhibit_qr_codes')
-      .select('id')
-      .eq('code', code)
-      .single()
-
-    if (qrErr || !qr) {
-      return NextResponse.json({ error: 'Unknown QR code' }, { status: 404 })
-    }
-    qrCodeId = qr.id
-  }
 
   const playedAt =
     typeof scanned_at === 'string' && Date.parse(scanned_at) > 0
@@ -64,6 +51,20 @@ export async function POST(req: NextRequest) {
   if (playbackErr) {
     console.error('upsert_playback failed', playbackErr)
     return NextResponse.json({ error: 'Scan failed' }, { status: 500 })
+  }
+
+  let qrCodeId: string | null = null
+  if (isQrScan) {
+    const { data: qr, error: qrErr } = await supabaseAdmin
+      .from('exhibit_qr_codes')
+      .select('id')
+      .eq('code', code)
+      .single()
+
+    if (qrErr || !qr) {
+      return NextResponse.json({ error: 'Unknown QR code' }, { status: 404 })
+    }
+    qrCodeId = qr.id
   }
 
   if (isQrScan) {
