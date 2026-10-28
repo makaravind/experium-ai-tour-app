@@ -16,7 +16,7 @@ export interface Fact {
 /** One exhibit row in the upfront-precached dataset (gh-64), with audio for every published language. */
 export interface CachedExhibit {
   id: string
-  code: string | null // exhibit_qr_codes.code; null if no active QR yet
+  code: string | null // exhibits.code as text (the /s/<code> URL segment); null if unassigned
   status: 'active' | 'coming_soon'
   name: string
   type: string | null
@@ -25,7 +25,7 @@ export interface CachedExhibit {
   audio: Partial<Record<Language, string>> // published audio_url per language
   gps_lat: number | null
   gps_lng: number | null
-  exhibitStatus: ExhibitStatus // exhibits.status; `status` above means QR active
+  exhibitStatus: ExhibitStatus // exhibits.status; `status` above is the same, as active/coming_soon
   displayNumber: number | null // exhibits.code SMALLINT; park reference number (1–99)
 }
 
