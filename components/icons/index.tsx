@@ -252,6 +252,13 @@ export function AmenityTypeIcon({ type, ...props }: IconProps & { type: AmenityT
           <path d="M9 21v-6a3 3 0 0 1 6 0v6" />
         </>
       )}
+      {type === 'leisure' && (
+        <>
+          <path d="M4 16h16" />
+          <path d="M6 16v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2M14 16v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2" />
+          <path d="M4 16a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4" />
+        </>
+      )}
     </Stroke>
   )
 }

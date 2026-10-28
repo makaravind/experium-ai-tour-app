@@ -358,6 +358,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         exhibit={sheetExhibit}
         audio={sheetAudio}
         autoPlay={sheetAutoPlay}
+        autoExpand={isShowingCurrentExhibit}
         onClose={
           showClose
             ? () => {

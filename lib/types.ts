@@ -29,7 +29,7 @@ export interface CachedExhibit {
   displayNumber: number | null // exhibits.code SMALLINT; park reference number (1–99)
 }
 
-export type AmenityType = 'washroom' | 'ticketing' | 'food' | 'gate'
+export type AmenityType = 'washroom' | 'ticketing' | 'food' | 'gate' | 'leisure'
 
 /** One amenity row in the persisted dataset. `photos` is carried but the UI ignores the URLs (v1). */
 export interface CachedAmenity {

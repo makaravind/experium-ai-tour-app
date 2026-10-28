@@ -54,10 +54,7 @@ export default function AmenitySheet({
             count={Math.max(1, amenity?.photos.length ?? 0)}
             palette={AMENITY_PALETTE}
           />
-          {/* Always rendered one line tall: BottomSheet measures the peek height once, while empty */}
-          <p className={`mt-3 min-h-5 text-sm text-ex-muted ${expanded ? '' : 'truncate'}`}>
-            {amenity?.description}
-          </p>
+          <p className="mt-3 min-h-5 text-sm text-ex-muted">{amenity?.description}</p>
         </div>
       )}
     </BottomSheet>

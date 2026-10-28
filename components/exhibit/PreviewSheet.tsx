@@ -41,6 +41,7 @@ export default function PreviewSheet({
   onNavigate,
   onClose,
   autoPlay,
+  autoExpand,
   onFirstPlay,
   onQuartile,
   onAudioEnded,
@@ -48,6 +49,7 @@ export default function PreviewSheet({
   exhibit: PreviewExhibit | null
   audio?: ExhibitAudio[]
   autoPlay?: boolean
+  autoExpand?: boolean
   onNavigate?: () => void
   onClose?: () => void
   onFirstPlay?: () => void
@@ -230,6 +232,11 @@ export default function PreviewSheet({
     autoPlayFired.current = true
     listen()
   }, [ready, autoPlay]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!autoExpand || !ready) return
+    sheetRef.current?.expand()
+  }, [ready, autoExpand])  
 
   const togglePlay = () => {
     const el = audioRef.current
