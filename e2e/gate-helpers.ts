@@ -30,6 +30,7 @@ export async function mockPrecacheDataset(page: Page, { seedCache = true } = {})
       body: JSON.stringify([
         {
           id: 'e2e-baobab',
+          code: QR_CODE,
           name: 'Baobab Forest',
           type: null,
           tier: 'free',
@@ -37,7 +38,6 @@ export async function mockPrecacheDataset(page: Page, { seedCache = true } = {})
           status: 'live',
           gps_lat: 17.3816,
           gps_lng: 78.1916283,
-          exhibit_qr_codes: [{ code: QR_CODE, status: 'active' }],
           exhibit_audio: [
             { language: 'en', audio_url: FAKE_AUDIO_URL, status: 'published' },
             { language: 'hi', audio_url: FAKE_HI_AUDIO_URL, status: 'published' },
