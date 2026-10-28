@@ -50,14 +50,15 @@ export default function ExhibitPage() {
   useEffect(() => setMounted(true), []) // eslint-disable-line react-hooks/set-state-in-effect
 
   useEffect(() => {
-    if (!mounted || cached) return
+    // Skip live fetch when cache has facts; fall through when facts are missing (stale cache)
+    if (!mounted || (cached && (cached.facts.length > 0 || !navigator.onLine))) return
     if (!navigator.onLine) {
       setLive({ state: 'offline' }) // eslint-disable-line react-hooks/set-state-in-effect
       return
     }
     const numericCode = parseInt(code, 10)
     if (isNaN(numericCode)) {
-      setLive({ state: 'missing' })  
+      setLive({ state: 'missing' })
       return
     }
     let cancelled = false
@@ -84,7 +85,8 @@ export default function ExhibitPage() {
 
   if (!mounted) return null
 
-  if (cached) {
+  // Use cached path only when it has facts, or we're offline (no live fetch possible)
+  if (cached && (cached.facts.length > 0 || !navigator.onLine)) {
     if (cached.status !== 'active') return <Message>Content coming soon.</Message>
     const audio: ExhibitAudio[] = (Object.entries(cached.audio) as [Language, string][]).map(
       ([language, audio_url]) => ({ language, audio_url, status: 'published' })
