@@ -194,7 +194,13 @@ export default function AppGate({ children }: { children: ReactNode }) {
       const gaps = Object.values(missing).flat()
 
       // Cache Storage is authoritative both ways: full cache skips onboarding regardless of flags.
+      // Still refresh dataset when online so exhibit data (facts, descriptions) stays up-to-date.
       if (hasDataset && gaps.length === 0) {
+        if (online) {
+          try {
+            await loadDataset()
+          } catch {}
+        }
         setPhase('clear')
         return
       }
