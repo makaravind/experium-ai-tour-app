@@ -6,15 +6,17 @@ export function matchesQuery(name: string, query: string): boolean {
 }
 
 export function filterExhibits(exhibits: MapExhibit[], query: string): MapExhibit[] {
+  const q = query.trim()
   return exhibits
-    .filter((e) => matchesQuery(e.name, query))
+    .filter(
+      (e) =>
+        matchesQuery(e.name, q) ||
+        (e.displayNumber !== null && String(e.displayNumber).startsWith(q))
+    )
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export function matchRange(
-  name: string,
-  query: string,
-): { start: number; end: number } | null {
+export function matchRange(name: string, query: string): { start: number; end: number } | null {
   const q = query.trim().toLowerCase()
   if (!q) return null
   const start = name.toLowerCase().indexOf(q)
@@ -31,7 +33,7 @@ export interface AmenityResult {
 export function sortAmenities(
   amenities: CachedAmenity[],
   query: string,
-  userPosition: { lat: number; lng: number } | null,
+  userPosition: { lat: number; lng: number } | null
 ): AmenityResult[] {
   return amenities
     .filter((a) => matchesQuery(a.name, query))
@@ -44,6 +46,6 @@ export function sortAmenities(
     .sort((a, b) =>
       a.distanceM !== null && b.distanceM !== null && a.distanceM !== b.distanceM
         ? a.distanceM - b.distanceM
-        : a.amenity.name.localeCompare(b.amenity.name),
+        : a.amenity.name.localeCompare(b.amenity.name)
     )
 }

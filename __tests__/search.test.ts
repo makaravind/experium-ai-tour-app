@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { matchesQuery, filterExhibits, matchRange, sortAmenities } from '@/lib/search'
 import type { CachedAmenity, MapExhibit } from '@/lib/types'
 
-const ex = (id: string, name: string): MapExhibit => ({
+const ex = (id: string, name: string, displayNumber: number | null = null): MapExhibit => ({
   id,
   name,
   type: null,
@@ -12,7 +12,7 @@ const ex = (id: string, name: string): MapExhibit => ({
   qr_code: null,
   languages: ['en'],
   status: 'live',
-  displayNumber: null,
+  displayNumber,
 })
 
 describe('matchesQuery', () => {
@@ -57,6 +57,20 @@ describe('filterExhibits', () => {
     const mixed = [ex('a', 'zebra'), ex('b', 'Apple'), ex('c', 'mango')]
     expect(filterExhibits(mixed, '').map((e) => e.name)).toEqual(['Apple', 'mango', 'zebra'])
   })
+
+  it('matches by displayNumber prefix', () => {
+    const numbered = [
+      ex('1', 'Amla Grove', 4),
+      ex('2', 'Banyan Tree', 40),
+      ex('3', 'Lotus Pond', 14),
+    ]
+    expect(filterExhibits(numbered, '4').map((e) => e.id)).toEqual(['1', '2'])
+  })
+
+  it('ignores null displayNumber when matching by number', () => {
+    const mixed = [ex('1', 'Amla Grove', null), ex('2', 'Banyan Tree', 4)]
+    expect(filterExhibits(mixed, '4').map((e) => e.id)).toEqual(['2'])
+  })
 })
 
 describe('matchRange', () => {
@@ -93,7 +107,11 @@ describe('sortAmenities', () => {
     gps_lat,
     gps_lng: 0,
   })
-  const list = [am('far', 'Zeta Cafe', 0.003), am('near', 'Main Washroom', 0.001), am('mid', 'Gate 2', 0.002)]
+  const list = [
+    am('far', 'Zeta Cafe', 0.003),
+    am('near', 'Main Washroom', 0.001),
+    am('mid', 'Gate 2', 0.002),
+  ]
   const here = { lat: 0, lng: 0 }
 
   it('sorts by distance ascending with a fix', () => {
