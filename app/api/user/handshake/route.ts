@@ -3,11 +3,11 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
   const supabaseAdmin = getSupabaseAdmin()
-  const { fingerprintHint } = await req.json().catch(() => ({}))
+  const { fingerprintHint, device_info } = await req.json().catch(() => ({}))
 
   const { data, error } = await supabaseAdmin
     .from('users')
-    .insert({ fingerprint_hint: fingerprintHint ?? null })
+    .insert({ fingerprint_hint: fingerprintHint ?? null, device_info: device_info ?? null })
     .select('id')
     .single()
 
