@@ -12,6 +12,7 @@ interface Exhibit {
   name: string
   type: string | null
   tier: string
+  status: 'live' | 'coming_soon'
   facts: Fact[] | null
   exhibit_audio: ExhibitAudio[]
 }
@@ -56,19 +57,19 @@ export default function ExhibitPage() {
     }
     let cancelled = false
     supabase
-      .from('exhibit_qr_codes')
-      .select('id, status, exhibit_id, exhibits(*, exhibit_audio(language, audio_url, status))')
-      .eq('code', code)
+      .from('exhibits')
+      .select('id, name, type, tier, status, facts, exhibit_audio(language, audio_url, status)')
+      .eq('code', parseInt(code))
       .single()
-      .then(({ data: qr, error }) => {
+      .then(({ data, error }) => {
         if (cancelled) return
-        if (error || !qr) {
-          // A network failure is a cache gap, not a broken marker.
+        if (error || !data) {
+          // A network failure is a cache gap, not a missing exhibit.
           setLive({ state: navigator.onLine ? 'missing' : 'offline' })
-        } else if (qr.status !== 'active' || !qr.exhibit_id) {
+        } else if (data.status !== 'live') {
           setLive({ state: 'coming_soon' })
         } else {
-          setLive({ state: 'found', exhibit: qr.exhibits as unknown as Exhibit })
+          setLive({ state: 'found', exhibit: data as unknown as Exhibit })
         }
       })
     return () => {

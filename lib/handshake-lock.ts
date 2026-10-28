@@ -1,3 +1,4 @@
+import { getDeviceInfo } from '@/lib/utils'
 import { ConnectionTimeoutError, HANDSHAKE_TIMEOUT_MS } from '@/lib/timeouts'
 
 const ID_KEY = 'experium_visitor_id'
@@ -45,7 +46,7 @@ async function handshake(): Promise<string> {
     const res = await fetch('/api/user/handshake', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fingerprintHint: result.visitorId }),
+      body: JSON.stringify({ fingerprintHint: result.visitorId, device_info: getDeviceInfo() }),
       signal: ctrl.signal,
     })
     const { visitorId } = await res.json()
