@@ -150,7 +150,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'experium-store',
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<Store>
         if (version === 0) {
@@ -164,6 +164,8 @@ export const useStore = create<Store>()(
         }
         // v1 cachedExhibits has no GPS: clear so AppGate re-runs runPrecache
         if (version < 2) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
+        // v2 cachedExhibits missing exhibitStatus/displayNumber/facts: clear to force re-fetch
+        if (version < 3) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
         return state as Store
       },
       partialize: (s) => ({
