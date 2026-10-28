@@ -55,11 +55,16 @@ export default function ExhibitPage() {
       setLive({ state: 'offline' }) // eslint-disable-line react-hooks/set-state-in-effect
       return
     }
+    const numericCode = parseInt(code, 10)
+    if (isNaN(numericCode)) {
+      setLive({ state: 'missing' })  
+      return
+    }
     let cancelled = false
     supabase
       .from('exhibits')
       .select('id, name, type, tier, status, facts, exhibit_audio(language, audio_url, status)')
-      .eq('code', parseInt(code))
+      .eq('code', numericCode)
       .single()
       .then(({ data, error }) => {
         if (cancelled) return
