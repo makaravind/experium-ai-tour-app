@@ -37,7 +37,6 @@ export default function ExhibitPage() {
   const code = decodeURIComponent(usePathname().split('/')[2])
   const sp = useSearchParams()
   const scanSrc = sp.get('scansrc')
-  const autoPlay = sp.get('autoplay') === '1'
 
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const cached = cachedExhibits.find((e) => e.code === code)
@@ -95,7 +94,6 @@ export default function ExhibitPage() {
         exhibitId={cached.id}
         qrCode={code}
         scanSrc={scanSrc}
-        autoPlay={autoPlay}
         exhibit={{ name: cached.name, type: cached.type, tier: cached.tier, facts: cached.facts }}
         audio={audio}
       />
@@ -122,7 +120,6 @@ export default function ExhibitPage() {
           exhibitId={exhibit.id}
           qrCode={code}
           scanSrc={scanSrc}
-          autoPlay={autoPlay}
           exhibit={{
             name: exhibit.name,
             type: exhibit.type,

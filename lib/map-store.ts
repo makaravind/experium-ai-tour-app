@@ -4,7 +4,6 @@ import type { ExhibitAudio, PreviewExhibit } from './types'
 interface ExhibitPageData {
   exhibit: PreviewExhibit
   audio: ExhibitAudio[]
-  autoPlay: boolean
   onFirstPlay: () => void
   onQuartile: (sec: number, quartile: number) => void
 }

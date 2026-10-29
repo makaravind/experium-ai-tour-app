@@ -10,14 +10,12 @@ export default function ExhibitPageClient({
   exhibitId,
   qrCode,
   scanSrc,
-  autoPlay,
   exhibit,
   audio,
 }: {
   exhibitId: string
   qrCode: string
   scanSrc: string | null
-  autoPlay: boolean
   exhibit: ExhibitData
   audio: ExhibitAudio[]
 }) {
@@ -101,7 +99,6 @@ export default function ExhibitPageClient({
     setExhibitPageData({
       exhibit: previewExhibit,
       audio,
-      autoPlay,
       onFirstPlay: () => handleFirstPlayRef.current(),
       onQuartile: (sec, q) => handleQuartileRef.current(sec, q),
     })

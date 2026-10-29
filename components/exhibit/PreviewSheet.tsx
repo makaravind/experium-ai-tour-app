@@ -40,7 +40,6 @@ export default function PreviewSheet({
   audio = [],
   onNavigate,
   onClose,
-  autoPlay,
   autoExpand,
   onFirstPlay,
   onQuartile,
@@ -48,7 +47,6 @@ export default function PreviewSheet({
 }: {
   exhibit: PreviewExhibit | null
   audio?: ExhibitAudio[]
-  autoPlay?: boolean
   autoExpand?: boolean
   onNavigate?: () => void
   onClose?: () => void
@@ -72,7 +70,6 @@ export default function PreviewSheet({
   const factsRef = useRef<HTMLElement>(null)
   const morphTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const firedQuartiles = useRef<Set<number>>(new Set())
-  const autoPlayFired = useRef(false)
   const playIntent = useRef(false)
   const startTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -140,10 +137,7 @@ export default function PreviewSheet({
     if (el.error) el.load()
     el.play().catch((err) => {
       // AbortError: src swapped mid-start. Other failures surface via the `error` event.
-      if (err?.name === 'NotAllowedError') {
-        stopPlayback()
-        showToast('Tap play to start audio')
-      }
+      if (err?.name === 'NotAllowedError') stopPlayback()
     })
   }
 
@@ -188,11 +182,6 @@ export default function PreviewSheet({
     setPopping(false)
   }
 
-  // Reset autoPlay guard when exhibit changes so re-navigation with autoplay=1 works
-  useEffect(() => {
-    autoPlayFired.current = false
-  }, [exhibit?.id])
-
   useEffect(() => {
     const el = audioRef.current
     if (!el || !currentSrc || loadedSrc.current === currentSrc) return
@@ -207,7 +196,7 @@ export default function PreviewSheet({
 
   const listen = () => {
     if (!hasAudio) {
-      if (exhibit?.qr_code) router.push(`/s/${exhibit.qr_code}?scansrc=app&autoplay=1`)
+      if (exhibit?.qr_code) router.push(`/s/${exhibit.qr_code}?scansrc=app`)
       return
     }
     const el = audioRef.current
@@ -229,12 +218,6 @@ export default function PreviewSheet({
     onFirstPlay?.()
     morphTimer.current = setTimeout(() => setStarted(true), MORPH_DELAY)
   }
-
-  useEffect(() => {
-    if (!autoPlay || !ready || autoPlayFired.current) return
-    autoPlayFired.current = true
-    listen()
-  }, [ready, autoPlay]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!autoExpand || !ready) return

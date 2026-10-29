@@ -120,7 +120,6 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const isShowingCurrentExhibit =
     isExhibitPage && exhibitPageData != null && sheetExhibit?.id === exhibitPageData.exhibit.id
   const sheetAudio = isShowingCurrentExhibit ? exhibitPageData!.audio : []
-  const sheetAutoPlay = isShowingCurrentExhibit ? exhibitPageData!.autoPlay || undefined : undefined
   const sheetOnFirstPlay = isShowingCurrentExhibit ? exhibitPageData!.onFirstPlay : undefined
   const sheetOnQuartile = isShowingCurrentExhibit ? exhibitPageData!.onQuartile : undefined
 
@@ -357,7 +356,6 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       <PreviewSheet
         exhibit={sheetExhibit}
         audio={sheetAudio}
-        autoPlay={sheetAutoPlay}
         autoExpand={isShowingCurrentExhibit}
         onClose={
           showClose
