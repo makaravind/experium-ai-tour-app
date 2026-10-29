@@ -94,9 +94,9 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
   }
 
   return (
-    <div className="mt-5">
+    <div style={{ position: 'relative', height: 0, overflow: 'visible' }}>
       {!expanded && (
-        <div style={{ marginLeft: -16, position: 'relative', padding: '8px 0' }}>
+        <div style={{ position: 'absolute', top: 0, left: -16 }}>
           <div
             ref={stkRef}
             style={{
@@ -200,7 +200,16 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
       )}
 
       {expanded && (
-        <div ref={expandedRef} style={{ position: 'relative' }}>
+        <div
+          ref={expandedRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            zIndex: 10,
+            animation: 'dyk-expand-in 0.32s cubic-bezier(0.34,1.45,0.64,1) both',
+          }}
+        >
           <div style={{ position: 'relative', width: 196, height: 200, marginLeft: 8 }}>
             {picks.map((pair, i) => {
               const slot = (i - activeIdx + 3) % 3
