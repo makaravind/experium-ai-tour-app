@@ -3,7 +3,7 @@ import { extractExhibitScan } from '@/lib/scan-utils'
 
 describe('extractExhibitScan', () => {
   it('forwards the onsite scansrc encoded on a physical plate URL', () => {
-    expect(extractExhibitScan('https://app.example.com/s/baobab?scan=1&scansrc=onsite')).toEqual({
+    expect(extractExhibitScan('https://app.example.com/s/baobab?scansrc=onsite')).toEqual({
       code: 'baobab',
       scansrc: 'onsite',
     })

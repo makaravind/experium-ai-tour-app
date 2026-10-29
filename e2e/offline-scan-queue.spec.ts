@@ -9,7 +9,7 @@ import {
 } from './gate-helpers'
 
 const QR_CODE = 'baobab-forest'
-const ONSITE_URL = `/s/${QR_CODE}?scan=1&scansrc=onsite`
+const ONSITE_URL = `/s/${QR_CODE}?scansrc=onsite`
 
 type QueuedScan = { id: string; code: string; scanned_at: string; fields: Record<string, unknown> }
 type PersistedStore = {

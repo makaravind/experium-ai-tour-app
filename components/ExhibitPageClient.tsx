@@ -9,7 +9,6 @@ import type { ExhibitAudio, ExhibitData, PreviewExhibit } from '@/lib/types'
 export default function ExhibitPageClient({
   exhibitId,
   qrCode,
-  isQrScan,
   scanSrc,
   autoPlay,
   exhibit,
@@ -17,7 +16,6 @@ export default function ExhibitPageClient({
 }: {
   exhibitId: string
   qrCode: string
-  isQrScan: boolean
   scanSrc: string | null
   autoPlay: boolean
   exhibit: ExhibitData
@@ -53,7 +51,7 @@ export default function ExhibitPageClient({
     enqueueScan(qrCode, {
       listened: false,
       listen_duration_sec: 0,
-      is_qr_scan: isQrScan,
+      is_qr_scan: scanSrc === 'onsite' || scanSrc === 'camera',
       ...(scanSrc ? { scan_src: scanSrc } : {}),
       language,
     })

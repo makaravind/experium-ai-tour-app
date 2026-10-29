@@ -43,7 +43,7 @@ describe('ScanPage opening overlay', () => {
 
     expect(await screen.findByText('Opening exhibit…')).toBeInTheDocument()
     expect(stopTrack).toHaveBeenCalled()
-    expect(replace).toHaveBeenCalledWith('/s/baobab-forest?scan=1&scansrc=camera')
+    expect(replace).toHaveBeenCalledWith('/s/baobab-forest?scansrc=camera')
   })
 
   it('non-exhibit code: no overlay, toast instead', async () => {

@@ -53,7 +53,7 @@ export default function ScanPage() {
           redirectedRef.current = true
           setOpening(true)
           stopCamera()
-          router.replace(`/s/${scan.code}?scan=1&scansrc=${scan.scansrc ?? 'camera'}`)
+          router.replace(`/s/${scan.code}?scansrc=${scan.scansrc ?? 'camera'}`)
           return
         } else if (!scan) {
           setToast('Not an exhibit QR code')

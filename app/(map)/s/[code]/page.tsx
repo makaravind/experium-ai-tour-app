@@ -36,7 +36,6 @@ export default function ExhibitPage() {
   // The SW serves one cached shell for every /s/<code>, so useParams() can hold another code
   const code = decodeURIComponent(usePathname().split('/')[2])
   const sp = useSearchParams()
-  const isQrScan = sp.get('scan') === '1'
   const scanSrc = sp.get('scansrc')
   const autoPlay = sp.get('autoplay') === '1'
 
@@ -95,7 +94,6 @@ export default function ExhibitPage() {
       <ExhibitPageClient
         exhibitId={cached.id}
         qrCode={code}
-        isQrScan={isQrScan}
         scanSrc={scanSrc}
         autoPlay={autoPlay}
         exhibit={{ name: cached.name, type: cached.type, tier: cached.tier, facts: cached.facts }}
@@ -123,7 +121,6 @@ export default function ExhibitPage() {
         <ExhibitPageClient
           exhibitId={exhibit.id}
           qrCode={code}
-          isQrScan={isQrScan}
           scanSrc={scanSrc}
           autoPlay={autoPlay}
           exhibit={{
