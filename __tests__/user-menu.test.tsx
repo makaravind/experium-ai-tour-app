@@ -1,8 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createElement } from 'react'
 import { useStore } from '@/lib/store'
 import UserMenu from '@/components/more/UserMenu'
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => '/',
+}))
 
 function setStorage(value: unknown) {
   Object.defineProperty(navigator, 'storage', { value, writable: true, configurable: true })
