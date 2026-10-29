@@ -246,7 +246,7 @@ export default function PreviewSheet({
     if (autoPlayFiredRef.current === exhibit.id) return
     autoPlayFiredRef.current = exhibit.id
     listenRef.current()
-  }, [autoPlay, ready, currentSrc, exhibit?.id])  
+  }, [autoPlay, ready, currentSrc, exhibit?.id])
 
   const togglePlay = () => {
     const el = audioRef.current
@@ -466,36 +466,36 @@ export default function PreviewSheet({
                   )}
                 </div>
               ) : (
-                <div className={`mt-4 ${onNavigate ? 'flex gap-3' : ''}`}>
-                  <div className={`relative ${onNavigate ? 'flex-1' : 'w-full'}`}>
-                    <AnimatePresence>
-                      {showPopper && (
-                        <motion.div
-                          key="qr-popper"
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 6 }}
-                          transition={{ duration: 0.2 }}
-                          className="listen-popper-caret absolute bg-ex-forest text-white rounded-xl text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
-                          style={{
-                            bottom: 'calc(100% + 12px)',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            zIndex: 10,
-                            padding: '9px 14px 10px',
-                          }}
+                <div className={`mt-4 relative ${onNavigate ? 'flex gap-3' : ''}`}>
+                  <AnimatePresence>
+                    {showPopper && (
+                      <motion.div
+                        key="qr-popper"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        transition={{ duration: 0.2 }}
+                        className="listen-popper-caret absolute bg-ex-forest text-white rounded-xl text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
+                        style={{
+                          bottom: 'calc(100% + 12px)',
+                          left: onNavigate ? 'calc(25% - 3px)' : '50%',
+                          transform: 'translateX(-50%)',
+                          zIndex: 10,
+                          padding: '9px 14px 10px',
+                        }}
+                      >
+                        🎧 Tap play to hear the story
+                        <button
+                          onClick={() => setShowPopper(false)}
+                          className="ml-1 bg-transparent border-0 cursor-pointer p-0 text-lg leading-none text-white/70"
+                          aria-label="Dismiss"
                         >
-                          🎧 Tap play to hear the story
-                          <button
-                            onClick={() => setShowPopper(false)}
-                            className="ml-1 bg-transparent border-0 cursor-pointer p-0 text-lg leading-none text-white/70"
-                            aria-label="Dismiss"
-                          >
-                            ×
-                          </button>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                          ×
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <div className={`relative ${onNavigate ? 'flex-1' : 'w-full'}`}>
                     {showPopper && <div className="listen-pulse-ring" />}
                     <motion.button
                       onClick={listen}
