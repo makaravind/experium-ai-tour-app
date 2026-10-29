@@ -5,13 +5,18 @@ export function matchesQuery(name: string, query: string): boolean {
   return name.toLowerCase().includes(query.trim().toLowerCase())
 }
 
-export function filterExhibits(exhibits: MapExhibit[], query: string): MapExhibit[] {
+export function filterExhibits(
+  exhibits: MapExhibit[],
+  query: string,
+  mustVisit = false
+): MapExhibit[] {
   const q = query.trim()
   return exhibits
     .filter(
       (e) =>
-        matchesQuery(e.name, q) ||
-        (e.displayNumber !== null && String(e.displayNumber).startsWith(q))
+        (!mustVisit || e.tier === 'gold') &&
+        (matchesQuery(e.name, q) ||
+          (e.displayNumber !== null && String(e.displayNumber).startsWith(q)))
     )
     .sort((a, b) => a.name.localeCompare(b.name))
 }

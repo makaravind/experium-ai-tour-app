@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { MotionConfig, motion, useIsPresent } from 'framer-motion'
 import AmenitiesPill from '@/components/amenity/AmenitiesPill'
+import MustVisitPill from '@/components/exhibit/MustVisitPill'
 import {
   AmenityTypeIcon,
   ChevronDownIcon,
@@ -60,6 +61,7 @@ export default function SearchOverlay({
 }: SearchOverlayProps) {
   const [query, setQuery] = useState('')
   const [amenityMode, setAmenityMode] = useState(initialMode === 'amenities')
+  const [mustVisit, setMustVisit] = useState(false)
   // Rows stagger in on open and on mode switch only; rows that appear while typing mount in place
   const [animateIn, setAnimateIn] = useState(true)
   const isPresent = useIsPresent()
@@ -85,7 +87,7 @@ export default function SearchOverlay({
     },
   })
 
-  const results = filterExhibits(exhibits, query)
+  const results = filterExhibits(exhibits, query, mustVisit)
   const amenityResults = sortAmenities(cachedAmenities, query, userPosition)
 
   const toggleAmenityMode = () => {
@@ -131,9 +133,12 @@ export default function SearchOverlay({
           </button>
         </div>
 
-        {!mapFailed && (
-          <div className="px-4 pb-2">
-            <AmenitiesPill active={amenityMode} onClick={toggleAmenityMode} />
+        {(!mapFailed || !amenityMode) && (
+          <div className="px-4 pb-2 flex gap-2">
+            {!amenityMode && (
+              <MustVisitPill active={mustVisit} onClick={() => setMustVisit((v) => !v)} />
+            )}
+            {!mapFailed && <AmenitiesPill active={amenityMode} onClick={toggleAmenityMode} />}
           </div>
         )}
 

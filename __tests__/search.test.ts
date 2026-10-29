@@ -2,11 +2,16 @@ import { describe, it, expect } from 'vitest'
 import { matchesQuery, filterExhibits, matchRange, sortAmenities } from '@/lib/search'
 import type { CachedAmenity, MapExhibit } from '@/lib/types'
 
-const ex = (id: string, name: string, displayNumber: number | null = null): MapExhibit => ({
+const ex = (
+  id: string,
+  name: string,
+  displayNumber: number | null = null,
+  tier = 'silver'
+): MapExhibit => ({
   id,
   name,
   type: null,
-  tier: 'standard',
+  tier,
   gps_lat: 0,
   gps_lng: 0,
   qr_code: null,
@@ -70,6 +75,26 @@ describe('filterExhibits', () => {
   it('ignores null displayNumber when matching by number', () => {
     const mixed = [ex('1', 'Amla Grove', null), ex('2', 'Banyan Tree', 4)]
     expect(filterExhibits(mixed, '4').map((e) => e.id)).toEqual(['2'])
+  })
+
+  describe('mustVisit filter', () => {
+    const mixed = [
+      ex('1', 'Amla Grove', null, 'gold'),
+      ex('2', 'Banyan Tree', null, 'silver'),
+      ex('3', 'Lotus Pond', null, 'gold'),
+    ]
+
+    it('mustVisit=false returns all (default)', () => {
+      expect(filterExhibits(mixed, '').map((e) => e.id)).toEqual(['1', '2', '3'])
+    })
+
+    it('mustVisit=true returns only gold tier', () => {
+      expect(filterExhibits(mixed, '', true).map((e) => e.id)).toEqual(['1', '3'])
+    })
+
+    it('mustVisit compounds with text query', () => {
+      expect(filterExhibits(mixed, 'a', true).map((e) => e.id)).toEqual(['1'])
+    })
   })
 })
 
