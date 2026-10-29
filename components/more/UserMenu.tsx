@@ -56,6 +56,25 @@ function LogoutIcon() {
   )
 }
 
+function MailIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={21}
+      height={21}
+      stroke="currentColor"
+      strokeWidth={2.1}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  )
+}
+
 function UserIcon() {
   return (
     <svg
@@ -193,6 +212,26 @@ export default function UserMenu() {
                 Account
               </div>
               <ul>
+                <li>
+                  <a
+                    role="menuitem"
+                    href="mailto:experium@aikyatechnology.in?subject=Feedback%20%E2%80%93%20Experium%20Park%20Audio%20Tour"
+                    onClick={() => setOpen(false)}
+                    className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg no-underline`}
+                  >
+                    <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
+                      <MailIcon />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
+                        Send feedback
+                      </span>
+                      <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
+                        Share thoughts or report a problem
+                      </span>
+                    </span>
+                  </a>
+                </li>
                 <li>
                   <button
                     type="button"

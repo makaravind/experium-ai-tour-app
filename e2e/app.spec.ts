@@ -39,4 +39,17 @@ test.describe('Nature Audio Tour — smoke', () => {
     await page.getByRole('button', { name: 'Skip for now' }).click()
     await expect(page.getByText('Exhibit not found.')).toBeVisible({ timeout: 15_000 })
   })
+
+  test('more menu — send feedback link has correct mailto href', async ({ page }) => {
+    await mockPrecacheDataset(page)
+    await page.goto('/')
+    await passLoadingGate(page)
+    await page.getByRole('button', { name: 'Skip for now' }).click()
+    await page.getByRole('button', { name: 'More' }).click()
+    const link = page.getByRole('menuitem', { name: /send feedback/i })
+    await expect(link).toBeVisible()
+    const href = await link.getAttribute('href')
+    expect(href).toContain('mailto:experium@aikyatechnology.in')
+    expect(href).toContain('subject=Feedback')
+  })
 })
