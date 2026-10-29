@@ -41,6 +41,7 @@ export default function PreviewSheet({
   onNavigate,
   onClose,
   autoExpand,
+  autoPlay,
   scanSrc,
   onFirstPlay,
   onQuartile,
@@ -49,6 +50,7 @@ export default function PreviewSheet({
   exhibit: PreviewExhibit | null
   audio?: ExhibitAudio[]
   autoExpand?: boolean
+  autoPlay?: boolean
   scanSrc?: string | null
   onNavigate?: () => void
   onClose?: () => void
@@ -77,6 +79,8 @@ export default function PreviewSheet({
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadedSrc = useRef<string | null>(null)
   const fallbackRef = useRef<(reason: FallbackReason) => string | null>(() => null)
+  const autoPlayFiredRef = useRef<string | null>(null)
+  const listenRef = useRef<() => void>(() => {})
 
   const [showPopper, setShowPopper] = useState(false)
 
@@ -230,11 +234,19 @@ export default function PreviewSheet({
     onFirstPlay?.()
     morphTimer.current = setTimeout(() => setStarted(true), MORPH_DELAY)
   }
+  listenRef.current = listen // eslint-disable-line react-hooks/refs
 
   useEffect(() => {
     if (!autoExpand || !ready) return
     sheetRef.current?.expand()
   }, [ready, autoExpand])
+
+  useEffect(() => {
+    if (!autoPlay || !ready || !currentSrc || !exhibit?.id) return
+    if (autoPlayFiredRef.current === exhibit.id) return
+    autoPlayFiredRef.current = exhibit.id
+    listenRef.current()
+  }, [autoPlay, ready, currentSrc, exhibit?.id])  
 
   const togglePlay = () => {
     const el = audioRef.current
