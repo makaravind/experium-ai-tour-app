@@ -314,23 +314,111 @@
   background: linear-gradient(140deg, #6b2737, #a0394a 50%, #c97080);
 }
 
-/* Pulse ring for the DYK invite button */
-.dyk-ping-ring {
+/* DYK stack card base */
+.dyk-stk-c {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 6px 20px rgba(43, 43, 43, 0.18),
+    0 2px 4px rgba(43, 43, 43, 0.08);
+}
+
+/* DYK carousel card */
+.dyk-card {
+  width: 170px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow:
+    0 7px 24px rgba(43, 43, 43, 0.15),
+    0 2px 5px rgba(43, 43, 43, 0.07);
+  overflow: hidden;
+  cursor: pointer;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  transform: rotate(var(--dyk-rot, 0deg));
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.dyk-card:active {
+  transform: rotate(var(--dyk-rot, 0deg)) scale(0.97);
+}
+
+/* DYK dots */
+.dyk-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.dyk-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a3b18a;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+.dyk-dot.active {
+  background: #588157;
+  transform: scale(1.35);
+}
+
+/* DYK pulse zone */
+.dyk-pulse-zone {
+  position: absolute;
+  left: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* DYK pulse rings */
+.dyk-pulse-ring {
   position: absolute;
   inset: 0;
   border-radius: 50%;
   background: #588157;
-  animation: dyk-ping 1.4s ease-out infinite;
+  opacity: 0;
+  animation: dyk-ping 2.2s ease-out 3;
   pointer-events: none;
+}
+.dyk-pulse-ring:nth-child(2) {
+  animation-delay: 0.7s;
+}
+
+/* DYK pulse button */
+.dyk-pulse-btn {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #588157;
+  border: 2.5px solid #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: all;
+  box-shadow: 0 3px 12px rgba(88, 129, 87, 0.55);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.dyk-pulse-btn:active {
+  transform: scale(0.95);
 }
 
 @keyframes dyk-ping {
   0% {
-    opacity: 0.45;
-    transform: scale(1);
+    transform: scale(0.5);
+    opacity: 0.65;
   }
+  80%,
   100% {
+    transform: scale(2.4);
     opacity: 0;
-    transform: scale(1.7);
   }
 }

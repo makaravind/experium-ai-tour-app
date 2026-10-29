@@ -23,6 +23,14 @@ function colorClass(type: string | null): string {
   return 'dyk-c-plant'
 }
 
+function typeLabel(type: string | null): string {
+  if (type === 'water_body') return 'Water Body'
+  if (type === 'structure') return 'Structure'
+  if (type === 'landmark') return 'Landmark'
+  if (type === 'plant') return 'Plant'
+  return type ?? ''
+}
+
 function toPreview(ex: CachedExhibit): PreviewExhibit {
   return {
     id: ex.id,
@@ -33,6 +41,22 @@ function toPreview(ex: CachedExhibit): PreviewExhibit {
     facts: ex.facts,
     displayNumber: ex.displayNumber,
   }
+}
+
+const ROTATIONS = [-2.5, 1, -1.5]
+
+function LeafSvg({ size = 10 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      style={{ stroke: '#3f6b3a', fill: 'none', strokeWidth: 3 }}
+    >
+      <path d="M12 2C7 7 5 11 5 15a7 7 0 0 0 14 0c0-4-2-8-7-13Z" />
+    </svg>
+  )
 }
 
 export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewExhibit) => void }) {
@@ -60,79 +84,77 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
   const handleScroll = () => {
     const el = scrollRef.current
     if (!el) return
-    const itemWidth = 170 + 12
-    const idx = Math.round(el.scrollLeft / itemWidth)
+    const max = el.scrollWidth - el.clientWidth
+    const idx = max > 0 ? Math.round((el.scrollLeft / max) * (picks.length - 1)) : 0
     setActiveDot(Math.min(idx, picks.length - 1))
   }
 
   return (
     <div className="mt-5">
       {!expanded && (
-        <div style={{ marginLeft: -20 }}>
+        <div style={{ marginLeft: -16, position: 'relative', padding: '8px 0' }}>
           <div
             ref={stkRef}
             style={{
-              transform: 'translateX(-105px)',
-              transition: 'transform 0.42s cubic-bezier(0.34,1.56,0.64,1)',
+              width: 155,
               position: 'relative',
-              display: 'inline-block',
+              transform: 'translateX(-105px)',
+              transition: 'transform 0.46s cubic-bezier(0.34,1.45,0.64,1)',
             }}
           >
-            {/* back card */}
+            {/* back */}
             <div
-              className={colorClass(picks[0].exhibit.type)}
+              className={`dyk-stk-c ${colorClass(picks[0].exhibit.type)}`}
               style={{
                 position: 'absolute',
                 inset: 0,
-                borderRadius: 20,
-                transform: 'rotate(-4deg) translateX(-10px)',
+                transform: 'translateX(-9px) translateY(10px) rotate(2.5deg)',
+                zIndex: 1,
+                opacity: 0.76,
               }}
             />
-            {/* mid card */}
+            {/* mid */}
             <div
-              className={colorClass(picks[0].exhibit.type)}
+              className={`dyk-stk-c ${colorClass(picks[0].exhibit.type)}`}
               style={{
                 position: 'absolute',
                 inset: 0,
-                borderRadius: 20,
-                transform: 'rotate(-2deg) translateX(-5px)',
+                transform: 'translateX(-4px) translateY(5px) rotate(-1.5deg)',
+                zIndex: 2,
+                opacity: 0.9,
               }}
             />
-            {/* front card */}
+            {/* front — sets container height */}
             <div
-              className={colorClass(picks[0].exhibit.type)}
-              style={{
-                position: 'relative',
-                width: 170,
-                height: 200,
-                borderRadius: 20,
-                overflow: 'hidden',
-              }}
+              className={`dyk-stk-c ${colorClass(picks[0].exhibit.type)}`}
+              style={{ position: 'relative', transform: 'rotate(-2deg)', zIndex: 3 }}
             >
-              {/* top color area */}
-              <div style={{ height: 80 }} />
-              {/* content area */}
-              <div style={{ background: '#fff', padding: '10px 12px 14px' }}>
+              <div style={{ height: 80, width: '100%' }} />
+              <div style={{ background: '#fff', padding: '8px 10px 10px' }}>
                 <div
                   style={{
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: 800,
+                    letterSpacing: '0.08em',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: '#588157',
-                    marginBottom: 4,
+                    color: '#3f6b3a',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 3,
                   }}
                 >
+                  <LeafSvg size={9} />
                   Did you know?
                 </div>
                 <div
                   style={{
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    lineHeight: 1.4,
+                    fontSize: 11,
+                    fontWeight: 700,
                     color: '#2b2b2b',
+                    marginTop: 3,
+                    lineHeight: 1.35,
                     display: '-webkit-box',
-                    WebkitLineClamp: 3,
+                    WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
                   }}
@@ -141,153 +163,157 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
                 </div>
               </div>
             </div>
-            {/* pulse button */}
-            <div
-              style={{
-                position: 'absolute',
-                right: -16,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                zIndex: 10,
-              }}
+          </div>
+
+          {/* pulse zone — absolute relative to peek container */}
+          <div className="dyk-pulse-zone">
+            <div className="dyk-pulse-ring" />
+            <div className="dyk-pulse-ring" />
+            <button
+              className="dyk-pulse-btn"
+              onClick={handleReveal}
+              aria-label="Reveal Did You Know cards"
+              aria-expanded={false}
             >
-              <div style={{ position: 'relative', width: 36, height: 36 }}>
-                <div className="dyk-ping-ring" />
-                <button
-                  onClick={handleReveal}
-                  style={{
-                    position: 'relative',
-                    zIndex: 1,
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    background: '#588157',
-                    border: 'none',
-                    color: 'white',
-                    fontSize: 16,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                  }}
-                  aria-label="Reveal Did You Know cards"
-                >
-                  ✨
-                </button>
-              </div>
-            </div>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                style={{
+                  stroke: '#fff',
+                  fill: 'none',
+                  strokeWidth: 2.8,
+                  strokeLinecap: 'round',
+                  strokeLinejoin: 'round',
+                }}
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
           </div>
         </div>
       )}
+
       {expanded && (
-        <>
+        <div>
           <div
+            ref={scrollRef}
             style={{
-              fontSize: 11,
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              color: '#8a8a8a',
-              marginBottom: 10,
+              display: 'flex',
+              gap: 14,
+              overflowX: 'auto',
+              scrollSnapType: 'x mandatory',
+              padding: '8px 16px 24px',
+              margin: '0 -16px -14px',
+              scrollPaddingInline: 16,
             }}
+            className="no-scrollbar"
+            onScroll={handleScroll}
           >
-            Did you know?
-          </div>
-          <div style={{ marginLeft: -20, marginRight: -20 }}>
-            <div
-              ref={scrollRef}
-              style={{
-                display: 'flex',
-                overflowX: 'auto',
-                scrollSnapType: 'x mandatory',
-                gap: 12,
-                paddingLeft: 20,
-                paddingRight: 20,
-              }}
-              className="no-scrollbar"
-              onScroll={handleScroll}
-            >
-              {picks.map((pair, i) => (
-                <div key={i} style={{ scrollSnapAlign: 'center', flexShrink: 0 }}>
-                  <button
-                    onClick={() => onSelect(toPreview(pair.exhibit))}
-                    style={{
-                      width: 170,
-                      borderRadius: 20,
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      transform: `rotate(${i === 0 ? -2 : i === 2 ? 2 : 0}deg)`,
-                      overflow: 'hidden',
-                    }}
-                    className={colorClass(pair.exhibit.type)}
-                    aria-label={`Did you know: ${pair.fact.slice(0, 40)}`}
-                  >
-                    {/* top color area */}
-                    <div style={{ height: 80 }} />
-                    {/* content area */}
-                    <div
-                      style={{ background: '#fff', padding: '10px 12px 14px', textAlign: 'left' }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.06em',
-                          color: '#588157',
-                          marginBottom: 4,
-                        }}
-                      >
-                        Did you know?
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          lineHeight: 1.4,
-                          color: '#2b2b2b',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 3,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {pair.fact}
-                      </div>
-                    </div>
-                  </button>
+            {picks.map((pair, i) => (
+              <div
+                key={i}
+                style={{
+                  scrollSnapAlign: 'start',
+                  flex: '0 0 170px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                }}
+              >
+                <button
+                  onClick={() => onSelect(toPreview(pair.exhibit))}
+                  className="dyk-card"
+                  style={{ '--dyk-rot': `${ROTATIONS[i] ?? 0}deg` } as React.CSSProperties}
+                  aria-label={`${pair.exhibit.name}. Did you know? ${pair.fact.slice(0, 60)}`}
+                >
+                  {/* image area with type pill */}
                   <div
+                    className={colorClass(pair.exhibit.type)}
                     style={{
-                      textAlign: 'center',
-                      marginTop: 8,
-                      fontSize: 11.5,
-                      fontWeight: 700,
-                      color: '#8a8a8a',
+                      height: 90,
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      padding: 8,
                     }}
                   >
-                    {pair.exhibit.name}
+                    {pair.exhibit.type && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                          background: 'rgba(0,0,0,0.52)',
+                          color: '#fff',
+                          padding: '3px 8px',
+                          borderRadius: 99,
+                        }}
+                      >
+                        {typeLabel(pair.exhibit.type)}
+                      </span>
+                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-            {/* dot indicators */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 10 }}>
-              {picks.map((_, i) => (
+                  {/* card body */}
+                  <div style={{ padding: '10px 12px 13px', textAlign: 'left' }}>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color: '#3f6b3a',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3,
+                      }}
+                    >
+                      <LeafSvg />
+                      Did you know?
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: '#2b2b2b',
+                        marginTop: 5,
+                        lineHeight: 1.4,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {pair.fact}
+                    </div>
+                  </div>
+                </button>
                 <div
-                  key={i}
                   style={{
-                    width: activeDot === i ? 16 : 6,
-                    height: 6,
-                    borderRadius: 3,
-                    background: activeDot === i ? '#588157' : '#e8e5df',
-                    transition: 'width 0.2s, background 0.2s',
+                    textAlign: 'center',
+                    marginTop: 8,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: '#8a8a8a',
+                    maxWidth: 170,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
-                />
-              ))}
-            </div>
+                >
+                  {pair.exhibit.name}
+                </div>
+              </div>
+            ))}
           </div>
-        </>
+          <div className="dyk-dots">
+            {picks.map((_, i) => (
+              <div key={i} className={`dyk-dot${activeDot === i ? ' active' : ''}`} />
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )
