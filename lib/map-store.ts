@@ -46,6 +46,10 @@ interface MapStoreState {
     v: { exhibitId: string; prevTotal: number; newTotal: number } | null
   ) => void
   clearPendingDiscovery: () => void
+  panDrift: { x: number; y: number }
+  setPanDrift: (drift: { x: number; y: number }) => void
+  isDragging: boolean
+  setIsDragging: (v: boolean) => void
 }
 
 export const useMapStore = create<MapStoreState>((set, get) => ({
@@ -81,4 +85,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   pendingDiscovery: null,
   setPendingDiscovery: (v) => set({ pendingDiscovery: v }),
   clearPendingDiscovery: () => set({ pendingDiscovery: null }),
+  panDrift: { x: 0, y: 0 },
+  setPanDrift: (drift) => set({ panDrift: drift }),
+  isDragging: false,
+  setIsDragging: (v) => set({ isDragging: v }),
 }))
