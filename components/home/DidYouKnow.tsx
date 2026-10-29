@@ -37,10 +37,12 @@ function toPreview(ex: CachedExhibit): PreviewExhibit {
 
 // slot 0 = front, 1 = mid, 2 = back
 const SLOT_TRANSFORMS = [
-  'translateX(0px) translateY(0px) rotate(-2deg)',
-  'translateX(-7px) translateY(-7px) rotate(1.5deg)',
-  'translateX(-13px) translateY(-13px) rotate(-1deg)',
+  'translateX(0px) translateY(0px) scale(1) rotate(-2deg)',
+  'translateX(-7px) translateY(-7px) scale(0.94) rotate(1.5deg)',
+  'translateX(-13px) translateY(-13px) scale(0.87) rotate(-1deg)',
 ]
+// Stagger delays: departing front exits first (slot 2 = 0ms), new front arrives last (slot 0 = 70ms)
+const SLOT_CYCLE_DELAYS = ['70ms', '40ms', '0ms']
 const SLOT_Z = [3, 2, 1]
 const SLOT_OPACITY: number[] = [1, 0.92, 0.82]
 
@@ -190,9 +192,10 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
           <div style={{ position: 'relative', width: 196, height: 200, marginLeft: 8 }}>
             {picks.map((pair, i) => {
               const slot = (i - activeIdx + 3) % 3
-              // Keep the departing front card's z-index elevated for the full transition
-              // duration so it doesn't pop behind the incoming card mid-animation.
               const zIdx = cyclingFrom === i && slot !== 0 ? SLOT_Z[0] : SLOT_Z[slot]
+              const isCycling = cyclingFrom !== null
+              const delay = isCycling ? SLOT_CYCLE_DELAYS[slot] : '0ms'
+              const transition = `transform 0.22s cubic-bezier(0.2, 0, 0, 1) ${delay}, opacity 0.18s ease ${delay}`
               return (
                 <div
                   key={i}
@@ -203,7 +206,7 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
                     zIndex: zIdx,
                     opacity: SLOT_OPACITY[slot],
                     transform: SLOT_TRANSFORMS[slot],
-                    transition: 'transform 0.28s cubic-bezier(0.2, 0, 0, 1), opacity 0.22s ease',
+                    transition,
                   }}
                 >
                   <button
@@ -260,7 +263,7 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
                 const next = (activeIdx + 1) % picks.length
                 setCyclingFrom(activeIdx)
                 setActiveIdx(next)
-                setTimeout(() => setCyclingFrom(null), 300)
+                setTimeout(() => setCyclingFrom(null), 320)
               }}
               aria-label="Next card"
             >
