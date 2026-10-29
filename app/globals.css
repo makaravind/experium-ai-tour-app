@@ -299,3 +299,38 @@
   border: 7px solid transparent;
   border-top-color: var(--color-ex-forest);
 }
+
+/* Did You Know card type colors */
+.dyk-c-plant {
+  background: linear-gradient(140deg, #3a6b4a, #588157 45%, #7eb87e);
+}
+.dyk-c-water {
+  background: linear-gradient(140deg, #1a5276, #2980b9 55%, #76b4d8);
+}
+.dyk-c-structure {
+  background: linear-gradient(140deg, #7d6608, #b8860b 50%, #d4a843);
+}
+.dyk-c-landmark {
+  background: linear-gradient(140deg, #6b2737, #a0394a 50%, #c97080);
+}
+
+/* Pulse ring for the DYK invite button */
+.dyk-ping-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #588157;
+  animation: dyk-ping 1.4s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes dyk-ping {
+  0% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
