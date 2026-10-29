@@ -143,6 +143,15 @@ export function CheckIcon(props: IconProps) {
   )
 }
 
+export function InfoIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8h.01M12 12v5" />
+    </Stroke>
+  )
+}
+
 // ─── filled icons ─────────────────────────────────────────────────────────────
 
 export function PlayIcon({ size = 24, color = 'currentColor', className, style }: IconProps) {
