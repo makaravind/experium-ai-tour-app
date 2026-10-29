@@ -2,7 +2,7 @@ const EARTH_RADIUS_M = 6371000
 
 const PIN_TARGET_HEIGHT_M = 12
 const PIN_MIN_PX = 24
-const PIN_MAX_PX = 96
+const PIN_MAX_PX = 56
 
 /** Great-circle distance between two lat/lng points, in metres. */
 export function haversineMetres(
