@@ -182,6 +182,8 @@ type MarkerEntry = {
   aura: THREE.Mesh
   ripple: THREE.Mesh
   shadow: THREE.Mesh
+  anchor: THREE.Mesh
+  caret: THREE.Line
   discTextures: Record<TintKey, THREE.CanvasTexture>
   rippleStartMs: number
   prevTintKey: TintKey | null
@@ -203,6 +205,7 @@ export function createMarkerLayer(opts: {
   let auraGeometry: THREE.PlaneGeometry
   let auraTexture: THREE.CanvasTexture
   let rippleTexture: THREE.CanvasTexture
+  let anchorTexture: THREE.CanvasTexture
 
   const markers = new Map<string, MarkerEntry>()
   let activeId: string | null = null
@@ -253,13 +256,48 @@ export function createMarkerLayer(opts: {
     })
     const shadow = new THREE.Mesh(shadowGeometry, shadowMat)
 
+    const anchorMat = new THREE.MeshBasicMaterial({
+      map: anchorTexture,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const anchor = new THREE.Mesh(discGeometry, anchorMat)
+
+    const caretGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 0, 0),
+    ])
+    const caretMat = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const caret = new THREE.Line(caretGeometry, caretMat)
+
     pivot.add(shadow)
+    pivot.add(anchor)
+    pivot.add(caret)
     pivot.add(aura)
     pivot.add(ripple)
     pivot.add(disc)
     scene.add(pivot)
 
-    return { pivot, disc, aura, ripple, shadow, discTextures, rippleStartMs: -1, prevTintKey: null }
+    return {
+      pivot,
+      disc,
+      aura,
+      ripple,
+      shadow,
+      anchor,
+      caret,
+      discTextures,
+      rippleStartMs: -1,
+      prevTintKey: null,
+    }
   }
 
   function removeMarkerEntry(entry: MarkerEntry): void {
@@ -290,6 +328,7 @@ export function createMarkerLayer(opts: {
       auraGeometry = discGeometry
       auraTexture = makeAuraTexture()
       rippleTexture = makeRippleTexture()
+      anchorTexture = makeAnchorTexture()
 
       renderer.resetState()
     },
@@ -480,6 +519,7 @@ export function createMarkerLayer(opts: {
       discGeometry.dispose() // auraGeometry shares this instance
       auraTexture.dispose()
       rippleTexture.dispose()
+      anchorTexture.dispose()
 
       renderer.dispose()
     },
