@@ -93,8 +93,9 @@ export default function BottomSheet({
   useImperativeHandle(ref, () => ({ expand, collapse }))
 
   const handleClose = () => {
-    collapse()
-    setTimeout(() => onClose?.(), 300)
+    onCollapse?.()
+    setExpanded(false)
+    animate(y, fullH, { ...SHEET_SPRING, onComplete: () => onClose?.() })
   }
 
   return (
