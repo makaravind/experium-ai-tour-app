@@ -569,11 +569,10 @@ export default function ParkMap({
         map.flyTo({ center: STARTING_CENTER, zoom: STARTING_ZOOM })
       })
       useMapStore.getState().setRetryGpsTrigger(startWatcher)
-      map.on('dragstart', () => useMapStore.getState().setFollowMode('idle'))
-
       // Screen position of a fixed reference point; its per-tick delta is the pan in px at any zoom.
       let dragPrevPx = map.project(STARTING_CENTER)
       map.on('dragstart', () => {
+        useMapStore.getState().setFollowMode('idle')
         dragPrevPx = map.project(STARTING_CENTER)
         useMapStore.getState().setIsDragging(true)
       })
