@@ -160,6 +160,22 @@ function makeRippleTexture(): THREE.CanvasTexture {
   return tex
 }
 
+/** Shared white dot marking the exact geo-point while the marker drifts; tinted via material color. */
+function makeAnchorTexture(): THREE.CanvasTexture {
+  const s = 32
+  const c = s / 2
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = s
+  const ctx = cv.getContext('2d')!
+  ctx.fillStyle = 'rgba(255,255,255,1)'
+  ctx.beginPath()
+  ctx.arc(c, c, 13, 0, Math.PI * 2)
+  ctx.fill()
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
 type MarkerEntry = {
   pivot: THREE.Group
   disc: THREE.Mesh
