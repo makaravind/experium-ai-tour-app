@@ -42,9 +42,9 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [flyToTarget, setFlyToTarget] = useState<string | null>(null)
   const [navigateEnabled, setNavigateEnabled] = useState(false)
   const [mapFailed, setMapFailed] = useState(false)
-  const [mustTryActive, setMustTryActive] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchMode, setSearchMode] = useState<'exhibits' | 'amenities'>('exhibits')
+  const [openedViaMustTry, setOpenedViaMustTry] = useState(false)
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
   const audioEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const parkPathsRef = useRef<ParkPaths | null>(null)
@@ -231,6 +231,16 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     setSearchOpen(true)
   }
 
+  const handleOpenMustTry = () => {
+    if (isExhibitPage) {
+      setMapSelectedExhibit(null)
+      router.push('/map')
+    }
+    setSearchMode('exhibits')
+    setOpenedViaMustTry(true)
+    setSearchOpen(true)
+  }
+
   const handleSearchSelect = (exhibit: MapExhibit) => {
     useMapStore.getState().setActiveAmenityId(null)
     setSearchOpen(false)
@@ -260,7 +270,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           onPinTap={handlePinTap}
           onAmenityTap={handleAmenityTap}
           hideAmenities={isExhibitPage}
-          mustTryFilter={mustTryActive}
+
           flyToTarget={flyToTarget}
           onMapTap={handleMapTap}
           navigationPath={navigationPathCoords}
@@ -352,7 +362,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
 
       {!mapFailed && (
         <div className="absolute left-4 flex gap-2" style={{ top: 112, zIndex: 45 }}>
-          <MustVisitPill active={mustTryActive} onClick={() => setMustTryActive((v) => !v)} />
+          <MustVisitPill onClick={handleOpenMustTry} />
           <AmenitiesPill onClick={handleOpenAmenitySearch} />
         </div>
       )}
@@ -409,7 +419,11 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
             userPosition={userPosition}
             mapFailed={mapFailed}
             initialMode={searchMode}
-            onClose={() => setSearchOpen(false)}
+            initialMustVisit={openedViaMustTry}
+            onClose={() => {
+              setSearchOpen(false)
+              setOpenedViaMustTry(false)
+            }}
             onSelect={handleSearchSelect}
             onSelectAmenity={(amenity) => {
               setSearchOpen(false)

@@ -30,6 +30,7 @@ interface SearchOverlayProps {
   userPosition: { lat: number; lng: number } | null
   mapFailed: boolean
   initialMode: 'exhibits' | 'amenities'
+  initialMustVisit?: boolean
   onClose: () => void
   onSelect: (exhibit: MapExhibit) => void
   onSelectAmenity: (amenity: CachedAmenity) => void
@@ -55,13 +56,14 @@ export default function SearchOverlay({
   userPosition,
   mapFailed,
   initialMode,
+  initialMustVisit,
   onClose,
   onSelect,
   onSelectAmenity,
 }: SearchOverlayProps) {
   const [query, setQuery] = useState('')
   const [amenityMode, setAmenityMode] = useState(initialMode === 'amenities')
-  const [mustVisit, setMustVisit] = useState(false)
+  const [mustVisit, setMustVisit] = useState(initialMustVisit ?? false)
   // Rows stagger in on open and on mode switch only; rows that appear while typing mount in place
   const [animateIn, setAnimateIn] = useState(true)
   const isPresent = useIsPresent()
