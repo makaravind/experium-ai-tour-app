@@ -16,6 +16,8 @@ export type MarkerInput = {
 const RISE_DURATION_MS = 400
 const AURA_PERIOD_MS = 2600
 const RIPPLE_DURATION_MS = 480
+const DRIFT_DECAY = 0.82 // ~10 frames to settle
+const ANCHOR_SIZE_PX = 8
 
 type TintKey = 'unvisited' | 'visited' | 'coming_soon'
 
@@ -355,6 +357,22 @@ export function createMarkerLayer(opts: {
       const visitedIds = useStore.getState().visitedExhibits
       const forcedMarkerState = useDebugStore.getState().forcedMarkerState
 
+      // panDrift is screen px (y down) and already opposite to pan; decay it once released.
+      let driftX = mapState.panDrift.x
+      let driftY = mapState.panDrift.y
+      if (!mapState.isDragging && (driftX !== 0 || driftY !== 0)) {
+        driftX *= DRIFT_DECAY
+        driftY *= DRIFT_DECAY
+        if (Math.abs(driftX) < 0.5 && Math.abs(driftY) < 0.5) {
+          driftX = 0
+          driftY = 0
+        }
+        mapState.setPanDrift({ x: driftX, y: driftY })
+      }
+      // Scene y is up, screen y is down.
+      const sceneDriftY = -driftY
+      const isDrifted = Math.abs(driftX) > 2 || Math.abs(driftY) > 2
+
       const now = performance.now()
       // '__forced-active__' is a sentinel that never matches a real exhibit id, so the rise animation
       // triggers whenever forcedMarkerState switches to 'active' regardless of which exhibit is active.
@@ -435,7 +453,7 @@ export function createMarkerLayer(opts: {
           shadowOpacity = lerp(0.55, 0.25, riseT)
         }
 
-        entry.disc.position.set(0, riseOffsetPx, 0)
+        entry.disc.position.set(driftX, riseOffsetPx + sceneDriftY, 0)
         entry.shadow.scale.set(shadowDiameterPx, shadowDiameterPx * 0.32, 1)
         ;(entry.shadow.material as THREE.MeshBasicMaterial).opacity = shadowOpacity
 
@@ -445,7 +463,7 @@ export function createMarkerLayer(opts: {
             (Math.sin(((now % AURA_PERIOD_MS) / AURA_PERIOD_MS) * Math.PI * 2) + 1) / 2
           const auraScale = lerp(1, 1.14, auraFrac) * pinPx
           entry.aura.scale.set(auraScale, auraScale, 1)
-          entry.aura.position.set(0, riseOffsetPx, 0)
+          entry.aura.position.set(driftX, riseOffsetPx + sceneDriftY, 0)
           ;(entry.aura.material as THREE.MeshBasicMaterial).opacity = lerp(0.12, 0.38, auraFrac)
         } else {
           ;(entry.aura.material as THREE.MeshBasicMaterial).opacity = 0
@@ -457,10 +475,20 @@ export function createMarkerLayer(opts: {
           const t = rippleElapsed / RIPPLE_DURATION_MS
           const rs = lerp(1, 1.9, t) * pinPx
           entry.ripple.scale.set(rs, rs, 1)
-          entry.ripple.position.set(0, riseOffsetPx, 0)
+          entry.ripple.position.set(driftX, riseOffsetPx + sceneDriftY, 0)
           ;(entry.ripple.material as THREE.MeshBasicMaterial).opacity = lerp(0.6, 0, t)
         } else {
           ;(entry.ripple.material as THREE.MeshBasicMaterial).opacity = 0
+        }
+
+        // Geo-anchor dot + caret back to the coordinate while drifted
+        entry.anchor.scale.set(ANCHOR_SIZE_PX, ANCHOR_SIZE_PX, 1)
+        ;(entry.anchor.material as THREE.MeshBasicMaterial).opacity = isDrifted ? 1 : 0
+        ;(entry.caret.material as THREE.LineBasicMaterial).opacity = isDrifted ? 1 : 0
+        if (isDrifted) {
+          const caretPos = entry.caret.geometry.getAttribute('position') as THREE.BufferAttribute
+          caretPos.setXYZ(1, driftX, sceneDriftY, 0)
+          caretPos.needsUpdate = true
         }
 
         placed.push({ entry, screenY: projected.y, isActive })
