@@ -327,6 +327,7 @@
 /* DYK stacked card */
 .dyk-card {
   width: 170px;
+  height: 186px;
   background: #fff;
   border-radius: 18px;
   box-shadow:
