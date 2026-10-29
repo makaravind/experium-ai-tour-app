@@ -53,14 +53,14 @@ describe('DidYouKnow', () => {
     expect(screen.getByRole('button', { name: /Reveal Did You Know cards/i })).toBeTruthy()
   })
 
-  it('onSelect is called with correct exhibit when card tapped in carousel', async () => {
+  it('onSelect is called with correct exhibit when card tapped in stack', async () => {
     const exhibit = makeExhibit({ id: 'ex-42', name: 'Lotus Pond', type: 'water_body' })
     useStore.setState({ cachedExhibits: [exhibit] })
     const onSelect = vi.fn()
     render(createElement(DidYouKnow, { onSelect }))
 
     fireEvent.click(screen.getByRole('button', { name: /Reveal Did You Know cards/i }))
-    const card = await screen.findByRole('button', { name: /Did you know:/i }, { timeout: 600 })
+    const card = await screen.findByRole('button', { name: /Did you know\?/i }, { timeout: 600 })
     fireEvent.click(card)
 
     expect(onSelect).toHaveBeenCalledOnce()
@@ -79,7 +79,11 @@ describe('DidYouKnow', () => {
     render(createElement(DidYouKnow, { onSelect: vi.fn() }))
 
     fireEvent.click(screen.getByRole('button', { name: /Reveal Did You Know cards/i }))
-    const cards = await screen.findAllByRole('button', { name: /Did you know:/i }, { timeout: 600 })
+    const cards = await screen.findAllByRole(
+      'button',
+      { name: /Did you know\?/i },
+      { timeout: 600 }
+    )
     expect(cards.length).toBe(2)
   })
 })
