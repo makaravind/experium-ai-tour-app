@@ -64,7 +64,6 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
   const [activeIdx, setActiveIdx] = useState(0)
   const stkRef = useRef<HTMLDivElement>(null)
 
-   
   const picks = useMemo(() => {
     const pool: FactPair[] = cachedExhibits.flatMap((ex) =>
       ex.facts.map((f) => ({ fact: f.fact, exhibit: ex }))
@@ -205,14 +204,8 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
                 >
                   <button
                     className="dyk-card"
-                    onClick={() =>
-                      slot === 0 ? onSelect(toPreview(pair.exhibit)) : setActiveIdx(i)
-                    }
-                    aria-label={
-                      slot === 0
-                        ? `${pair.exhibit.name}. Did you know? ${pair.fact.slice(0, 60)}`
-                        : `Show card about ${pair.exhibit.name}`
-                    }
+                    onClick={() => onSelect(toPreview(pair.exhibit))}
+                    aria-label={`${pair.exhibit.name}. Did you know? ${pair.fact.slice(0, 60)}`}
                   >
                     <div
                       className={colorClass(pair.exhibit.type)}
@@ -258,17 +251,57 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
           <div
             style={{
               marginLeft: 8,
-              marginTop: 6,
-              fontSize: 12,
-              fontWeight: 700,
-              color: '#8a8a8a',
-              maxWidth: 170,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
+              marginTop: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              maxWidth: 196,
             }}
           >
-            {picks[activeIdx].exhibit.name}
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: '#8a8a8a',
+                flex: 1,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {picks[activeIdx].exhibit.name}
+            </div>
+            <button
+              onClick={() => setActiveIdx((activeIdx + 1) % picks.length)}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                background: '#f0ede7',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'grid',
+                placeItems: 'center',
+                flexShrink: 0,
+              }}
+              aria-label="Next card"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                style={{
+                  stroke: '#588157',
+                  fill: 'none',
+                  strokeWidth: 2.5,
+                  strokeLinecap: 'round',
+                  strokeLinejoin: 'round',
+                }}
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
           </div>
         </div>
       )}
