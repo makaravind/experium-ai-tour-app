@@ -50,7 +50,7 @@ export function metresPerPixel(zoom: number, lat: number): number {
   return (78271.517 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom
 }
 
-/** On-screen pin height for a world-anchored 12 m target, clamped to 24–96 px. */
+/** On-screen pin height for a world-anchored 12 m target, clamped to 24–56 px. */
 export function pinPixelHeight(zoom: number, lat: number): number {
   const px = PIN_TARGET_HEIGHT_M / metresPerPixel(zoom, lat)
   return Math.min(Math.max(px, PIN_MIN_PX), PIN_MAX_PX)
