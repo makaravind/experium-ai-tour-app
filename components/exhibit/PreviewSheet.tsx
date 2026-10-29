@@ -140,7 +140,10 @@ export default function PreviewSheet({
     if (el.error) el.load()
     el.play().catch((err) => {
       // AbortError: src swapped mid-start. Other failures surface via the `error` event.
-      if (err?.name === 'NotAllowedError') stopPlayback()
+      if (err?.name === 'NotAllowedError') {
+        stopPlayback()
+        showToast('Tap play to start audio')
+      }
     })
   }
 
@@ -236,7 +239,7 @@ export default function PreviewSheet({
   useEffect(() => {
     if (!autoExpand || !ready) return
     sheetRef.current?.expand()
-  }, [ready, autoExpand])  
+  }, [ready, autoExpand])
 
   const togglePlay = () => {
     const el = audioRef.current
