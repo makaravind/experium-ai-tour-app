@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
 import type { CachedExhibit, PreviewExhibit } from '@/lib/types'
 
@@ -66,13 +66,25 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
   const [activeIdx, setActiveIdx] = useState(0)
   const [cyclingFrom, setCyclingFrom] = useState<number | null>(null)
   const stkRef = useRef<HTMLDivElement>(null)
+  const expandedRef = useRef<HTMLDivElement>(null)
 
   const picks = useMemo(() => {
     const pool: FactPair[] = cachedExhibits.flatMap((ex) =>
       ex.facts.map((f) => ({ fact: f.fact, exhibit: ex }))
     )
     return pickRandom(pool, 3)
-  }, [])
+  }, [cachedExhibits])
+
+  useEffect(() => {
+    if (!expanded) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (expandedRef.current && !expandedRef.current.contains(e.target as Node)) {
+        setExpanded(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [expanded])
 
   if (picks.length === 0) return null
 
@@ -188,7 +200,7 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
       )}
 
       {expanded && (
-        <div style={{ position: 'relative' }}>
+        <div ref={expandedRef} style={{ position: 'relative' }}>
           <div style={{ position: 'relative', width: 196, height: 200, marginLeft: 8 }}>
             {picks.map((pair, i) => {
               const slot = (i - activeIdx + 3) % 3
