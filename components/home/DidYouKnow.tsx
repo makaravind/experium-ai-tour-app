@@ -272,22 +272,6 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
               </svg>
             </button>
           </div>
-
-          <div
-            style={{
-              marginLeft: 8,
-              marginTop: 8,
-              fontSize: 12,
-              fontWeight: 700,
-              color: '#8a8a8a',
-              maxWidth: 196,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {picks[activeIdx].exhibit.name}
-          </div>
         </div>
       )}
     </div>
