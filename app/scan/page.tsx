@@ -11,6 +11,7 @@ import jsQR from 'jsqr'
  * plate through the in-app camera counts the same as the OS camera app.
  */
 import { extractExhibitScan } from '@/lib/scan-utils'
+import { track } from '@vercel/analytics'
 
 export default function ScanPage() {
   const router = useRouter()
@@ -53,6 +54,7 @@ export default function ScanPage() {
           redirectedRef.current = true
           setOpening(true)
           stopCamera()
+          track('qr_scan', { exhibit: scan.code, source: scan.scansrc ?? 'camera' })
           router.replace(`/s/${scan.code}?scansrc=${scan.scansrc ?? 'camera'}`)
           return
         } else if (!scan) {

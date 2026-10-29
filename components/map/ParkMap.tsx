@@ -13,6 +13,7 @@ import { toMapExhibits } from '@/lib/map-exhibits'
 import { classifyGeoError, lerpPosition, type LatLng } from '@/lib/gps'
 import { nearestWithin, pinPixelHeight } from '@/lib/nearby'
 import { AmenityTypeIcon } from '@/components/icons'
+import { track } from '@vercel/analytics'
 import type { CachedAmenity, ExhibitStatus, MapExhibit } from '@/lib/types'
 
 interface ParkMapProps {
@@ -570,7 +571,10 @@ export default function ParkMap({
         const feature = e.features?.[0]
         if (!feature) return
         const exhibit = exhibitsRef.current.find((ex) => ex.id === feature.properties?.id)
-        if (exhibit) onPinTapRef.current(exhibit)
+        if (exhibit) {
+          track('map_marker_click', { exhibit: exhibit.name, id: exhibit.id })
+          onPinTapRef.current(exhibit)
+        }
       })
 
       map.on('click', (e) => {

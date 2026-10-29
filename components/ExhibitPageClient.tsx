@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
 import { enqueueScan } from '@/lib/scan-queue'
 import type { ExhibitAudio, ExhibitData, PreviewExhibit } from '@/lib/types'
+import { track } from '@vercel/analytics'
 
 export default function ExhibitPageClient({
   exhibitId,
@@ -57,6 +58,7 @@ export default function ExhibitPageClient({
 
   const handleFirstPlay = useCallback(() => {
     setListenedCurrentExhibit(true)
+    track('playback_start', { exhibit: qrCode })
     enqueueScan(qrCode, {
       listened: true,
       ...(scanSrc ? { scan_src: scanSrc } : {}),
@@ -67,6 +69,7 @@ export default function ExhibitPageClient({
 
   const handleQuartile = useCallback(
     (sec: number, quartile: number) => {
+      track('playback_progress', { exhibit: qrCode, quartile })
       enqueueScan(qrCode, {
         listened: true,
         listen_duration_sec: sec,

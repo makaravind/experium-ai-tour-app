@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import DebugPanel from '@/components/DebugPanel'
+import ErrorTracker from '@/components/ErrorTracker'
 import AppGate from '@/components/onboarding/AppGate'
 import ScanQueueSync from '@/components/ScanQueueSync'
 import { SerwistProvider } from '@serwist/next/react'
@@ -34,6 +35,7 @@ export default function RootLayout({
           <AppGate>{children}</AppGate>
         </SerwistProvider>
         <Analytics />
+        <ErrorTracker />
         {process.env.NEXT_PUBLIC_DEBUG_ENABLED === 'true' && <DebugPanel />}
       </body>
     </html>
