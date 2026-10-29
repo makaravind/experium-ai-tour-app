@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     p_listen_duration_sec: listen_duration_sec ?? 0,
     p_listen_quartile: listen_quartile ?? null,
     p_played_at: playedAt,
+    p_scan_src: scan_src ?? null,
   })
 
   if (playbackErr) {
