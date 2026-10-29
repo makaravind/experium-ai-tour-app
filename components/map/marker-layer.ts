@@ -16,6 +16,8 @@ export type MarkerInput = {
 const RISE_DURATION_MS = 400
 const AURA_PERIOD_MS = 2600
 const RIPPLE_DURATION_MS = 480
+const DRIFT_DECAY = 0.82 // ~10 frames to settle
+const ANCHOR_SIZE_PX = 8
 
 type TintKey = 'unvisited' | 'visited' | 'coming_soon'
 
@@ -160,12 +162,30 @@ function makeRippleTexture(): THREE.CanvasTexture {
   return tex
 }
 
+/** Shared white dot marking the exact geo-point while the marker drifts; tinted via material color. */
+function makeAnchorTexture(): THREE.CanvasTexture {
+  const s = 32
+  const c = s / 2
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = s
+  const ctx = cv.getContext('2d')!
+  ctx.fillStyle = '#fff'
+  ctx.beginPath()
+  ctx.arc(c, c, 13, 0, Math.PI * 2)
+  ctx.fill()
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
 type MarkerEntry = {
   pivot: THREE.Group
   disc: THREE.Mesh
   aura: THREE.Mesh
   ripple: THREE.Mesh
   shadow: THREE.Mesh
+  anchor: THREE.Mesh
+  caret: THREE.Line
   discTextures: Record<TintKey, THREE.CanvasTexture>
   rippleStartMs: number
   prevTintKey: TintKey | null
@@ -187,6 +207,7 @@ export function createMarkerLayer(opts: {
   let auraGeometry: THREE.PlaneGeometry
   let auraTexture: THREE.CanvasTexture
   let rippleTexture: THREE.CanvasTexture
+  let anchorTexture: THREE.CanvasTexture
 
   const markers = new Map<string, MarkerEntry>()
   let activeId: string | null = null
@@ -237,13 +258,48 @@ export function createMarkerLayer(opts: {
     })
     const shadow = new THREE.Mesh(shadowGeometry, shadowMat)
 
+    const anchorMat = new THREE.MeshBasicMaterial({
+      map: anchorTexture,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const anchor = new THREE.Mesh(discGeometry, anchorMat)
+
+    const caretGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 0, 0),
+    ])
+    const caretMat = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const caret = new THREE.Line(caretGeometry, caretMat)
+
     pivot.add(shadow)
+    pivot.add(anchor)
+    pivot.add(caret)
     pivot.add(aura)
     pivot.add(ripple)
     pivot.add(disc)
     scene.add(pivot)
 
-    return { pivot, disc, aura, ripple, shadow, discTextures, rippleStartMs: -1, prevTintKey: null }
+    return {
+      pivot,
+      disc,
+      aura,
+      ripple,
+      shadow,
+      anchor,
+      caret,
+      discTextures,
+      rippleStartMs: -1,
+      prevTintKey: null,
+    }
   }
 
   function removeMarkerEntry(entry: MarkerEntry): void {
@@ -252,6 +308,9 @@ export function createMarkerLayer(opts: {
     ;(entry.aura.material as THREE.MeshBasicMaterial).dispose()
     ;(entry.ripple.material as THREE.MeshBasicMaterial).dispose()
     ;(entry.shadow.material as THREE.MeshBasicMaterial).dispose()
+    ;(entry.anchor.material as THREE.MeshBasicMaterial).dispose()
+    entry.caret.geometry.dispose()
+    ;(entry.caret.material as THREE.LineBasicMaterial).dispose()
     for (const tex of Object.values(entry.discTextures)) tex.dispose()
   }
 
@@ -274,6 +333,7 @@ export function createMarkerLayer(opts: {
       auraGeometry = discGeometry
       auraTexture = makeAuraTexture()
       rippleTexture = makeRippleTexture()
+      anchorTexture = makeAnchorTexture()
 
       renderer.resetState()
     },
@@ -299,6 +359,20 @@ export function createMarkerLayer(opts: {
       const nearbyExhibitIds = mapState.nearbyExhibitIds
       const visitedIds = useStore.getState().visitedExhibits
       const forcedMarkerState = useDebugStore.getState().forcedMarkerState
+
+      // panDrift is screen px (y down) and already opposite to pan; decay it once released.
+      let driftX = mapState.panDrift.x
+      let driftY = mapState.panDrift.y
+      if (!mapState.isDragging && (driftX !== 0 || driftY !== 0)) {
+        driftX *= DRIFT_DECAY
+        driftY *= DRIFT_DECAY
+        if (Math.abs(driftX) < 0.5) driftX = 0
+        if (Math.abs(driftY) < 0.5) driftY = 0
+        mapState.setPanDrift({ x: driftX, y: driftY })
+      }
+      // Scene y is up, screen y is down.
+      const sceneDriftY = -driftY
+      const isDrifted = Math.abs(driftX) > 2 || Math.abs(driftY) > 2
 
       const now = performance.now()
       // '__forced-active__' is a sentinel that never matches a real exhibit id, so the rise animation
@@ -380,7 +454,7 @@ export function createMarkerLayer(opts: {
           shadowOpacity = lerp(0.55, 0.25, riseT)
         }
 
-        entry.disc.position.set(0, riseOffsetPx, 0)
+        entry.disc.position.set(driftX, riseOffsetPx + sceneDriftY, 0)
         entry.shadow.scale.set(shadowDiameterPx, shadowDiameterPx * 0.32, 1)
         ;(entry.shadow.material as THREE.MeshBasicMaterial).opacity = shadowOpacity
 
@@ -390,7 +464,7 @@ export function createMarkerLayer(opts: {
             (Math.sin(((now % AURA_PERIOD_MS) / AURA_PERIOD_MS) * Math.PI * 2) + 1) / 2
           const auraScale = lerp(1, 1.14, auraFrac) * pinPx
           entry.aura.scale.set(auraScale, auraScale, 1)
-          entry.aura.position.set(0, riseOffsetPx, 0)
+          entry.aura.position.set(driftX, riseOffsetPx + sceneDriftY, 0)
           ;(entry.aura.material as THREE.MeshBasicMaterial).opacity = lerp(0.12, 0.38, auraFrac)
         } else {
           ;(entry.aura.material as THREE.MeshBasicMaterial).opacity = 0
@@ -402,10 +476,20 @@ export function createMarkerLayer(opts: {
           const t = rippleElapsed / RIPPLE_DURATION_MS
           const rs = lerp(1, 1.9, t) * pinPx
           entry.ripple.scale.set(rs, rs, 1)
-          entry.ripple.position.set(0, riseOffsetPx, 0)
+          entry.ripple.position.set(driftX, riseOffsetPx + sceneDriftY, 0)
           ;(entry.ripple.material as THREE.MeshBasicMaterial).opacity = lerp(0.6, 0, t)
         } else {
           ;(entry.ripple.material as THREE.MeshBasicMaterial).opacity = 0
+        }
+
+        // Geo-anchor dot + caret back to the coordinate while drifted
+        entry.anchor.scale.set(ANCHOR_SIZE_PX, ANCHOR_SIZE_PX, 1)
+        ;(entry.anchor.material as THREE.MeshBasicMaterial).opacity = isDrifted ? 1 : 0
+        ;(entry.caret.material as THREE.LineBasicMaterial).opacity = isDrifted ? 1 : 0
+        if (isDrifted) {
+          const caretPos = entry.caret.geometry.getAttribute('position') as THREE.BufferAttribute
+          caretPos.setXYZ(1, driftX, sceneDriftY, 0)
+          caretPos.needsUpdate = true
         }
 
         placed.push({ entry, screenY: projected.y, isActive })
@@ -464,6 +548,7 @@ export function createMarkerLayer(opts: {
       discGeometry.dispose() // auraGeometry shares this instance
       auraTexture.dispose()
       rippleTexture.dispose()
+      anchorTexture.dispose()
 
       renderer.dispose()
     },

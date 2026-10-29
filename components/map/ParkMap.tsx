@@ -39,7 +39,11 @@ const STARTING_CENTER: [number, number] = [
   (ORTHO_BOUNDS[0] + ORTHO_BOUNDS[2]) / 2,
   (ORTHO_BOUNDS[1] + ORTHO_BOUNDS[3]) / 2,
 ]
-const STARTING_ZOOM = 19.5
+const STARTING_ZOOM = 18.5
+const DRIFT_FACTOR = 0.28
+const DRIFT_MAX = 42
+const DRIFT_MIN_ZOOM = 18.5
+const clampDrift = (v: number) => Math.max(-DRIFT_MAX, Math.min(DRIFT_MAX, v))
 const POSITION_UNAVAILABLE = 2
 const MOCK_WALK_MS = 5000
 const MOCK_ACCURACY_M = 15
@@ -565,7 +569,25 @@ export default function ParkMap({
         map.flyTo({ center: STARTING_CENTER, zoom: STARTING_ZOOM })
       })
       useMapStore.getState().setRetryGpsTrigger(startWatcher)
-      map.on('dragstart', () => useMapStore.getState().setFollowMode('idle'))
+      // Screen position of a fixed reference point; its per-tick delta is the pan in px at any zoom.
+      let dragPrevPx = map.project(STARTING_CENTER)
+      map.on('dragstart', () => {
+        useMapStore.getState().setFollowMode('idle')
+        dragPrevPx = map.project(STARTING_CENTER)
+        useMapStore.getState().setIsDragging(true)
+      })
+      map.on('drag', () => {
+        const currPx = map.project(STARTING_CENTER)
+        if (map.getZoom() > DRIFT_MIN_ZOOM) {
+          const { panDrift, setPanDrift } = useMapStore.getState()
+          setPanDrift({
+            x: clampDrift(panDrift.x - (currPx.x - dragPrevPx.x) * DRIFT_FACTOR),
+            y: clampDrift(panDrift.y - (currPx.y - dragPrevPx.y) * DRIFT_FACTOR),
+          })
+        }
+        dragPrevPx = currPx
+      })
+      map.on('dragend', () => useMapStore.getState().setIsDragging(false))
 
       map.on('click', 'exhibit-pins', (e) => {
         const feature = e.features?.[0]

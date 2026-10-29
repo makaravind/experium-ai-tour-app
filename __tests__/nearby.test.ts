@@ -64,7 +64,7 @@ describe('pinPixelHeight', () => {
     expect(pinPixelHeight(14, PARK_LAT)).toBe(24)
   })
 
-  it('clamps to 96 px at zoom 22', () => {
-    expect(pinPixelHeight(22, PARK_LAT)).toBe(96)
+  it('clamps to 56 px at zoom 22', () => {
+    expect(pinPixelHeight(22, PARK_LAT)).toBe(56)
   })
 })
