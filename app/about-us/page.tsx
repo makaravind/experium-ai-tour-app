@@ -65,6 +65,9 @@ export default function AboutUsPage() {
           >
             Get in touch
           </div>
+          <p className="text-[13px] text-ex-muted leading-relaxed">
+            For enquiries or ad placements, reach out to us:
+          </p>
           <a
             href="mailto:experium@aikyatechnology.in"
             className="flex items-center gap-3 no-underline"
