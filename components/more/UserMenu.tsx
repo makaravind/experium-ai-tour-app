@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useSyncExternalStore } from 'react'
+import { useRouter } from 'next/navigation'
 import { AnimatePresence, animate, motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
 
@@ -94,12 +95,33 @@ function UserIcon() {
   )
 }
 
+function InfoIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={21}
+      height={21}
+      stroke="currentColor"
+      strokeWidth={2.1}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  )
+}
+
 const ROW =
   'flex items-center gap-3.5 w-[calc(100%-16px)] mx-2 px-3 py-2.5 min-h-[64px] rounded-2xl text-left border-none bg-transparent'
 
 const ICON_BASE = 'shrink-0 w-[42px] h-[42px] rounded-[13px] grid place-items-center'
 
 export default function UserMenu() {
+  const router = useRouter()
   const open = useStore((s) => s.moreMenuOpen)
   const setOpen = useStore((s) => s.setMoreMenuOpen)
   const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
@@ -204,6 +226,35 @@ export default function UserMenu() {
                         Offline
                       </span>
                     )}
+                  </button>
+                </li>
+              </ul>
+
+              <div className="px-5 pt-3.5 pb-1 text-[11px] font-extrabold tracking-[0.08em] uppercase text-ex-muted">
+                App
+              </div>
+              <ul>
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false)
+                      router.push('/about-us')
+                    }}
+                    className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg`}
+                  >
+                    <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
+                      <InfoIcon />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
+                        About us
+                      </span>
+                      <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
+                        The team behind this audio tour
+                      </span>
+                    </span>
                   </button>
                 </li>
               </ul>
