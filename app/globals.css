@@ -268,3 +268,34 @@
     opacity: 0;
   }
 }
+
+.listen-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: var(--color-ex-forest);
+  animation: listen-ring 1.2s ease-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes listen-ring {
+  0% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
+.listen-popper-caret::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-top-color: var(--color-ex-forest);
+}

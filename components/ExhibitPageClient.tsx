@@ -99,6 +99,7 @@ export default function ExhibitPageClient({
     setExhibitPageData({
       exhibit: previewExhibit,
       audio,
+      scanSrc,
       onFirstPlay: () => handleFirstPlayRef.current(),
       onQuartile: (sec, q) => handleQuartileRef.current(sec, q),
     })

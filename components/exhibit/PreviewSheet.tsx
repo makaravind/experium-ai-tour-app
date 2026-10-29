@@ -41,6 +41,7 @@ export default function PreviewSheet({
   onNavigate,
   onClose,
   autoExpand,
+  scanSrc,
   onFirstPlay,
   onQuartile,
   onAudioEnded,
@@ -48,6 +49,7 @@ export default function PreviewSheet({
   exhibit: PreviewExhibit | null
   audio?: ExhibitAudio[]
   autoExpand?: boolean
+  scanSrc?: string | null
   onNavigate?: () => void
   onClose?: () => void
   onFirstPlay?: () => void
@@ -75,6 +77,15 @@ export default function PreviewSheet({
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadedSrc = useRef<string | null>(null)
   const fallbackRef = useRef<(reason: FallbackReason) => string | null>(() => null)
+
+  const [showPopper, setShowPopper] = useState(false)
+
+  useEffect(() => {
+    if (!scanSrc || scanSrc === 'unknown') return
+    if (sessionStorage.getItem('qr-popper-shown')) return
+    setShowPopper(true) // eslint-disable-line react-hooks/set-state-in-effect
+    sessionStorage.setItem('qr-popper-shown', '1')
+  }, [scanSrc])
 
   const currentSrc = audio.find((a) => a.language === language)?.audio_url ?? null
   const hasAudio = audio.length > 0
@@ -195,6 +206,7 @@ export default function PreviewSheet({
   }, [currentSrc]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const listen = () => {
+    if (showPopper) setShowPopper(false)
     if (!hasAudio) {
       if (exhibit?.qr_code) router.push(`/s/${exhibit.qr_code}?scansrc=app`)
       return
@@ -443,33 +455,64 @@ export default function PreviewSheet({
                 </div>
               ) : (
                 <div className={`mt-4 ${onNavigate ? 'flex gap-3' : ''}`}>
-                  <motion.button
-                    onClick={listen}
-                    whileTap={{ scale: 0.98 }}
-                    animate={
-                      popping
-                        ? {
-                            scale: [1, 1.18, 0],
-                            opacity: [1, 1, 0],
-                            filter: ['brightness(1)', 'brightness(1.35)', 'brightness(1)'],
-                          }
-                        : { scale: 1, opacity: 1, filter: 'brightness(1)' }
-                    }
-                    transition={
-                      popping
-                        ? {
-                            duration: MORPH_DELAY / 1000,
-                            times: [0, 0.4, 1],
-                            ease: ['easeOut', 'easeIn'],
-                          }
-                        : SPRING
-                    }
-                    className={`btn-3d-green h-14 rounded-2xl font-extrabold text-base flex items-center justify-center gap-2 bg-ex-forest text-white ${onNavigate ? 'flex-1' : 'w-full'}`}
-                    style={{ border: 'none' }}
-                  >
-                    <PlayIcon size={20} />
-                    Listen{hasAudio ? durationLabel : ''}
-                  </motion.button>
+                  <div className={`relative ${onNavigate ? 'flex-1' : 'w-full'}`}>
+                    <AnimatePresence>
+                      {showPopper && (
+                        <motion.div
+                          key="qr-popper"
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 6 }}
+                          transition={{ duration: 0.2 }}
+                          className="listen-popper-caret absolute bg-ex-forest text-white rounded-xl text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
+                          style={{
+                            bottom: 'calc(100% + 12px)',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 10,
+                            padding: '9px 14px 10px',
+                          }}
+                        >
+                          🎧 Tap play to hear the story
+                          <button
+                            onClick={() => setShowPopper(false)}
+                            className="ml-1 bg-transparent border-0 cursor-pointer p-0 text-lg leading-none text-white/70"
+                            aria-label="Dismiss"
+                          >
+                            ×
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    {showPopper && <div className="listen-pulse-ring" />}
+                    <motion.button
+                      onClick={listen}
+                      whileTap={{ scale: 0.98 }}
+                      animate={
+                        popping
+                          ? {
+                              scale: [1, 1.18, 0],
+                              opacity: [1, 1, 0],
+                              filter: ['brightness(1)', 'brightness(1.35)', 'brightness(1)'],
+                            }
+                          : { scale: 1, opacity: 1, filter: 'brightness(1)' }
+                      }
+                      transition={
+                        popping
+                          ? {
+                              duration: MORPH_DELAY / 1000,
+                              times: [0, 0.4, 1],
+                              ease: ['easeOut', 'easeIn'],
+                            }
+                          : SPRING
+                      }
+                      className="btn-3d-green h-14 rounded-2xl font-extrabold text-base flex items-center justify-center gap-2 bg-ex-forest text-white w-full"
+                      style={{ border: 'none', position: 'relative', zIndex: 1 }}
+                    >
+                      <PlayIcon size={20} />
+                      Listen{hasAudio ? durationLabel : ''}
+                    </motion.button>
+                  </div>
                   {onNavigate && (
                     <button
                       onClick={onNavigate}

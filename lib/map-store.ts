@@ -4,6 +4,7 @@ import type { ExhibitAudio, PreviewExhibit } from './types'
 interface ExhibitPageData {
   exhibit: PreviewExhibit
   audio: ExhibitAudio[]
+  scanSrc?: string | null
   onFirstPlay: () => void
   onQuartile: (sec: number, quartile: number) => void
 }
