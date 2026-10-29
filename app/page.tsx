@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 
 import ExploreParkLink from '@/components/exhibit/ExploreParkLink'
@@ -8,14 +9,18 @@ import TabBar from '@/components/exhibit/TabBar'
 import UserMenu from '@/components/more/UserMenu'
 import TrailCard from '@/components/exhibit/TrailCard'
 import InfoModal from '@/components/onboarding/InfoModal'
+import PreviewSheet from '@/components/exhibit/PreviewSheet'
+import DidYouKnow from '@/components/home/DidYouKnow'
 import { LeafIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
+import type { PreviewExhibit } from '@/lib/types'
 
 export default function Home() {
   const totalDiscovered = useStore((s) => s.totalDiscovered)
   const userInfo = useStore((s) => s.userInfo)
   const profileModalOpen = useStore((s) => s.profileModalOpen)
   const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
+  const [selectedDykExhibit, setSelectedDykExhibit] = useState<PreviewExhibit | null>(null)
 
   const isFresh = totalDiscovered === 0
 
@@ -50,6 +55,8 @@ export default function Home() {
           </Link>
         </div>
 
+        <DidYouKnow onSelect={setSelectedDykExhibit} />
+
         <div className="flex-1" />
 
         <ScanNowButton />
@@ -67,6 +74,14 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {selectedDykExhibit && (
+        <PreviewSheet
+          exhibit={selectedDykExhibit}
+          audio={[]}
+          onClose={() => setSelectedDykExhibit(null)}
+        />
+      )}
 
       <TabBar />
       <UserMenu />
