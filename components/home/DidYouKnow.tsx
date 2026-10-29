@@ -62,6 +62,7 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const [expanded, setExpanded] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
+  const [cyclingFrom, setCyclingFrom] = useState<number | null>(null)
   const stkRef = useRef<HTMLDivElement>(null)
 
   const picks = useMemo(() => {
@@ -189,6 +190,9 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
           <div style={{ position: 'relative', width: 196, height: 200, marginLeft: 8 }}>
             {picks.map((pair, i) => {
               const slot = (i - activeIdx + 3) % 3
+              // Keep the departing front card's z-index elevated for the full transition
+              // duration so it doesn't pop behind the incoming card mid-animation.
+              const zIdx = cyclingFrom === i && slot !== 0 ? SLOT_Z[0] : SLOT_Z[slot]
               return (
                 <div
                   key={i}
@@ -196,10 +200,10 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
                     position: 'absolute',
                     top: 14,
                     left: 14,
-                    zIndex: SLOT_Z[slot],
+                    zIndex: zIdx,
                     opacity: SLOT_OPACITY[slot],
                     transform: SLOT_TRANSFORMS[slot],
-                    transition: 'transform 0.35s cubic-bezier(0.34,1.2,0.64,1), opacity 0.25s ease',
+                    transition: 'transform 0.28s cubic-bezier(0.2, 0, 0, 1), opacity 0.22s ease',
                   }}
                 >
                   <button
@@ -252,7 +256,12 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
           <div className="dyk-pulse-zone" style={{ left: 212 }}>
             <button
               className="dyk-pulse-btn"
-              onClick={() => setActiveIdx((activeIdx + 1) % picks.length)}
+              onClick={() => {
+                const next = (activeIdx + 1) % picks.length
+                setCyclingFrom(activeIdx)
+                setActiveIdx(next)
+                setTimeout(() => setCyclingFrom(null), 300)
+              }}
               aria-label="Next card"
             >
               <svg
