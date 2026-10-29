@@ -308,6 +308,9 @@ export function createMarkerLayer(opts: {
     ;(entry.aura.material as THREE.MeshBasicMaterial).dispose()
     ;(entry.ripple.material as THREE.MeshBasicMaterial).dispose()
     ;(entry.shadow.material as THREE.MeshBasicMaterial).dispose()
+    ;(entry.anchor.material as THREE.MeshBasicMaterial).dispose()
+    entry.caret.geometry.dispose()
+    ;(entry.caret.material as THREE.LineBasicMaterial).dispose()
     for (const tex of Object.values(entry.discTextures)) tex.dispose()
   }
 
