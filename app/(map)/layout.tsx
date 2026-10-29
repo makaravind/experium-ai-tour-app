@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import MapStub from '@/components/exhibit/MapStub'
 import ParkMap, { ORTHO_BOUNDS } from '@/components/map/ParkMap'
 import AmenitiesPill from '@/components/amenity/AmenitiesPill'
+import MustVisitPill from '@/components/exhibit/MustVisitPill'
 import AmenitySheet from '@/components/amenity/AmenitySheet'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import SearchOverlay from '@/components/exhibit/SearchOverlay'
@@ -41,6 +42,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const [flyToTarget, setFlyToTarget] = useState<string | null>(null)
   const [navigateEnabled, setNavigateEnabled] = useState(false)
   const [mapFailed, setMapFailed] = useState(false)
+  const [mustTryActive, setMustTryActive] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchMode, setSearchMode] = useState<'exhibits' | 'amenities'>('exhibits')
   const pendingSearchSelectRef = useRef<MapExhibit | null>(null)
@@ -258,6 +260,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           onPinTap={handlePinTap}
           onAmenityTap={handleAmenityTap}
           hideAmenities={isExhibitPage}
+          mustTryFilter={mustTryActive}
           flyToTarget={flyToTarget}
           onMapTap={handleMapTap}
           navigationPath={navigationPathCoords}
@@ -348,7 +351,8 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {!mapFailed && (
-        <div className="absolute left-4" style={{ top: 112, zIndex: 45 }}>
+        <div className="absolute left-4 flex gap-2" style={{ top: 112, zIndex: 45 }}>
+          <MustVisitPill active={mustTryActive} onClick={() => setMustTryActive((v) => !v)} />
           <AmenitiesPill onClick={handleOpenAmenitySearch} />
         </div>
       )}

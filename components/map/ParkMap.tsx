@@ -21,6 +21,7 @@ interface ParkMapProps {
   onPinTap: (exhibit: MapExhibit) => void
   onAmenityTap: (id: string) => void
   hideAmenities?: boolean
+  mustTryFilter?: boolean
   flyToTarget?: string | null
   onMapTap?: () => void
   navigationPath?: [number, number][] | null
@@ -235,6 +236,7 @@ export default function ParkMap({
   onPinTap,
   onAmenityTap,
   hideAmenities,
+  mustTryFilter,
   flyToTarget,
   onMapTap,
   navigationPath,
@@ -245,6 +247,9 @@ export default function ParkMap({
   const navPathRafRef = useRef<number | null>(null)
   const navDashStepRef = useRef(0)
   const navDashLastRef = useRef(0)
+  const mustTryFilterRef = useRef(mustTryFilter ?? false)
+  // eslint-disable-next-line react-hooks/refs
+  mustTryFilterRef.current = mustTryFilter ?? false
   const flyToTargetRef = useRef(flyToTarget)
   const onPinTapRef = useRef(onPinTap)
   const onAmenityTapRef = useRef(onAmenityTap)
@@ -428,20 +433,24 @@ export default function ParkMap({
         'exhibit-pins'
       )
 
-      const markerInputs = exhibitsRef.current.map((exhibit) => ({
+      const toMarkerInput = (exhibit: MapExhibit) => ({
         id: exhibit.id,
         lat: exhibit.gps_lat,
         lng: exhibit.gps_lng,
         status: exhibit.status,
         number: exhibit.displayNumber ?? null,
-      }))
+      })
+      const allMarkerInputs = exhibitsRef.current.map(toMarkerInput)
+      const goldMarkerInputs = exhibitsRef.current
+        .filter((e) => e.tier === 'gold')
+        .map(toMarkerInput)
 
       try {
         const { createMarkerLayer } = await import('./marker-layer')
         map.addLayer(
           createMarkerLayer({
             map,
-            getExhibits: () => markerInputs,
+            getExhibits: () => (mustTryFilterRef.current ? goldMarkerInputs : allMarkerInputs),
           })
         )
       } catch (err) {
@@ -680,6 +689,25 @@ export default function ParkMap({
     if (!exhibit) return
     mapRef.current.flyTo({ center: [exhibit.gps_lng, exhibit.gps_lat], zoom: 19 })
   }, [flyToTarget])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!mapReady || !map) return
+    const source = map.getSource('exhibit-pins') as maplibregl.GeoJSONSource | undefined
+    if (!source) return
+    const exhibits = mustTryFilter
+      ? exhibitsRef.current.filter((e) => e.tier === 'gold')
+      : exhibitsRef.current
+    const visited = useStore.getState().visitedExhibits
+    source.setData({
+      type: 'FeatureCollection',
+      features: exhibits.map((exhibit) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [exhibit.gps_lng, exhibit.gps_lat] },
+        properties: { id: exhibit.id, discovered: visited.includes(exhibit.id) },
+      })),
+    })
+  }, [mustTryFilter, mapReady])
 
   // Amenity chips are DOM markers; React content is portalled into each marker element.
   useEffect(() => {
