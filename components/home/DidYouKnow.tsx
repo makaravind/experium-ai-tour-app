@@ -23,14 +23,6 @@ function colorClass(type: string | null): string {
   return 'dyk-c-plant'
 }
 
-function typeLabel(type: string | null): string {
-  if (type === 'water_body') return 'Water Body'
-  if (type === 'structure') return 'Structure'
-  if (type === 'landmark') return 'Landmark'
-  if (type === 'plant') return 'Plant'
-  return type ?? ''
-}
-
 function toPreview(ex: CachedExhibit): PreviewExhibit {
   return {
     id: ex.id,
@@ -43,7 +35,14 @@ function toPreview(ex: CachedExhibit): PreviewExhibit {
   }
 }
 
-const ROTATIONS = [-2.5, 1, -1.5]
+// slot 0 = front, 1 = mid, 2 = back
+const SLOT_TRANSFORMS = [
+  'translateX(0px) translateY(0px) rotate(-2deg)',
+  'translateX(-7px) translateY(-7px) rotate(1.5deg)',
+  'translateX(-13px) translateY(-13px) rotate(-1deg)',
+]
+const SLOT_Z = [3, 2, 1]
+const SLOT_OPACITY: number[] = [1, 0.92, 0.82]
 
 function LeafSvg({ size = 10 }: { size?: number }) {
   return (
@@ -62,9 +61,8 @@ function LeafSvg({ size = 10 }: { size?: number }) {
 export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewExhibit) => void }) {
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const [expanded, setExpanded] = useState(false)
-  const [activeDot, setActiveDot] = useState(0)
+  const [activeIdx, setActiveIdx] = useState(0)
   const stkRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
 
    
   const picks = useMemo(() => {
@@ -79,14 +77,6 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
   const handleReveal = () => {
     if (stkRef.current) stkRef.current.style.transform = 'translateX(5px)'
     setTimeout(() => setExpanded(true), 420)
-  }
-
-  const handleScroll = () => {
-    const el = scrollRef.current
-    if (!el) return
-    const max = el.scrollWidth - el.clientWidth
-    const idx = max > 0 ? Math.round((el.scrollLeft / max) * (picks.length - 1)) : 0
-    setActiveDot(Math.min(idx, picks.length - 1))
   }
 
   return (
@@ -165,7 +155,7 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
             </div>
           </div>
 
-          {/* pulse zone — absolute relative to peek container */}
+          {/* pulse zone */}
           <div className="dyk-pulse-zone">
             <div className="dyk-pulse-ring" />
             <div className="dyk-pulse-ring" />
@@ -197,121 +187,88 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
 
       {expanded && (
         <div>
-          <div
-            ref={scrollRef}
-            style={{
-              display: 'flex',
-              gap: 14,
-              overflowX: 'auto',
-              scrollSnapType: 'x mandatory',
-              padding: '8px 16px 24px',
-              margin: '0 -16px -14px',
-              scrollPaddingInline: 16,
-            }}
-            className="no-scrollbar"
-            onScroll={handleScroll}
-          >
-            {picks.map((pair, i) => (
-              <div
-                key={i}
-                style={{
-                  scrollSnapAlign: 'start',
-                  flex: '0 0 170px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                }}
-              >
-                <button
-                  onClick={() => onSelect(toPreview(pair.exhibit))}
-                  className="dyk-card"
-                  style={{ '--dyk-rot': `${ROTATIONS[i] ?? 0}deg` } as React.CSSProperties}
-                  aria-label={`${pair.exhibit.name}. Did you know? ${pair.fact.slice(0, 60)}`}
+          <div style={{ position: 'relative', width: 196, height: 200, marginLeft: 8 }}>
+            {picks.map((pair, i) => {
+              const slot = (i - activeIdx + 3) % 3
+              return (
+                <div
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    top: 14,
+                    left: 14,
+                    zIndex: SLOT_Z[slot],
+                    opacity: SLOT_OPACITY[slot],
+                    transform: SLOT_TRANSFORMS[slot],
+                    transition: 'transform 0.35s cubic-bezier(0.34,1.2,0.64,1), opacity 0.25s ease',
+                  }}
                 >
-                  {/* image area with type pill */}
-                  <div
-                    className={colorClass(pair.exhibit.type)}
-                    style={{
-                      height: 90,
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'flex-end',
-                      padding: 8,
-                    }}
+                  <button
+                    className="dyk-card"
+                    onClick={() =>
+                      slot === 0 ? onSelect(toPreview(pair.exhibit)) : setActiveIdx(i)
+                    }
+                    aria-label={
+                      slot === 0
+                        ? `${pair.exhibit.name}. Did you know? ${pair.fact.slice(0, 60)}`
+                        : `Show card about ${pair.exhibit.name}`
+                    }
                   >
-                    {pair.exhibit.type && (
-                      <span
+                    <div
+                      className={colorClass(pair.exhibit.type)}
+                      style={{ height: 90, width: '100%' }}
+                    />
+                    <div style={{ padding: '10px 12px 13px', textAlign: 'left' }}>
+                      <div
                         style={{
                           fontSize: 11,
                           fontWeight: 800,
-                          letterSpacing: '0.08em',
+                          color: '#3f6b3a',
                           textTransform: 'uppercase',
-                          background: 'rgba(0,0,0,0.52)',
-                          color: '#fff',
-                          padding: '3px 8px',
-                          borderRadius: 99,
+                          letterSpacing: '0.08em',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 3,
                         }}
                       >
-                        {typeLabel(pair.exhibit.type)}
-                      </span>
-                    )}
-                  </div>
-                  {/* card body */}
-                  <div style={{ padding: '10px 12px 13px', textAlign: 'left' }}>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: '#3f6b3a',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 3,
-                      }}
-                    >
-                      <LeafSvg />
-                      Did you know?
+                        <LeafSvg />
+                        Did you know?
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: '#2b2b2b',
+                          marginTop: 5,
+                          lineHeight: 1.4,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {pair.fact}
+                      </div>
                     </div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: '#2b2b2b',
-                        marginTop: 5,
-                        lineHeight: 1.4,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {pair.fact}
-                    </div>
-                  </div>
-                </button>
-                <div
-                  style={{
-                    textAlign: 'center',
-                    marginTop: 8,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: '#8a8a8a',
-                    maxWidth: 170,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {pair.exhibit.name}
+                  </button>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
-          <div className="dyk-dots">
-            {picks.map((_, i) => (
-              <div key={i} className={`dyk-dot${activeDot === i ? ' active' : ''}`} />
-            ))}
+          <div
+            style={{
+              marginLeft: 8,
+              marginTop: 6,
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#8a8a8a',
+              maxWidth: 170,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {picks[activeIdx].exhibit.name}
           </div>
         </div>
       )}

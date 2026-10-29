@@ -324,7 +324,7 @@
     0 2px 4px rgba(43, 43, 43, 0.08);
 }
 
-/* DYK carousel card */
+/* DYK stacked card */
 .dyk-card {
   width: 170px;
   background: #fff;
@@ -335,34 +335,12 @@
   overflow: hidden;
   cursor: pointer;
   border: 1.5px solid rgba(255, 255, 255, 0.85);
-  transform: rotate(var(--dyk-rot, 0deg));
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 .dyk-card:active {
-  transform: rotate(var(--dyk-rot, 0deg)) scale(0.97);
-}
-
-/* DYK dots */
-.dyk-dots {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 4px;
-}
-.dyk-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #a3b18a;
-  transition:
-    background 0.2s,
-    transform 0.2s;
-}
-.dyk-dot.active {
-  background: #588157;
-  transform: scale(1.35);
+  transform: scale(0.97);
 }
 
 /* DYK pulse zone */
