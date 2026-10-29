@@ -42,7 +42,7 @@ const STARTING_CENTER: [number, number] = [
 const STARTING_ZOOM = 18.5
 const DRIFT_FACTOR = 0.28
 const DRIFT_MAX = 42
-const DRIFT_MIN_ZOOM = 18.5 // markers only drift when zoomed in past the landing zoom
+const DRIFT_MIN_ZOOM = 18.5
 const clampDrift = (v: number) => Math.max(-DRIFT_MAX, Math.min(DRIFT_MAX, v))
 const POSITION_UNAVAILABLE = 2
 const MOCK_WALK_MS = 5000

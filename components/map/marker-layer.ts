@@ -169,7 +169,7 @@ function makeAnchorTexture(): THREE.CanvasTexture {
   const cv = document.createElement('canvas')
   cv.width = cv.height = s
   const ctx = cv.getContext('2d')!
-  ctx.fillStyle = 'rgba(255,255,255,1)'
+  ctx.fillStyle = '#fff'
   ctx.beginPath()
   ctx.arc(c, c, 13, 0, Math.PI * 2)
   ctx.fill()
@@ -366,10 +366,8 @@ export function createMarkerLayer(opts: {
       if (!mapState.isDragging && (driftX !== 0 || driftY !== 0)) {
         driftX *= DRIFT_DECAY
         driftY *= DRIFT_DECAY
-        if (Math.abs(driftX) < 0.5 && Math.abs(driftY) < 0.5) {
-          driftX = 0
-          driftY = 0
-        }
+        if (Math.abs(driftX) < 0.5) driftX = 0
+        if (Math.abs(driftY) < 0.5) driftY = 0
         mapState.setPanDrift({ x: driftX, y: driftY })
       }
       // Scene y is up, screen y is down.
