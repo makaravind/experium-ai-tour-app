@@ -12,7 +12,7 @@ const exhibitRow = (code: string, name: string) => ({
   name,
   type: null,
   tier: 'free',
-  facts: [],
+  facts: [{ fact: 'Test fact' }],
   status: 'live',
   gps_lat: 17.3816,
   gps_lng: 78.1916283,

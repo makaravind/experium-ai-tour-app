@@ -34,7 +34,7 @@ export async function mockPrecacheDataset(page: Page, { seedCache = true } = {})
           name: 'Baobab Forest',
           type: null,
           tier: 'free',
-          facts: [],
+          facts: [{ fact: 'The Baobab can store thousands of litres of water in its trunk.' }],
           status: 'live',
           gps_lat: 17.3816,
           gps_lng: 78.1916283,

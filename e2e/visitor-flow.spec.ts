@@ -129,7 +129,7 @@ test.describe('Visitor flow — returning visitor', () => {
                   name: 'Baobab Forest',
                   type: null,
                   tier: 'free',
-                  facts: [],
+                  facts: [{ fact: 'Test fact' }],
                   audio: { en: url, hi: hiUrl },
                   gps_lat: 17.3816,
                   gps_lng: 78.1916283,
@@ -137,7 +137,7 @@ test.describe('Visitor flow — returning visitor', () => {
                 },
               ],
             },
-            version: 2,
+            version: 3,
           })
         )
       },

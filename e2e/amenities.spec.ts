@@ -48,7 +48,7 @@ async function seedVisitor(page: Page) {
                 name: 'Baobab Forest',
                 type: null,
                 tier: 'free',
-                facts: [],
+                facts: [{ fact: 'Test fact' }],
                 audio: { en, hi },
                 gps_lat: 17.3816,
                 gps_lng: 78.1916283,
@@ -57,7 +57,7 @@ async function seedVisitor(page: Page) {
             ],
             cachedAmenities: [washroom],
           },
-          version: 2,
+          version: 3,
         })
       )
     },
@@ -164,6 +164,9 @@ test.describe('Amenities', () => {
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible({ timeout: 10000 })
     await expect(page.getByText(DESCRIPTION)).toBeHidden()
 
+    // Sheet auto-expands on the exhibit page; collapse it to expose the map for the tap
+    await page.getByRole('button', { name: 'Collapse details' }).click()
+
     await expect(async () => {
       await page.mouse.click(30, 300)
       await expect(page).toHaveURL(/\/map$/, { timeout: 1000 })
@@ -232,6 +235,9 @@ test.describe('Amenities', () => {
     await page.goto(`/s/${QR_CODE}`)
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible({ timeout: 10000 })
     await expect(chip(page)).toBeHidden()
+
+    // Sheet auto-expands on the exhibit page; collapse it to expose the map for the tap
+    await page.getByRole('button', { name: 'Collapse details' }).click()
 
     // A map tap leaves the exhibit page
     await expect(async () => {

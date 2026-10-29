@@ -38,7 +38,7 @@ async function seedVisitor(
                 name: 'Baobab Forest',
                 type: null,
                 tier: 'free',
-                facts: [],
+                facts: [{ fact: 'Test fact' }],
                 audio: { en, hi },
                 gps_lat: 17.3816,
                 gps_lng: 78.1916283,
@@ -46,7 +46,7 @@ async function seedVisitor(
               },
             ],
           },
-          version: 2,
+          version: 3,
         })
       )
     },
