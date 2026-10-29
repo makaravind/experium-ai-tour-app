@@ -185,7 +185,7 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
       )}
 
       {expanded && (
-        <div>
+        <div style={{ position: 'relative' }}>
           <div style={{ position: 'relative', width: 196, height: 200, marginLeft: 8 }}>
             {picks.map((pair, i) => {
               const slot = (i - activeIdx + 3) % 3
@@ -248,53 +248,22 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
               )
             })}
           </div>
-          <div
-            style={{
-              marginLeft: 8,
-              marginTop: 8,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              maxWidth: 196,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: '#8a8a8a',
-                flex: 1,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {picks[activeIdx].exhibit.name}
-            </div>
+          {/* cycle button — same dyk-pulse-btn style, right of the stack */}
+          <div className="dyk-pulse-zone" style={{ left: 212 }}>
             <button
+              className="dyk-pulse-btn"
               onClick={() => setActiveIdx((activeIdx + 1) % picks.length)}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                background: '#f0ede7',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'grid',
-                placeItems: 'center',
-                flexShrink: 0,
-              }}
               aria-label="Next card"
             >
               <svg
-                width="14"
-                height="14"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 aria-hidden="true"
                 style={{
-                  stroke: '#588157',
+                  stroke: '#fff',
                   fill: 'none',
-                  strokeWidth: 2.5,
+                  strokeWidth: 2.8,
                   strokeLinecap: 'round',
                   strokeLinejoin: 'round',
                 }}
@@ -302,6 +271,22 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
                 <polyline points="9 18 15 12 9 6" />
               </svg>
             </button>
+          </div>
+
+          <div
+            style={{
+              marginLeft: 8,
+              marginTop: 8,
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#8a8a8a',
+              maxWidth: 196,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {picks[activeIdx].exhibit.name}
           </div>
         </div>
       )}
