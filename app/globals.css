@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@import '@photo-sphere-viewer/core/index.css';
+@import '@photo-sphere-viewer/virtual-tour-plugin/index.css';
+@import '@photo-sphere-viewer/markers-plugin/index.css';
 
 @font-face {
   font-family: 'Feather Bold';

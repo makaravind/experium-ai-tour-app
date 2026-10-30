@@ -27,6 +27,9 @@
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@fingerprintjs/fingerprintjs": "^5.2.0",
+    "@photo-sphere-viewer/core": "^5.15.1",
+    "@photo-sphere-viewer/markers-plugin": "^5.15.1",
+    "@photo-sphere-viewer/virtual-tour-plugin": "^5.15.1",
     "@serwist/next": "^9.5.12",
     "@supabase/supabase-js": "^2.112.0",
     "@types/canvas-confetti": "^1.9.0",
