@@ -122,7 +122,7 @@ export default function SearchOverlay({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={amenityMode ? 'Search amenities' : 'Search exhibits'}
-              className="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-ex-ink"
+              className="flex-1 min-w-0 bg-transparent outline-none text-[16px] text-ex-ink"
             />
           </div>
           <button

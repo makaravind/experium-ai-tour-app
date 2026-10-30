@@ -231,58 +231,9 @@ export default function UserMenu() {
               </ul>
 
               <div className="px-5 pt-3.5 pb-1 text-[11px] font-extrabold tracking-[0.08em] uppercase text-ex-muted">
-                App
-              </div>
-              <ul>
-                <li>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setOpen(false)
-                      router.push('/about-us')
-                    }}
-                    className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg`}
-                  >
-                    <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
-                      <InfoIcon />
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
-                        About us
-                      </span>
-                      <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
-                        The team behind this audio tour
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              </ul>
-
-              <div className="px-5 pt-3.5 pb-1 text-[11px] font-extrabold tracking-[0.08em] uppercase text-ex-muted">
                 Account
               </div>
               <ul>
-                <li>
-                  <a
-                    role="menuitem"
-                    href="mailto:experium@aikyatechnology.in?subject=Feedback%20%E2%80%93%20Experium%20Park%20Audio%20Tour"
-                    onClick={() => setOpen(false)}
-                    className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg no-underline`}
-                  >
-                    <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
-                      <MailIcon />
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
-                        Send feedback
-                      </span>
-                      <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
-                        Share thoughts or report a problem
-                      </span>
-                    </span>
-                  </a>
-                </li>
                 <li>
                   <button
                     type="button"
@@ -328,6 +279,55 @@ export default function UserMenu() {
                       </span>
                     </span>
                   </button>
+                </li>
+              </ul>
+
+              <div className="px-5 pt-3.5 pb-1 text-[11px] font-extrabold tracking-[0.08em] uppercase text-ex-muted">
+                App
+              </div>
+              <ul>
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false)
+                      router.push('/about-us')
+                    }}
+                    className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg`}
+                  >
+                    <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
+                      <InfoIcon />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
+                        About us
+                      </span>
+                      <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
+                        The team behind this audio tour
+                      </span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <a
+                    role="menuitem"
+                    href="mailto:experium@aikyatechnology.in?subject=Feedback%20%E2%80%93%20Experium%20Park%20Audio%20Tour"
+                    onClick={() => setOpen(false)}
+                    className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg no-underline`}
+                  >
+                    <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
+                      <MailIcon />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
+                        Send feedback
+                      </span>
+                      <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
+                        Share thoughts or report a problem
+                      </span>
+                    </span>
+                  </a>
                 </li>
               </ul>
 

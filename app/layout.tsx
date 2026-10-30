@@ -8,18 +8,22 @@ import ScanQueueSync from '@/components/ScanQueueSync'
 import { SerwistProvider } from '@serwist/next/react'
 
 export const metadata: Metadata = {
-  title: 'Nature Audio Tour',
+  title: 'Experium Virtual Tour',
   description: "Scan a marker to hear the story of what's around you.",
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Audio Tour',
+    title: 'Experium',
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#10b981',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f8f7f4' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a1a1a' },
+  ],
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

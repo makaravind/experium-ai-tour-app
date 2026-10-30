@@ -11,7 +11,7 @@ const inputStyle = {
   borderRadius: 12,
   padding: '0 14px',
   fontFamily: 'var(--font-body)',
-  fontSize: 15,
+  fontSize: 16,
   color: 'var(--color-ex-ink)',
   background: 'var(--color-ex-paper)',
   outline: 'none',

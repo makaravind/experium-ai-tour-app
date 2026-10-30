@@ -1,11 +1,11 @@
 {
-  "name": "Nature Audio Tour",
-  "short_name": "Audio Tour",
+  "name": "Experium Virtual Tour By Aikya Tech",
+  "short_name": "Experium",
   "description": "Scan a marker to hear the story of what's around you.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0c0a09",
-  "theme_color": "#10b981",
+  "theme_color": "#f8f7f4",
   "orientation": "portrait",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
