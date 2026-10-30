@@ -6,6 +6,18 @@ import { Viewer } from '@photo-sphere-viewer/core'
 import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
 
+const AD_SVG =
+  'data:image/svg+xml,' +
+  encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="600" height="160" viewBox="0 0 600 160">
+    <rect width="600" height="160" rx="12" fill="rgba(0,0,0,0.55)"/>
+    <rect x="2" y="2" width="596" height="156" rx="11" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-dasharray="8 4"/>
+    <text x="300" y="52" font-family="sans-serif" font-size="13" fill="rgba(255,255,255,0.5)" text-anchor="middle" letter-spacing="3">SPONSORED</text>
+    <text x="300" y="100" font-family="sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle">Your Brand Here</text>
+    <text x="300" y="135" font-family="sans-serif" font-size="13" fill="rgba(255,255,255,0.6)" text-anchor="middle">Sky placement · Virtual Tour Ad</text>
+  </svg>
+`)
+
 const PIN_HTML = `
   <div style="
     width:36px;height:44px;cursor:pointer;
@@ -37,6 +49,12 @@ const NODES = [
         anchor: 'bottom center',
         data: { exhibitUrl: '/s/A7X3' },
       },
+      {
+        id: 'ad-entrance',
+        position: { yaw: 0.3, pitch: 0.85 },
+        imageLayer: AD_SVG,
+        size: { width: 600, height: 160 },
+      },
     ],
   },
   {
@@ -51,6 +69,12 @@ const NODES = [
         html: PIN_HTML,
         anchor: 'bottom center',
         data: { exhibitUrl: '/s/B2K9' },
+      },
+      {
+        id: 'ad-plaza',
+        position: { yaw: -0.2, pitch: 0.85 },
+        imageLayer: AD_SVG,
+        size: { width: 600, height: 160 },
       },
     ],
   },
