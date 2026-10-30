@@ -73,6 +73,7 @@ export default function TourTestPage() {
           {
             nodes: NODES,
             startNodeId: 'entrance',
+            preload: true,
           },
         ],
       ],
