@@ -25,11 +25,13 @@ export const metadata: Metadata = {
     url: 'https://experium.aikyatechnology.in',
     siteName: 'Experium Virtual Tour',
     type: 'website',
+    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'Experium Virtual Tour',
     description: "Scan a marker to hear the story of what's around you.",
+    images: ['/og-image.png'],
   },
 }
 
