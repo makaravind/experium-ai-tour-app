@@ -16,6 +16,21 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Experium',
   },
+  icons: {
+    apple: '/icons/apple-touch-icon.png',
+  },
+  openGraph: {
+    title: 'Experium Virtual Tour',
+    description: "Scan a marker to hear the story of what's around you.",
+    url: 'https://experium.aikyatechnology.in',
+    siteName: 'Experium Virtual Tour',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Experium Virtual Tour',
+    description: "Scan a marker to hear the story of what's around you.",
+  },
 }
 
 export const viewport: Viewport = {
