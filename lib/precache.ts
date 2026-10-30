@@ -1,3 +1,4 @@
+import { track } from '@vercel/analytics'
 import { supabase } from '@/lib/supabase'
 import { MAP_CACHE, MAP_URL } from '@/lib/cache-names'
 import { useStore } from '@/lib/store'
@@ -288,6 +289,7 @@ export async function precacheGroups(
   let notSavedCount = 0
   if (todoCount > 0 && fetched > 0) {
     console.log(`[precache] gap-fill: ${todoCount}/${total} assets missing`)
+    track('precache_gap_fill', { missing_count: todoCount, total })
   }
 
   const cancelled = () => (opts.signal?.aborted ?? false) || (opts.isCancelled?.() ?? false)
@@ -338,8 +340,10 @@ export async function precacheGroups(
             }
             const count = (failures[url]?.count ?? 0) + 1
             failures[url] = { count }
-            if (count >= max) console.log(`[precache] retry cap hit: ${url}`)
-            else retry.push(url)
+            if (count >= max) {
+              console.log(`[precache] retry cap hit: ${url}`)
+              track('precache_retry_cap_hit', { path: new URL(url).pathname })
+            } else retry.push(url)
           }
         }
       }
@@ -425,4 +429,5 @@ export function onForeground(resume: () => void): () => void {
 
 export function logContinueAnyway(urls: string[]) {
   console.log(`[precache] continue anyway with ${urls.length} uncached asset(s)`, urls)
+  track('precache_continue_anyway', { uncached_count: urls.length })
 }

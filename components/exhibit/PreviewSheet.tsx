@@ -7,6 +7,7 @@ import BottomSheet, { type BottomSheetHandle } from '@/components/common/BottomS
 import LanguageSelector from '@/components/common/LanguageSelector'
 import SheetSummary from '@/components/common/SheetSummary'
 import { CompassIcon, LeafOutlineIcon, PauseIcon, PlayIcon, StarIcon } from '@/components/icons'
+import { track } from '@vercel/analytics'
 import { AUDIO_CACHE_NAME } from '@/lib/precache'
 import { useStore } from '@/lib/store'
 import { LANGUAGES, formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
@@ -163,6 +164,7 @@ export default function PreviewSheet({
     const toUrl =
       to && to !== from ? (audio.find((a) => a.language === to)?.audio_url ?? null) : null
     console.log('[audio] fallback', { from, to: toUrl ? to : null, reason })
+    track('audio_language_fallback', { from, to: toUrl ? to : null, reason })
     const fromName = langName(from)
     if (startTimer.current) clearTimeout(startTimer.current)
     startTimer.current = null
