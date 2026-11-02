@@ -64,6 +64,9 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const gpsOutOfBounds = useMapStore((s) => s.gpsOutOfBounds)
   const flyToParkTrigger = useMapStore((s) => s.flyToParkTrigger)
   const mapViewport = useStore((s) => s.mapViewport)
+  const completionByGroup = useStore((s) => s.completionByGroup)
+  const precacheComplete = Object.values(completionByGroup).some((v) => v.complete)
+  const showSetupBanner = isExhibitPage && !precacheComplete && !mapFailed && !geoError
   // Map stays at the park when GPS is out of bounds, so only show "Go to Park" if the
   // user has manually panned the view outside the park.
   const mapViewportOutOfPark =
