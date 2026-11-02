@@ -158,3 +158,58 @@ export async function seedMapCache(page: Page, body: Buffer | string = MINIMAL_P
 export async function passLoadingGate(page: Page) {
   await expect(page.getByText('Personalize your experience')).toBeVisible({ timeout: 10000 })
 }
+
+/** Marks the persisted store's precache as complete (any group `complete: true`) so the setup banner stays hidden. */
+export async function markPrecacheComplete(page: Page) {
+  await page.addInitScript(() => {
+    const raw = localStorage.getItem('experium-store')
+    const store = raw ? JSON.parse(raw) : { state: {}, version: 3 }
+    store.state = store.state ?? {}
+    store.state.completionByGroup = { 'audio-cache': { language: 'en', complete: true } }
+    localStorage.setItem('experium-store', JSON.stringify(store))
+  })
+}
+
+/**
+ * A QR-scan bypass visit (`/s/*`) skips the precache, so nothing fills `cachedExhibits`, and the
+ * exhibit page's live-fetch path can't resolve the non-numeric e2e code. Seed the persisted store
+ * with the exhibit but an empty `completionByGroup` (precache not done) -- what the page sees there.
+ * Shape/version must match lib/store.ts, else `migrate` drops cachedExhibits.
+ */
+export async function seedCachedExhibit(page: Page, { onboarded }: { onboarded: boolean }) {
+  await page.addInitScript(
+    ({ url, code, onboarded }) => {
+      if (onboarded) localStorage.setItem('experium_onboarded', '1')
+      else localStorage.removeItem('experium_onboarded')
+      if (localStorage.getItem('experium-store')) return // keep state across reloads / markPrecacheComplete
+      localStorage.setItem(
+        'experium-store',
+        JSON.stringify({
+          state: {
+            language: 'en',
+            visitedExhibits: [],
+            totalDiscovered: 0,
+            completionByGroup: {},
+            cachedExhibits: [
+              {
+                id: 'e2e-baobab',
+                code,
+                status: 'active',
+                name: 'Baobab Forest',
+                type: null,
+                tier: 'free',
+                facts: [{ fact: 'The baobab can store water.' }],
+                audio: { en: url },
+                gps_lat: 17.3816,
+                gps_lng: 78.1916283,
+                exhibitStatus: 'live',
+              },
+            ],
+          },
+          version: 3,
+        })
+      )
+    },
+    { url: FAKE_AUDIO_URL, code: QR_CODE, onboarded }
+  )
+}

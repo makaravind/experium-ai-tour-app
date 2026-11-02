@@ -4,6 +4,7 @@ import {
   FAKE_HI_AUDIO_URL,
   mockPrecacheDataset,
   passLoadingGate,
+  seedCachedExhibit,
   seedAudioCache,
   seedMapCache,
 } from './gate-helpers'
@@ -29,20 +30,17 @@ test.describe('Visitor flow — golden path', () => {
       localStorage.removeItem('experium_user_info')
       localStorage.removeItem('experium-store')
     })
+    // /s/* skips the precache, so the exhibit must already be in the store
+    await seedCachedExhibit(page, { onboarded: false })
 
     await mockPrecacheDataset(page)
     await page.goto(`/s/${QR_CODE}`)
   })
 
-  test('loading screen → info modal → exhibit view', async ({ page }) => {
-    // 1. Loading screen
-    await expect(page.getByText('Experium Park')).toBeVisible()
-
-    // 2. Precache starts on its own; info modal appears once it completes
+  test('info modal → exhibit view (QR scan bypasses the loading screen)', async ({ page }) => {
+    // 1. /s/* bypasses AppGate's precache: no loading screen, straight to the info modal
     await passLoadingGate(page)
-    await expect(page.getByText('Personalize your experience')).toBeVisible({
-      timeout: 6000,
-    })
+    await expect(page.getByText('Experium Park')).not.toBeVisible()
 
     // Skip the form — go straight to exhibit
     await page.getByRole('button', { name: 'Skip for now' }).click()
