@@ -111,10 +111,7 @@ test.describe('Setup banner', () => {
     expect(new URL(page.url()).pathname).toBe('/')
   })
 
-  // KNOWN BUG (steps 1-4): AppGate only runs its mount check once, and the banner's router.push('/')
-  // is a client-side navigation, so the precache never starts and the banner never clears.
-  // Fix (e.g. full-page nav in the banner, or AppGate re-running on pathname change), then drop fixme.
-  test.fixme('tapping it starts the precache (completionByGroup fills in)', async ({ page }) => {
+  test('tapping it starts the precache (completionByGroup fills in)', async ({ page }) => {
     // Spec: "Tapping the banner navigates to / and AppGate runs its normal precache flow".
     await mockPrecacheDataset(page)
     await seedBypassStore(page, { onboarded: true })

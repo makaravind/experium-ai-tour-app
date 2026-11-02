@@ -327,7 +327,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           type="button"
           className="absolute left-0 right-0 top-0 flex items-center justify-center gap-3 px-4 py-2 text-sm font-semibold bg-ex-forest text-white"
           style={{ zIndex: 30 }}
-          onClick={() => router.push('/')}
+          onClick={() => window.location.assign('/')}
         >
           App setup incomplete · Tap to finish
         </button>
