@@ -162,6 +162,20 @@ export default function AppGate({ children }: { children: ReactNode }) {
         setPhase('clear')
         return
       }
+      // QR-scan bypass: visitor wants audio now. Skip SW wait + precache; the exhibit page live-fetches.
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/s/')) {
+        // Mark intro as done so it never plays over the exhibit
+        try {
+          sessionStorage.setItem(INTRO_DONE_KEY, '1')
+        } catch {}
+        setIntroDone(true) // introDone's initializer ran at mount, before the key was written
+        // Fire-and-forget handshake
+        getOrCreateVisitorId()
+          .then((id) => useStore.getState().setVisitorId(id))
+          .catch(() => {})
+        setPhase(nextAfterClear())
+        return
+      }
       // Continue-online: visitor chose to skip offline guarantee (e.g. in-app browser).
       // Session-scoped: reload in the same tab skips this screen; new session re-offers the offline path.
       if (sessionStorage.getItem(CONTINUE_ONLINE_KEY)) {
