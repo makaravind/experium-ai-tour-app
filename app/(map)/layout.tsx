@@ -322,6 +322,17 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
+      {showSetupBanner && (
+        <button
+          type="button"
+          className="absolute left-0 right-0 top-0 flex items-center justify-center gap-3 px-4 py-2 text-sm font-semibold bg-ex-forest text-white"
+          style={{ zIndex: 30 }}
+          onClick={() => router.push('/')}
+        >
+          App setup incomplete · Tap to finish
+        </button>
+      )}
+
       {/* Search bar */}
       <div
         className="absolute left-4 right-4 flex gap-2.5 items-center"
