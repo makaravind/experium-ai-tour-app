@@ -91,6 +91,8 @@ export default function AppGate({ children }: { children: ReactNode }) {
   const [introDone, setIntroDone] = useState(() => {
     if (typeof window === 'undefined') return true // server: never put intro in SSR HTML
     if (process.env.NODE_ENV === 'development') return true
+    // QR-scan bypass: run() sets INTRO_DONE_KEY only after first render, too late for this initializer
+    if (window.location.pathname.startsWith('/s/')) return true
     try {
       return !!sessionStorage.getItem(INTRO_DONE_KEY)
     } catch {
