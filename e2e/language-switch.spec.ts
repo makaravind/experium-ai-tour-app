@@ -268,7 +268,7 @@ test('abort: language switch cancels stalled download without waiting for it', a
     return route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
   })
 
-  await page.goto(`/s/${QR_CODE}`)
+  await page.goto('/')
   await expect(page.getByText('Choose your language')).toBeVisible({ timeout: 10000 })
   await expect.poll(() => enStarted, { timeout: 10000 }).toBe(true)
 
@@ -305,7 +305,7 @@ test('catch-up run: picker re-targets the download to the tapped language', asyn
     return route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() })
   })
 
-  await page.goto(`/s/${QR_CODE}`)
+  await page.goto('/')
   await expect(page.getByText('Choose your language')).toBeVisible({ timeout: 10000 })
   // highlights the precache language, not the playback language ('hi')
   await expect(page.getByRole('button', { name: 'English' })).toHaveAttribute(
