@@ -40,6 +40,7 @@ function exhibit(
     languages: [],
     status,
     displayNumber: null,
+    facts: [],
   }
 }
 

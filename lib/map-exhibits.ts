@@ -17,6 +17,7 @@ export function toMapExhibits(cached: CachedExhibit[]): MapExhibit[] {
             languages: Object.keys(e.audio),
             status: e.exhibitStatus,
             displayNumber: e.displayNumber,
+            facts: e.facts,
           },
         ]
   )

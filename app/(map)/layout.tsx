@@ -30,6 +30,7 @@ function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
     qr_code: exhibit.qr_code,
     languages: exhibit.languages,
     displayNumber: exhibit.displayNumber,
+    facts: exhibit.facts,
   }
 }
 

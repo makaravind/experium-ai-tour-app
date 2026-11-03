@@ -18,6 +18,7 @@ const ex = (
   languages: ['en'],
   status: 'live',
   displayNumber,
+  facts: [],
 })
 
 describe('matchesQuery', () => {

@@ -68,6 +68,7 @@ export interface MapExhibit {
   languages: string[]
   status: ExhibitStatus
   displayNumber: number | null
+  facts: Fact[]
 }
 
 /** Exhibit shape used by PreviewSheet — no GPS needed. */
