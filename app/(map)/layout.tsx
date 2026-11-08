@@ -215,6 +215,12 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const handleAmenityNavigate = () => {
+    const amenity = useStore.getState().cachedAmenities.find((a) => a.id === activeAmenityId)
+    if (amenity) showRouteTo({ lat: amenity.gps_lat, lng: amenity.gps_lng })
+    useMapStore.getState().setActiveAmenityId(null)
+  }
+
   const handleOpenSearch = () => {
     if (mapFailed) {
       setMapSelectedExhibit(null)
