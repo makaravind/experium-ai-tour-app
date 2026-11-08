@@ -196,22 +196,22 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const showRouteTo = (target: { lat: number; lng: number }) => {
+    const paths = parkPathsRef.current
+    if (paths && userPosition && userPosition.accuracyM <= 60) {
+      const route = findRoute({ lat: userPosition.lat, lng: userPosition.lng }, target, paths)
+      setNavigationPathCoords(route)
+    }
+  }
+
   const handleNavigate = () => {
     const target = mapSelectedExhibit ?? exhibitPageData?.exhibit ?? null
     if (!target) return
     setFlyToTarget(target.id)
     if (!isExhibitPage) setMapSelectedExhibit(null)
-    const paths = parkPathsRef.current
-    if (paths && userPosition && userPosition.accuracyM <= 60) {
-      const exhibit = mapExhibits.find((e) => e.id === target.id)
-      if (exhibit?.gps_lat != null && exhibit?.gps_lng != null) {
-        const route = findRoute(
-          { lat: userPosition.lat, lng: userPosition.lng },
-          { lat: exhibit.gps_lat, lng: exhibit.gps_lng },
-          paths
-        )
-        setNavigationPathCoords(route)
-      }
+    const exhibit = mapExhibits.find((e) => e.id === target.id)
+    if (exhibit?.gps_lat != null && exhibit?.gps_lng != null) {
+      showRouteTo({ lat: exhibit.gps_lat, lng: exhibit.gps_lng })
     }
   }
 
