@@ -412,6 +412,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         <AmenitySheet
           amenityId={activeAmenityId}
           onClose={() => useMapStore.getState().setActiveAmenityId(null)}
+          onNavigate={handleAmenityNavigate}
         />
       )}
 
