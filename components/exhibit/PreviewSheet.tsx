@@ -530,8 +530,7 @@ export default function PreviewSheet({
                   {onNavigate && (
                     <button
                       onClick={onNavigate}
-                      className="flex-1 h-14 rounded-2xl font-semibold text-base flex items-center justify-center gap-2 bg-ex-sage text-white"
-                      style={{ border: 'none' }}
+                      className="flex-1 h-14 rounded-2xl font-semibold text-base flex items-center justify-center gap-2 bg-white border-2 border-ex-forest text-ex-forest"
                     >
                       <CompassIcon size={20} />
                       Navigate
