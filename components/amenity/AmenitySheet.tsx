@@ -2,7 +2,7 @@
 
 import BottomSheet from '@/components/common/BottomSheet'
 import SheetSummary from '@/components/common/SheetSummary'
-import { AmenityTypeIcon } from '@/components/icons'
+import { AmenityTypeIcon, CompassIcon } from '@/components/icons'
 import type { Palette } from '@/components/exhibit/Gallery'
 import { haversineMetres } from '@/lib/nearby'
 import { useMapStore } from '@/lib/map-store'
@@ -19,9 +19,11 @@ const typeLabel = (type: string) => type.charAt(0).toUpperCase() + type.slice(1)
 export default function AmenitySheet({
   amenityId,
   onClose,
+  onNavigate,
 }: {
   amenityId: string | null
   onClose: () => void
+  onNavigate?: () => void
 }) {
   const amenity = useStore((s) => s.cachedAmenities.find((a) => a.id === amenityId))
   const userPosition = useMapStore((s) => s.userPosition)
@@ -55,6 +57,15 @@ export default function AmenitySheet({
             palette={AMENITY_PALETTE}
           />
           <p className="mt-3 min-h-5 text-sm text-ex-muted">{amenity?.description}</p>
+          {onNavigate && amenity && (
+            <button
+              onClick={onNavigate}
+              className="w-full mt-3 h-14 rounded-2xl font-semibold text-base flex items-center justify-center gap-2 bg-white border-2 border-ex-forest text-ex-forest"
+            >
+              <CompassIcon size={20} />
+              Navigate
+            </button>
+          )}
         </div>
       )}
     </BottomSheet>
