@@ -196,23 +196,29 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const showRouteTo = (target: { lat: number; lng: number }) => {
+    const paths = parkPathsRef.current
+    if (paths && userPosition && userPosition.accuracyM <= 60) {
+      const route = findRoute({ lat: userPosition.lat, lng: userPosition.lng }, target, paths)
+      setNavigationPathCoords(route)
+    }
+  }
+
   const handleNavigate = () => {
     const target = mapSelectedExhibit ?? exhibitPageData?.exhibit ?? null
     if (!target) return
     setFlyToTarget(target.id)
     if (!isExhibitPage) setMapSelectedExhibit(null)
-    const paths = parkPathsRef.current
-    if (paths && userPosition && userPosition.accuracyM <= 60) {
-      const exhibit = mapExhibits.find((e) => e.id === target.id)
-      if (exhibit?.gps_lat != null && exhibit?.gps_lng != null) {
-        const route = findRoute(
-          { lat: userPosition.lat, lng: userPosition.lng },
-          { lat: exhibit.gps_lat, lng: exhibit.gps_lng },
-          paths
-        )
-        setNavigationPathCoords(route)
-      }
+    const exhibit = mapExhibits.find((e) => e.id === target.id)
+    if (exhibit?.gps_lat != null && exhibit?.gps_lng != null) {
+      showRouteTo({ lat: exhibit.gps_lat, lng: exhibit.gps_lng })
     }
+  }
+
+  const handleAmenityNavigate = () => {
+    const amenity = useStore.getState().cachedAmenities.find((a) => a.id === activeAmenityId)
+    if (amenity) showRouteTo({ lat: amenity.gps_lat, lng: amenity.gps_lng })
+    useMapStore.getState().setActiveAmenityId(null)
   }
 
   const handleOpenSearch = () => {
@@ -406,6 +412,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
         <AmenitySheet
           amenityId={activeAmenityId}
           onClose={() => useMapStore.getState().setActiveAmenityId(null)}
+          onNavigate={handleAmenityNavigate}
         />
       )}
 

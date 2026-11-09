@@ -73,6 +73,7 @@ const amenityHandle = (page: Page) =>
     .getByRole('button', { name: /Expand to full view|Collapse details/ })
     .and(page.locator('[aria-expanded]'))
     .last()
+const navigate = (page: Page) => page.getByRole('button', { name: 'Navigate', exact: true })
 // Retries: while the expanded sheet is still sliding down, the tap lands on it instead of the scrim
 const scrimTap = (page: Page) =>
   expect(async () => {
@@ -175,6 +176,34 @@ test.describe('Amenities', () => {
     await expect(page.locator('[data-selected="true"]')).toBeHidden()
   })
 
+  test('Navigate shows in peek and expanded sheet', async ({ page }) => {
+    await page.goto('/map')
+    await chip(page).click()
+    await expect(page.getByText(DESCRIPTION)).toBeVisible()
+    await expect(navigate(page)).toBeVisible()
+
+    await amenityHandle(page).click()
+    await expect(amenityHandle(page)).toHaveAttribute('aria-expanded', 'true')
+    await expect(navigate(page)).toBeVisible()
+  })
+
+  test('Navigate without a GPS fix closes the sheet without error', async ({ page }) => {
+    const errors: Error[] = []
+    page.on('pageerror', (e) => {
+      // Serwist is off under `next dev`, so /sw.js fails to load
+      if (!/ServiceWorker|sw\.js/.test(e.message)) errors.push(e)
+    })
+
+    await page.goto('/map')
+    await chip(page).click()
+    await expect(page.getByText(DESCRIPTION)).toBeVisible()
+
+    await navigate(page).click()
+    await expect(page.getByText(DESCRIPTION)).toBeHidden()
+    await expect(page.locator('[data-selected="true"]')).toBeHidden()
+    expect(errors).toEqual([])
+  })
+
   test.describe('with a GPS fix at Baobab Forest', () => {
     test.use({
       geolocation: { latitude: 17.3816, longitude: 78.1916283 },
@@ -195,6 +224,23 @@ test.describe('Amenities', () => {
       await page.keyboard.press('Enter')
       await expect(chip(page)).toHaveAttribute('aria-pressed', 'true')
       await expect(compass).not.toHaveClass(/bg-ex-forest/)
+    })
+
+    test('Navigate closes the sheet and routes without error', async ({ page }) => {
+      const errors: Error[] = []
+      page.on('pageerror', (e) => {
+        // Serwist is off under `next dev`, so /sw.js fails to load
+        if (!/ServiceWorker|sw\.js/.test(e.message)) errors.push(e)
+      })
+
+      await page.goto('/map')
+      await chip(page).click()
+      await expect(page.getByText(/^Washroom · \d+m away$/)).toBeVisible()
+
+      await navigate(page).click()
+      await expect(page.getByText(DESCRIPTION)).toBeHidden()
+      await expect(page.locator('[data-selected="true"]')).toBeHidden()
+      expect(errors).toEqual([])
     })
 
     test('badge shows distance; exhibit pin after an amenity leaves one sheet', async ({
@@ -228,6 +274,7 @@ test.describe('Amenities', () => {
       }).toPass()
       await expect(page.getByText(DESCRIPTION)).toBeHidden()
       await expect(page.locator('[data-selected="true"]')).toBeHidden()
+      await expect(navigate(page)).toBeVisible()
     })
   })
 
