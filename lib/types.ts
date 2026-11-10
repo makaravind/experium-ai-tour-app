@@ -13,7 +13,6 @@ export interface Fact {
   fact: string
 }
 
-/** One exhibit row in the upfront-precached dataset (gh-64), with audio for every published language. */
 /** Where the visitor left the virtual tour; persisted so the map can recentre on it and pin it. */
 export interface TourSpot {
   nodeId: string
@@ -26,6 +25,7 @@ export interface TourSpot {
   at: number
 }
 
+/** One exhibit row in the upfront-precached dataset (gh-64), with audio for every published language. */
 export interface CachedExhibit {
   id: string
   code: string | null // exhibits.code as text (the /s/<code> URL segment); null if unassigned
