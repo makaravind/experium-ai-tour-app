@@ -22,18 +22,20 @@ export function nextFreeLetter(sections: Pick<WorkingSection, 'id'>[]): string {
 /**
  * Normalizes user input to an upper-case letter id; `error` is set when it is invalid or taken by another section.
  * admin_apply_changes forbids rename swaps/cycles, so a letter that another section still holds in the DB
- * (its `originalId`) is blocked too: free it with a spare letter, Save, then rename.
+ * (its `originalId`) is blocked too: free it with a spare letter, Save, then rename. The same goes for the letter
+ * of a section deleted this session (`deletedIds`): renames are applied before deletes.
  */
 export function validateLetter(
   input: string,
   sections: Pick<WorkingSection, 'id' | 'originalId'>[],
   selfId: string | null,
+  deletedIds: string[] = [],
 ): { id: string; error: string | null } {
   const id = input.trim().toUpperCase()
   if (!/^[A-Z]+$/.test(id)) return { id, error: 'Letters A–Z only' }
   const others = sections.filter((s) => s.id !== selfId)
   if (others.some((s) => s.id === id)) return { id, error: `Section ${id} already exists` }
-  if (others.some((s) => s.originalId === id)) {
+  if (others.some((s) => s.originalId === id) || deletedIds.includes(id)) {
     return { id, error: `${id} is still the saved letter of another section; Save first, then rename` }
   }
   return { id, error: null }

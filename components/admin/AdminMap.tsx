@@ -15,6 +15,8 @@ import type { AdminExhibit, LngLat, WorkingSection } from '@/lib/admin/types'
 interface AdminMapProps {
   sections: WorkingSection[]
   exhibits: AdminExhibit[]
+  /** Saved letters of sections deleted in this session (still in the DB until Save). */
+  deletedSectionIds?: string[]
   onSectionsChange: (next: WorkingSection[]) => void
   /** Called when a section rename, new polygon, pin drag or new exhibit changes `exhibits`. */
   onExhibitsChange: (next: AdminExhibit[]) => void
@@ -58,7 +60,7 @@ const sectionsGeoJson = (sections: WorkingSection[]): GeoJSON.FeatureCollection 
 const setData = (map: maplibregl.Map, source: string, data: GeoJSON.FeatureCollection) =>
   (map.getSource(source) as maplibregl.GeoJSONSource | undefined)?.setData(data)
 
-export default function AdminMap({ sections, exhibits, onSectionsChange, onExhibitsChange, selectedId, onSelect }: AdminMapProps) {
+export default function AdminMap({ sections, exhibits, deletedSectionIds, onSectionsChange, onExhibitsChange, selectedId, onSelect }: AdminMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const labelsRef = useRef(new Map<string, maplibregl.Marker>())
@@ -378,7 +380,7 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
 
   const commitRename = () => {
     if (!renaming) return
-    const { id, error } = validateLetter(renaming.value, sections, renaming.id)
+    const { id, error } = validateLetter(renaming.value, sections, renaming.id, deletedSectionIds)
     if (error) return flash(error)
     if (id !== renaming.id) {
       onSectionsChange(renameSection(sections, renaming.id, id))

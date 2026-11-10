@@ -11,6 +11,7 @@ export const runtime = 'nodejs'
 
 const run = promisify(execFile)
 const LANGUAGES = ['en', 'hi', 'te']
+const MAX_BYTES = 50 * 1024 * 1024
 
 /** multipart: file (WAV/MP3), code (exhibit code), lang → 64 kbps mono MP3 in bucket `audio` at {code}/{lang}-{timestamp}.mp3 */
 export async function POST(req: NextRequest) {
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Need file, numeric code and lang (en|hi|te)' }, { status: 400 })
   }
 
+  if (file.size > MAX_BYTES) return NextResponse.json({ error: 'File too large (max 50 MB)' }, { status: 413 })
+
   const dir = await mkdtemp(join(tmpdir(), 'admin-audio-'))
   try {
     const input = join(dir, 'in')
@@ -38,8 +41,11 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ url: bucket.getPublicUrl(path).data.publicUrl })
   } catch (e) {
+    if ((e as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return NextResponse.json({ error: 'ffmpeg not found on PATH' }, { status: 500 })
+    }
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Audio conversion failed' }, { status: 500 })
   } finally {
-    await rm(dir, { recursive: true })
+    await rm(dir, { recursive: true, force: true }).catch(() => {})
   }
 }
