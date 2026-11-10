@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
-  assignUnplaced, centroid, nextFreeLetter, renameExhibitsSection, renameSection, strandedExhibits, validateLetter,
+  assignUnplaced, centroid, nextFreeLetter, renameAmenitiesSection, renameExhibitsSection, renameSection, strandedExhibits,
+  validateLetter,
 } from '@/lib/admin/sections'
-import type { AdminExhibit, LngLat, WorkingSection } from '@/lib/admin/types'
+import type { AdminAmenity, AdminExhibit, LngLat, WorkingSection } from '@/lib/admin/types'
 
 const sq: LngLat[] = [[0, 0], [10, 0], [10, 10], [0, 10]]
 const sec = (id: string, originalId: string | null = id): WorkingSection => ({ id, originalId, polygon: sq })
@@ -60,6 +61,24 @@ describe('rename helpers', () => {
   it('renameExhibitsSection re-points only matching exhibits', () => {
     const e = (id: string, section: string | null) => ({ id, section }) as AdminExhibit
     expect(renameExhibitsSection([e('1', 'A'), e('2', 'B'), e('3', null)], 'A', 'C').map((x) => x.section)).toEqual(['C', 'B', null])
+  })
+})
+
+describe('strandedExhibits with amenities', () => {
+  it('works for amenity rows (same shape check)', () => {
+    const a = (id: string, section: string | null, lng: number, lat: number) => ({ id, section, gps_lng: lng, gps_lat: lat }) as AdminAmenity
+    expect(strandedExhibits([a('in', 'A', 5, 5), a('out', 'A', 20, 5), a('other', 'B', 20, 5)], 'A', sq).map((x) => x.id)).toEqual(['out'])
+  })
+})
+
+describe('renameAmenitiesSection', () => {
+  const a = (id: string, section: string | null) => ({ id, section }) as AdminAmenity
+  it('re-points only matching amenities', () => {
+    expect(renameAmenitiesSection([a('1', 'A'), a('2', 'B'), a('3', null)], 'A', 'C').map((x) => x.section)).toEqual(['C', 'B', null])
+  })
+  it('keeps untouched rows by reference', () => {
+    const rows = [a('1', 'A'), a('2', 'B')]
+    expect(renameAmenitiesSection(rows, 'A', 'C')[1]).toBe(rows[1])
   })
 })
 
