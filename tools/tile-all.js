@@ -1,9 +1,9 @@
 /**
  * Batch wrapper around tools/tile-panorama.js: tiles (and uploads) every master in one or more folders.
  *
- *   pano_ref = filename stem ("Front Top View" → "lobby"); refs in --skip are left alone.
+ *   pano_ref = filename stem; refs in --skip are left alone. "Front Top View" is always ignored (duplicate of node 1, the lobby).
  *
- * Usage: node tools/tile-all.js <folder> [<folder> ...] [--skip lobby,1] [--dry-run] [--retries 3]
+ * Usage: node tools/tile-all.js <folder> [<folder> ...] [--skip 1] [--dry-run] [--retries 3]
  *   --dry-run tiles to /tmp/tiles/<pano_ref> only; nothing is uploaded.
  *   Re-running is idempotent (tile-panorama upserts), so a failed ref is retried then reported.
  */
@@ -16,23 +16,22 @@ import { fileURLToPath, pathToFileURL } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const TILE_PANORAMA = join(__dirname, 'tile-panorama.js')
 
-export const DEFAULT_SKIP = ['lobby', '1']
-const STEM_ALIASES = { 'Front Top View': 'lobby' }
+export const DEFAULT_SKIP = ['1']
+// Duplicate of node 1 (the lobby); never tiled as its own node, even with a custom --skip.
+const IGNORED_STEMS = ['Front Top View']
 const MASTER_EXT = new Set(['.png', '.jpg', '.jpeg'])
 
-export const panoRefFromFile = file => {
-  const stem = basename(file, extname(file))
-  return STEM_ALIASES[stem] ?? stem
-}
+export const panoRefFromFile = file => basename(file, extname(file))
 
 export const isMaster = file => MASTER_EXT.has(extname(file).toLowerCase())
 
-/** [{ file, panoRef }] for masters not in `skip`; throws on two masters resolving to the same ref. */
+/** [{ file, panoRef }] for masters not in `skip` or IGNORED_STEMS; throws on two masters resolving to the same ref. */
 export function selectMasters(files, skip = DEFAULT_SKIP) {
   const seen = new Map()
   const out = []
   for (const file of files.filter(isMaster)) {
     const panoRef = panoRefFromFile(file)
+    if (IGNORED_STEMS.includes(panoRef)) continue
     if (seen.has(panoRef)) throw new Error(`Duplicate pano_ref "${panoRef}": ${seen.get(panoRef)} and ${file}`)
     seen.set(panoRef, file)
     if (!skip.includes(panoRef)) out.push({ file, panoRef })
