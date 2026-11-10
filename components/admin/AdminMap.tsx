@@ -5,6 +5,8 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
 
+import { sectionAt } from '@/lib/admin/geometry'
+import { movePin, newExhibit } from '@/lib/admin/pins'
 import {
   assignUnplaced, centroid, nextFreeLetter, renameExhibitsSection, renameSection, strandedExhibits, validateLetter,
 } from '@/lib/admin/sections'
@@ -14,8 +16,20 @@ interface AdminMapProps {
   sections: WorkingSection[]
   exhibits: AdminExhibit[]
   onSectionsChange: (next: WorkingSection[]) => void
-  /** Only called when a section letter rename or a new polygon changes exhibits' `section`/`number`. */
+  /** Called when a section rename, new polygon, pin drag or new exhibit changes `exhibits`. */
   onExhibitsChange: (next: AdminExhibit[]) => void
+  /** Optional controlled selection (clicking or dragging a pin selects it); uncontrolled when `selectedId` is omitted. */
+  selectedId?: string | null
+  onSelect?: (id: string | null) => void
+}
+
+interface NewExhibitDraft {
+  lng: number
+  lat: number
+  section: string
+  name: string
+  type: string
+  tier: string
 }
 
 // Same park extent as components/map/ParkMap.tsx (not imported: that module is coupled to the visitor stores).
@@ -26,6 +40,9 @@ const MAX_BOUNDS: [number, number, number, number] = [
   ORTHO_BOUNDS[2] + 0.001,
   ORTHO_BOUNDS[3] + 0.001,
 ]
+// same options as DetailsPanel
+const TYPES = ['flora', 'structure', 'water_body', 'landmark']
+const TIERS = ['gold', 'silver', 'bronze']
 const COLORS = ['#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#fb923c', '#22d3ee', '#a3e635']
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
 
@@ -41,10 +58,11 @@ const sectionsGeoJson = (sections: WorkingSection[]): GeoJSON.FeatureCollection 
 const setData = (map: maplibregl.Map, source: string, data: GeoJSON.FeatureCollection) =>
   (map.getSource(source) as maplibregl.GeoJSONSource | undefined)?.setData(data)
 
-export default function AdminMap({ sections, exhibits, onSectionsChange, onExhibitsChange }: AdminMapProps) {
+export default function AdminMap({ sections, exhibits, onSectionsChange, onExhibitsChange, selectedId, onSelect }: AdminMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const labelsRef = useRef(new Map<string, maplibregl.Marker>())
+  const pinsRef = useRef(new Map<string, maplibregl.Marker>())
   const handlesRef = useRef<{ id: string; markers: maplibregl.Marker[] } | null>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [ready, setReady] = useState(false)
@@ -52,11 +70,18 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
   const [editingId, setEditingId] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null)
   const [hint, setHint] = useState('')
+  const [newForm, setNewForm] = useState<NewExhibitDraft | null>(null)
+  const [localSelected, setLocalSelected] = useState<string | null>(null)
+  const selected = selectedId !== undefined ? selectedId : localSelected
+  const select = (id: string | null) => {
+    setLocalSelected(id)
+    onSelect?.(id)
+  }
 
   // handlers registered on the map/markers once read the latest props through this
-  const latest = useRef({ sections, exhibits, onSectionsChange })
+  const latest = useRef({ sections, exhibits, onSectionsChange, onExhibitsChange, select })
   useEffect(() => {
-    latest.current = { sections, exhibits, onSectionsChange }
+    latest.current = { sections, exhibits, onSectionsChange, onExhibitsChange, select }
   })
 
   const isDrawing = drawing !== null
@@ -91,13 +116,12 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
     })
     mapRef.current = map
     const labels = labelsRef.current
+    const pins = pinsRef.current
 
     map.on('load', () => {
       map.addSource('sections', { type: 'geojson', data: EMPTY })
       map.addLayer({ id: 'sections-fill', type: 'fill', source: 'sections', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.18 } })
       map.addLayer({ id: 'sections-line', type: 'line', source: 'sections', paint: { 'line-color': ['get', 'color'], 'line-width': 2 } })
-      map.addSource('exhibits', { type: 'geojson', data: EMPTY })
-      map.addLayer({ id: 'exhibits-dot', type: 'circle', source: 'exhibits', paint: { 'circle-radius': 4, 'circle-color': '#ef4444', 'circle-stroke-color': '#fff', 'circle-stroke-width': 1 } })
       map.addSource('draft', { type: 'geojson', data: EMPTY })
       map.addLayer({ id: 'draft-line', type: 'line', source: 'draft', filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': '#fff', 'line-width': 2, 'line-dasharray': [2, 2] } })
       map.addLayer({ id: 'draft-pts', type: 'circle', source: 'draft', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': '#fff', 'circle-stroke-color': '#0ea5e9', 'circle-stroke-width': 2 } })
@@ -110,6 +134,8 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
       handlesRef.current = null
       labels.forEach((m) => m.remove())
       labels.clear()
+      pins.forEach((m) => m.remove())
+      pins.clear()
       map.remove()
       maplibregl.removeProtocol('pmtiles')
       mapRef.current = null
@@ -142,19 +168,85 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
     }
   }, [sections, ready])
 
-  // exhibit positions (read-only dots; draggable pins come with the pins step)
+  // exhibit pins: draggable markers labelled with the display ID (code when unplaced)
   useEffect(() => {
     const map = mapRef.current
     if (!ready || !map) return
-    setData(map, 'exhibits', {
-      type: 'FeatureCollection',
-      features: exhibits.flatMap((e) =>
-        e.gps_lat != null && e.gps_lng != null
-          ? [{ type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: [e.gps_lng, e.gps_lat] } }]
-          : [],
-      ),
-    })
-  }, [exhibits, ready])
+    const pins = pinsRef.current
+    const placed = exhibits.filter((e) => e.gps_lat != null && e.gps_lng != null)
+    const ids = new Set(placed.map((e) => e.id))
+    for (const [id, marker] of pins) {
+      if (!ids.has(id)) {
+        marker.remove()
+        pins.delete(id)
+      }
+    }
+    for (const e of placed) {
+      let marker = pins.get(e.id)
+      if (!marker) {
+        const el = document.createElement('div')
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation()
+          latest.current.select(e.id)
+        })
+        marker = new maplibregl.Marker({ element: el, draggable: true, anchor: 'center' }).setLngLat([e.gps_lng!, e.gps_lat!]).addTo(map)
+        marker.on('dragstart', () => latest.current.select(e.id))
+        marker.on('dragend', () => {
+          const { exhibits: all, sections: secs, onExhibitsChange: emit } = latest.current
+          const prev = all.find((x) => x.id === e.id)
+          if (!prev || prev.gps_lng == null || prev.gps_lat == null) return
+          const { lng, lat } = marker!.getLngLat()
+          const result = movePin(all, secs, e.id, lng, lat)
+          if (result === 'snap-back') {
+            marker!.setLngLat([prev.gps_lng, prev.gps_lat])
+            flash('Outside every section; pin returned')
+            return
+          }
+          emit(all.map((x) => (x.id === e.id ? { ...x, ...result } : x)))
+        })
+        pins.set(e.id, marker)
+      }
+      marker.setLngLat([e.gps_lng!, e.gps_lat!])
+      marker.setDraggable(!isDrawing)
+      const el = marker.getElement()
+      const isSel = e.id === selected
+      el.textContent = e.section ? `${e.section}${e.number}` : String(e.code ?? '?')
+      // per-property (not cssText): MapLibre positions the marker through el.style.transform
+      Object.assign(el.style, {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: '28px',
+        height: '28px',
+        padding: '0 6px',
+        borderRadius: '14px',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#fff',
+        cursor: isDrawing ? 'crosshair' : 'grab',
+        pointerEvents: isDrawing ? 'none' : 'auto',
+        background: e.section ? '#ef4444' : '#94a3b8',
+        border: `2px solid ${isSel ? '#fde047' : '#fff'}`,
+        boxShadow: isSel ? '0 0 0 3px rgba(253,224,71,.5)' : '0 1px 4px rgba(0,0,0,.6)',
+        zIndex: isSel ? '2' : '1',
+      })
+    }
+  }, [exhibits, selected, isDrawing, ready, flash])
+
+  // click on empty map inside a section → "new exhibit" form (not while drawing / reshaping)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map || isDrawing || editingId) return
+    const onClick = (e: maplibregl.MapMouseEvent) => {
+      const { lng, lat } = e.lngLat
+      const section = sectionAt(lng, lat, latest.current.sections)
+      if (section) setNewForm({ lng, lat, section: section.id, name: '', type: '', tier: 'silver' })
+    }
+    map.on('click', onClick)
+    return () => {
+      map.off('click', onClick)
+    }
+  }, [isDrawing, editingId, ready])
 
   // draw mode: draft layer + click to add vertices
   useEffect(() => {
@@ -232,6 +324,7 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
   }, [editingId, editingPolygon, ready, flash])
 
   const startDrawing = () => {
+    setNewForm(null)
     setEditingId(null)
     setRenaming(null)
     setDrawing([])
@@ -261,11 +354,27 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
         if (e.key === 'Escape') setDrawing(null)
       } else if (e.key === 'Escape') {
         setEditingId(null)
+        setNewForm(null)
+        latest.current.select(null)
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [isDrawing])
+
+  const addExhibit = () => {
+    if (!newForm || !newForm.name.trim()) return
+    const created = newExhibit(exhibits, sections, crypto.randomUUID(), newForm.lng, newForm.lat, {
+      name: newForm.name.trim(),
+      type: newForm.type || null,
+      tier: newForm.tier,
+    })
+    if (!created) return
+    onExhibitsChange([...exhibits, created])
+    select(created.id)
+    flash(`Added ${created.section}${created.number}`)
+    setNewForm(null)
+  }
 
   const commitRename = () => {
     if (!renaming) return
@@ -314,7 +423,7 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
               ? `Click to add points (${drawing.length}). Enter = finish, Esc = cancel`
               : editingId
                 ? `Reshaping ${editingId}: drag the white handles. Esc = stop`
-                : '')}
+                : 'Click inside a section to add an exhibit; drag a pin to move it')}
         </p>
         <ul className="mt-2 space-y-1">
           {sections.map((s, i) => (
@@ -332,7 +441,10 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
                 <button
                   className={`${btn} ${editingId === s.id ? 'bg-sky-700' : ''}`}
                   disabled={isDrawing}
-                  onClick={() => setEditingId(editingId === s.id ? null : s.id)}
+                  onClick={() => {
+                    setNewForm(null)
+                    setEditingId(editingId === s.id ? null : s.id)
+                  }}
                 >
                   Reshape
                 </button>
@@ -364,6 +476,44 @@ export default function AdminMap({ sections, exhibits, onSectionsChange, onExhib
             </li>
           ))}
         </ul>
+        {newForm && (
+          <div className="mt-3 rounded bg-slate-800 p-2">
+            <p className="font-bold">New exhibit in section {newForm.section}</p>
+            <p className="text-xs text-slate-400">Code: assigned on save</p>
+            <input
+              autoFocus
+              className="mt-2 w-full rounded bg-slate-700 px-2 py-1 text-white"
+              placeholder="Name (required)"
+              value={newForm.name}
+              onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addExhibit()
+                if (e.key === 'Escape') setNewForm(null)
+              }}
+            />
+            <div className="mt-2 flex gap-2">
+              <select className="flex-1 rounded bg-slate-700 px-1 py-1" value={newForm.type} onChange={(e) => setNewForm({ ...newForm, type: e.target.value })}>
+                <option value="">— type —</option>
+                {TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <select className="flex-1 rounded bg-slate-700 px-1 py-1" value={newForm.tier} onChange={(e) => setNewForm({ ...newForm, tier: e.target.value })}>
+                {TIERS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button className={`${btn} px-3 py-1 text-sm`} disabled={!newForm.name.trim()} onClick={addExhibit}>
+                Add
+              </button>
+              <button className={`${btn} px-3 py-1 text-sm`} onClick={() => setNewForm(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
