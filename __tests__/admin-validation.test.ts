@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseFacts, validateNumber } from '@/lib/admin/validation'
+import { parseFacts, unplacedMessage, validateNumber } from '@/lib/admin/validation'
 
 const ex = (id: string, section: string | null, number: number | null) => ({ id, section, number })
 
@@ -59,5 +59,20 @@ describe('validateNumber', () => {
 
   it.each(['', 'abc', '0', '-1', '1.5', '1e2'])('rejects %j', (t) => {
     expect(validateNumber(t, self, list).ok).toBe(false)
+  })
+})
+
+describe('unplacedMessage', () => {
+  const e = (name: string, section: string | null, number: number | null) => ({ name, section, number })
+
+  it('returns null when all exhibits are placed', () => {
+    expect(unplacedMessage([e('Banyan', 'A', 1), e('Pond', 'B', 2)])).toBeNull()
+    expect(unplacedMessage([])).toBeNull()
+  })
+
+  it('counts and names exhibits missing section or number', () => {
+    expect(unplacedMessage([e('Banyan', 'A', 1), e('Pond', null, null), e('', 'B', null)])).toBe(
+      '2 unplaced exhibit(s): fix before saving (Pond, Untitled exhibit)',
+    )
   })
 })
