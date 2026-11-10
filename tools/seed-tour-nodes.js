@@ -76,8 +76,11 @@ export function buildRow(supabaseUrl, { panoRef, label, isLobby, lat, lng }) {
 }
 
 /** Columns a re-seed may touch on an existing row: label / is_lobby are seed-time defaults only. */
-export function buildUpdate({ label, is_lobby, ...rest }) {
-  return rest
+export function buildUpdate(row) {
+  const update = { ...row }
+  delete update.label
+  delete update.is_lobby
+  return update
 }
 
 async function main() {
