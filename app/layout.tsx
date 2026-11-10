@@ -3,7 +3,7 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import DebugPanel from '@/components/DebugPanel'
 import ErrorTracker from '@/components/ErrorTracker'
-import AppGate from '@/components/onboarding/AppGate'
+import RouteGate from '@/components/onboarding/RouteGate'
 import ScanQueueSync from '@/components/ScanQueueSync'
 import { SerwistProvider } from '@serwist/next/react'
 
@@ -53,7 +53,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <SerwistProvider swUrl="/sw.js" register cacheOnNavigation={false} reloadOnOnline={false}>
           <ScanQueueSync />
-          <AppGate>{children}</AppGate>
+          <RouteGate>{children}</RouteGate>
         </SerwistProvider>
         <Analytics />
         <ErrorTracker />
