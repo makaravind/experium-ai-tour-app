@@ -40,6 +40,7 @@ export interface CachedAmenity {
   photos: string[]
   gps_lat: number
   gps_lng: number
+  section: string
 }
 
 export interface ExhibitData {

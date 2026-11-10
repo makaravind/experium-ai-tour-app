@@ -50,7 +50,7 @@ export default function AmenitySheet({
             name={amenity?.name}
             badge={
               amenity &&
-              `${typeLabel(amenity.type)}${distanceM !== null ? ` · ${Math.round(distanceM)}m away` : ''}`
+              `${typeLabel(amenity.type)} · Section ${amenity.section}${distanceM !== null ? ` · ${Math.round(distanceM)}m away` : ''}`
             }
             onCollapse={collapse}
             count={Math.max(1, amenity?.photos.length ?? 0)}

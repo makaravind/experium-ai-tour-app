@@ -134,6 +134,7 @@ describe('sortAmenities', () => {
     photos: [],
     gps_lat,
     gps_lng: 0,
+    section: 'G',
   })
   const list = [
     am('far', 'Zeta Cafe', 0.003),

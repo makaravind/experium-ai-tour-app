@@ -47,7 +47,7 @@ async function seedVisitor(
               },
             ],
           },
-          version: 4,
+          version: 5,
         })
       )
     },

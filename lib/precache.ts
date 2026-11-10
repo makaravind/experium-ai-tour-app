@@ -123,7 +123,7 @@ export async function fetchCachedAmenities(): Promise<CachedAmenity[]> {
   try {
     const { data, error } = await supabase
       .from('amenities')
-      .select('id, name, type, description, photos, gps_lat, gps_lng')
+      .select('id, name, type, description, photos, gps_lat, gps_lng, section')
       .abortSignal(ctrl.signal)
     if (ctrl.signal.aborted) throw new ConnectionTimeoutError()
     if (error || !data) throw new Error(error?.message ?? 'amenities query returned no data')
@@ -136,6 +136,7 @@ export async function fetchCachedAmenities(): Promise<CachedAmenity[]> {
       photos: row.photos,
       gps_lat: row.gps_lat,
       gps_lng: row.gps_lng,
+      section: row.section,
     }))
   } finally {
     clearTimeout(timer)

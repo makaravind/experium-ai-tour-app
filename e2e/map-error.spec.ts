@@ -23,7 +23,7 @@ async function seedVisitor(page: Page) {
           cachedExhibits: [],
           cachedAmenities: [],
         },
-        version: 4,
+        version: 5,
       })
     )
   })
