@@ -111,6 +111,22 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     }
   }, [isExhibitPage])
 
+  // Arriving from /tour's Navigate: open that exhibit's sheet and centre on it. Taken from the store
+  // once into a ref, so StrictMode's second effect pass (which re-runs the clear above) re-applies it.
+  const tourFocusRef = useRef<string | null>(null)
+  useEffect(() => {
+    const { tourFocusExhibitId, setTourFocusExhibitId } = useMapStore.getState()
+    if (tourFocusExhibitId) {
+      tourFocusRef.current = tourFocusExhibitId
+      setTourFocusExhibitId(null)
+    }
+    const exhibit = mapExhibits.find((e) => e.id === tourFocusRef.current)
+    if (!exhibit) return
+    setMapSelectedExhibit(toPreviewExhibit(exhibit))  
+    setFlyToTarget(exhibit.id)
+    setNavigateEnabled(true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fly to exhibit when page data arrives or changes
 
   useEffect(() => {

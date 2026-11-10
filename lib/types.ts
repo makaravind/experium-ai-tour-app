@@ -14,6 +14,18 @@ export interface Fact {
 }
 
 /** One exhibit row in the upfront-precached dataset (gh-64), with audio for every published language. */
+/** Where the visitor left the virtual tour; persisted so the map can recentre on it and pin it. */
+export interface TourSpot {
+  nodeId: string
+  lat: number
+  lng: number
+  /** view direction on exit, degrees (panos aren't north-aligned, so this is not a compass bearing) */
+  heading: number
+  label: string
+  /** Date.now() when written */
+  at: number
+}
+
 export interface CachedExhibit {
   id: string
   code: string | null // exhibits.code as text (the /s/<code> URL segment); null if unassigned

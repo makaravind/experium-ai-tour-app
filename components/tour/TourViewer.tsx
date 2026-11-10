@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { Viewer } from '@photo-sphere-viewer/core'
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
@@ -53,6 +53,8 @@ interface Props {
   onPanoClick: () => void
   /** a tapped arrow's node failed to load; the viewer stays on the current node */
   onNodeError: () => void
+  /** filled with a getter for the viewer's current yaw (radians) while it is up */
+  getYawRef: RefObject<(() => number) | null>
 }
 
 /** Loaded via next/dynamic (ssr: false) from app/tour/page.tsx. */
@@ -67,6 +69,7 @@ export default function TourViewer({
   onPinSelect,
   onPanoClick,
   onNodeError,
+  getYawRef,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   // Pins follow the latest dataset/visited set without re-creating the viewer.
@@ -131,6 +134,7 @@ export default function TourViewer({
         ],
       ],
     })
+    getYawRef.current = () => viewer.getPosition().yaw
     const tour = viewer.getPlugin<VirtualTourPlugin>(VirtualTourPlugin)
     const markers = viewer.getPlugin<MarkersPlugin>(MarkersPlugin)
     // Pins are set on each node-changed (the plugin clears markers on every node switch) rather
@@ -155,10 +159,11 @@ export default function TourViewer({
     return () => {
       destroyed = true
       syncPinsRef.current = null
+      getYawRef.current = null
       viewer.destroy()
       setTimeout(() => window.removeEventListener('unhandledrejection', onRejection, true), 100)
     }
-  }, [graph, node, panorama, yaw, onNodeChange, onPinSelect, onPanoClick, onNodeError])
+  }, [graph, node, panorama, yaw, onNodeChange, onPinSelect, onPanoClick, onNodeError, getYawRef])
 
   return <div ref={containerRef} className="h-full w-full" />
 }

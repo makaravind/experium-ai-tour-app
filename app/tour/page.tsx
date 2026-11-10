@@ -1,15 +1,22 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { EquirectangularMultiTilesPanorama } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import ExhibitStrip from '@/components/tour/ExhibitStrip'
+import ExitSplash from '@/components/tour/ExitSplash'
 import TourSplash from '@/components/tour/TourSplash'
 import { toPreviewExhibit } from '@/lib/map-exhibits'
+import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
-import { TOUR_SLOW_TIMEOUT_MS, TOUR_SPLASH_MIN_MS, TOUR_TOAST_MS } from '@/lib/timeouts'
+import {
+  TOUR_EXIT_SPLASH_MS,
+  TOUR_SLOW_TIMEOUT_MS,
+  TOUR_SPLASH_MIN_MS,
+  TOUR_TOAST_MS,
+} from '@/lib/timeouts'
 import { fetchManifest, fetchTourGraph, preloadImage } from '@/lib/tour-data'
 import {
   manifestToPanorama,
@@ -18,6 +25,7 @@ import {
   splashView,
   type TourGraph,
   type TourNode,
+  yawToHeading,
 } from '@/lib/tour'
 import type { ExhibitAudio, Language } from '@/lib/types'
 
@@ -119,14 +127,14 @@ function Tour() {
   const { loaded, failed, offline, loadKey, retry } = useTourNode(nodeParam)
   const { toast, showToast } = useTourToast(!!loaded)
 
-  // Label of the node the visitor has walked to, tagged with the load it belongs to so a new
-  // entry node (URL change) or retry starts from the entry label again.
-  const [walked, setWalked] = useState<{ key: string; label: string } | null>(null)
+  // Node the visitor has walked to, tagged with the load it belongs to so a new
+  // entry node (URL change) or retry starts from the entry node again.
+  const [walked, setWalked] = useState<{ key: string; node: TourNode } | null>(null)
   // Exhibit whose PreviewSheet is open, tagged with its load like `walked`; walking to another node closes it.
   const [pinned, setPinned] = useState<{ key: string; id: string } | null>(null)
   const onNodeChange = useCallback(
     (n: TourNode) => {
-      setWalked({ key: loadKey, label: n.label })
+      setWalked({ key: loadKey, node: n })
       setPinned(null)
     },
     [loadKey]
@@ -156,13 +164,37 @@ function Tour() {
       ),
     [pinnedCached]
   )
-  // Step 10: replace with the exit splash, then /map centred on the exhibit with activeExhibitId.
-  const handleNavigate = () => router.push('/map')
+  const currentNode = walked?.key === loadKey ? walked.node : (loaded?.node ?? null)
+
+  // Leaving for /map: save where the visitor stands (the map recentres on it and later pins it),
+  // show the exit splash, then go. `focusExhibitId` (Navigate) makes the map open that exhibit instead.
+  const getYawRef = useRef<(() => number) | null>(null)
+  const [exiting, setExiting] = useState<{ label: string; spotSaved: boolean } | null>(null)
+  const exitToMap = (focusExhibitId: string | null) => {
+    if (exiting) return
+    // Still loading: no node to save, nothing to splash
+    if (!currentNode) return router.push('/map')
+    const { id, lat, lng, label } = currentNode
+    // A node not yet placed has no coords: skip the spot, the map keeps its own viewport
+    const spotSaved = lat != null && lng != null
+    if (spotSaved) {
+      const heading = yawToHeading(getYawRef.current?.() ?? yaw)
+      useStore.getState().setTourSpot({ nodeId: id, lat, lng, heading, label, at: Date.now() })
+    }
+    useMapStore.getState().setTourFocusExhibitId(focusExhibitId)
+    setExiting({ label, spotSaved })
+  }
+  useEffect(() => {
+    if (!exiting) return
+    const t = setTimeout(() => router.push('/map'), TOUR_EXIT_SPLASH_MS)
+    return () => clearTimeout(t)
+  }, [exiting, router])
+  const handleNavigate = () => exitToMap(pinnedCached?.id ?? null)
   const onNodeError = useCallback(
     () => showToast(navigator.onLine ? "Couldn't load that spot" : NEEDS_INTERNET),
     [showToast]
   )
-  const pillLabel = walked?.key === loadKey ? walked.label : loaded?.node.label
+  const pillLabel = currentNode?.label
 
   // Splash timers record the load (and wait round) they fired for, so a new load (node change or
   // retry) starts with min-display and slow cleared. Slow stops once loaded; Keep waiting restarts it.
@@ -210,6 +242,7 @@ function Tour() {
           onPinSelect={onPinSelect}
           onPanoClick={onPanoClick}
           onNodeError={onNodeError}
+          getYawRef={getYawRef}
         />
       )}
       {failed && (
@@ -243,6 +276,7 @@ function Tour() {
       {loaded && (
         <PreviewSheet exhibit={sheetExhibit} audio={sheetAudio} onNavigate={handleNavigate} />
       )}
+      {exiting && <ExitSplash label={exiting.label} spotSaved={exiting.spotSaved} />}
       {toast && (
         <div
           role="status"
@@ -253,7 +287,7 @@ function Tour() {
       )}
       {!failed && (
         <button
-          onClick={() => router.push('/map')}
+          onClick={() => exitToMap(null)}
           className="absolute top-4 left-4 z-10 flex items-center gap-1 rounded-full bg-black/50 px-3 py-1.5 text-sm text-white backdrop-blur-sm"
         >
           ← Map

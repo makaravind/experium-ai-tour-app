@@ -1,5 +1,5 @@
 import type { EquirectangularMultiTilesPanorama } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
-import type { CachedExhibit } from '@/lib/types'
+import type { CachedExhibit, TourSpot } from '@/lib/types'
 
 export interface TourNode {
   id: string
@@ -32,6 +32,21 @@ export interface TileManifest {
 }
 
 export const degToRad = (deg: number) => (deg * Math.PI) / 180
+
+/** Radians -> degrees in [0, 360). */
+export const yawToHeading = (yaw: number) => ((((yaw * 180) / Math.PI) % 360) + 360) % 360
+
+/** A tourSpot written this recently was just left, so the map should fly to it. */
+export const TOUR_SPOT_FRESH_MS = 10_000
+
+/** True when `spot` was written within TOUR_SPOT_FRESH_MS of `now` and the map hasn't already flown to it. */
+export function isFreshTourSpot(
+  spot: TourSpot | null,
+  now: number,
+  flownAt: number | null
+): boolean {
+  return !!spot && spot.at !== flownAt && now - spot.at >= 0 && now - spot.at <= TOUR_SPOT_FRESH_MS
+}
 
 /** `heading` search param (degrees) -> radians; missing or non-numeric -> 0. */
 export function parseHeading(param: string | null): number {
