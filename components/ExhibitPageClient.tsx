@@ -22,9 +22,8 @@ export default function ExhibitPageClient({
 }) {
   const visitorId = useStore((s) => s.visitorId)
   const language = useStore((s) => s.language)
-  const displayId = useStore(
-    (s) => s.cachedExhibits.find((e) => e.id === exhibitId)?.displayId ?? null
-  )
+  const cachedExhibit = useStore((s) => s.cachedExhibits.find((e) => e.id === exhibitId))
+  const displayId = cachedExhibit?.displayId ?? null
   const setListenedCurrentExhibit = useStore((s) => s.setListenedCurrentExhibit)
   const markVisited = useStore((s) => s.markVisited)
   const { setExhibitPageData, clearExhibitPageData } = useMapStore()
@@ -98,6 +97,10 @@ export default function ExhibitPageClient({
       facts: exhibit.facts,
       languages: audio.map((a) => a.language),
       displayId,
+      tour_node_id: cachedExhibit?.tour_node_id,
+      tour_heading: cachedExhibit?.tour_heading,
+      tour_pitch: cachedExhibit?.tour_pitch,
+      tour_preview_url: cachedExhibit?.tour_preview_url,
     }
     setExhibitPageData({
       exhibit: previewExhibit,

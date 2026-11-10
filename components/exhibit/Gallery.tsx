@@ -16,10 +16,16 @@ export const PLACEHOLDER: Palette = {
 export default function Gallery({
   count = 4,
   palette = PLACEHOLDER,
+  tourPreviewUrl,
+  onTourEnter,
 }: {
   count?: number
   palette?: Palette
+  tourPreviewUrl?: string | null
+  onTourEnter?: () => void
 }) {
+  const hasTour = !!tourPreviewUrl
+  const total = count + (hasTour ? 1 : 0)
   const trackRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<(HTMLButtonElement | null)[]>([])
   const [active, setActive] = useState(0)
@@ -29,8 +35,8 @@ export default function Gallery({
     const el = trackRef.current
     if (!el) return
     const i = Math.round(el.scrollLeft / el.clientWidth)
-    setActive(Math.max(0, Math.min(count - 1, i)))
-  }, [count])
+    setActive(Math.max(0, Math.min(total - 1, i)))
+  }, [total])
 
   const goTo = (i: number) => {
     const el = trackRef.current
@@ -74,9 +80,30 @@ export default function Gallery({
               </button>
             </div>
           ))}
+          {hasTour && (
+            <div className="w-full flex-shrink-0 snap-center">
+              <button
+                className="relative w-full overflow-hidden cursor-pointer"
+                style={{ aspectRatio: '1/1', border: 'none', padding: 0 }}
+                onClick={onTourEnter}
+                aria-label="360° virtual tour — tap to explore"
+              >
+                <div
+                  className="tour-pan absolute inset-0"
+                  style={{ backgroundImage: `url("${tourPreviewUrl}")` }}
+                />
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-extrabold bg-black/55 text-white">
+                  360°
+                </span>
+                <span className="absolute bottom-8 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold bg-black/55 text-white whitespace-nowrap">
+                  Tap to explore
+                </span>
+              </button>
+            </div>
+          )}
         </div>
         <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold bg-black/50 text-white">
-          {active + 1} / {count}
+          {active + 1} / {total}
         </span>
       </div>
 
@@ -122,6 +149,28 @@ export default function Gallery({
             )}
           </button>
         ))}
+        {hasTour && (
+          <button
+            onClick={() => goTo(count)}
+            className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+              active === count ? 'border-ex-forest' : 'border-transparent'
+            }`}
+            style={{
+              width: 60,
+              height: 48,
+              backgroundImage: `url("${tourPreviewUrl}")`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              padding: 0,
+            }}
+            aria-label="Go to 360° tour"
+            aria-current={active === count}
+          >
+            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-white bg-black/35">
+              360°
+            </span>
+          </button>
+        )}
       </div>
     </div>
   )
