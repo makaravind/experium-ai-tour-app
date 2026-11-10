@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildChangeset } from '@/lib/admin/changeset'
 import type {
-  AdminAudio, AdminExhibit, AdminPhoto, AdminState, Section, WorkingSection, WorkingState,
+  AdminAmenity, AdminAudio, AdminExhibit, AdminPhoto, AdminState, Section, WorkingSection, WorkingState,
 } from '@/lib/admin/types'
 
 const sq = (x: number): [number, number][] => [[x, 0], [x + 10, 0], [x + 10, 10], [x, 10]]
@@ -10,6 +10,9 @@ const exhibit = (over: Partial<AdminExhibit> = {}): AdminExhibit => ({
   id: 'e1', code: 1, name: 'Baobab', type: 'plant', tier: 'silver', status: 'live',
   description: null, facts: [{ fact: 'old' }], gps_lat: 5, gps_lng: 5, section: 'A', number: 1,
   ...over,
+})
+const amenity = (over: Partial<AdminAmenity> = {}): AdminAmenity => ({
+  id: 'a1', name: 'Main Washroom', type: 'washroom', description: null, gps_lat: 5, gps_lng: 5, section: 'A', ...over,
 })
 const audio = (over: Partial<AdminAudio> = {}): AdminAudio => ({
   exhibit_id: 'e1', language: 'en', script: 's', audio_url: 'u1', status: 'draft', ...over,
@@ -23,6 +26,7 @@ const original = (): AdminState => ({
   exhibits: [exhibit(), exhibit({ id: 'e2', code: 2, number: 2 })],
   audio: [audio()],
   photos: [photo()],
+  amenities: [amenity()],
 })
 
 /** Working copy of `original()` as the client would load it. */
@@ -36,6 +40,7 @@ const empty = {
   exhibits: [],
   audio: [],
   photos: { insert: [], update: [], delete: [] },
+  amenities: { upsert: [], delete: [] },
 }
 
 describe('buildChangeset', () => {
@@ -146,10 +151,12 @@ describe('buildChangeset', () => {
       const w = working()
       w.sections[0].id = 'Z'
       w.exhibits = w.exhibits.map((e) => (e.section === 'A' ? { ...e, section: 'Z' } : e))
+      w.amenities = w.amenities.map((a) => (a.section === 'A' ? { ...a, section: 'Z' } : a))
       const r = buildChangeset(original(), w)
       expect(r.changeset.sections.rename).toEqual([{ from: 'A', to: 'Z' }])
       expect(r.changeset.sections.upsert).toEqual([])
       expect(r.changeset.exhibits).toEqual([])
+      expect(r.changeset.amenities).toEqual({ upsert: [], delete: [] })
       expect(r.summary).toBe('1 section renamed')
     })
 
@@ -158,6 +165,7 @@ describe('buildChangeset', () => {
       w.sections[0].id = 'Z'
       w.sections[0].polygon = sq(1)
       w.exhibits = w.exhibits.map((e) => (e.section === 'A' ? { ...e, section: 'Z' } : e))
+      w.amenities = w.amenities.map((a) => (a.section === 'A' ? { ...a, section: 'Z' } : a))
       const r = buildChangeset(original(), w)
       expect(r.changeset.sections.rename).toEqual([{ from: 'A', to: 'Z' }])
       expect(r.changeset.sections.upsert).toEqual([{ id: 'Z', polygon: sq(1) }])
@@ -248,6 +256,54 @@ describe('buildChangeset', () => {
       const r = buildChangeset(original(), w)
       expect(r.changeset.photos).toEqual({ insert: [], update: [], delete: ['p1'] })
       expect(r.summary).toBe('1 photo removed')
+    })
+  })
+
+  describe('amenities', () => {
+    it('new amenity → full row, summary "amenity added"', () => {
+      const w = working()
+      const a = amenity({ id: 'a2', name: 'Cafe', type: 'food', description: 'Snacks' })
+      w.amenities.push(a)
+      const r = buildChangeset(original(), w)
+      expect(r.changeset.amenities).toEqual({ upsert: [a], delete: [] })
+      expect(r.summary).toBe('1 amenity added')
+    })
+
+    it('gps change within a section → gps + section sent, moved', () => {
+      const w = working()
+      w.amenities[0] = { ...w.amenities[0], gps_lat: 6 }
+      const r = buildChangeset(original(), w)
+      expect(r.changeset.amenities.upsert).toEqual([{ id: 'a1', gps_lat: 6, section: 'A' }])
+      expect(r.summary).toBe('1 amenity moved')
+    })
+
+    it('section change → gps + section sent', () => {
+      const w = working()
+      w.amenities[0] = { ...w.amenities[0], gps_lng: 25, section: 'B' }
+      const r = buildChangeset(original(), w)
+      expect(r.changeset.amenities.upsert).toEqual([{ id: 'a1', gps_lng: 25, section: 'B' }])
+      expect(r.summary).toBe('1 amenity moved')
+    })
+
+    it('name / type / description edits → only changed keys, summary "edited"', () => {
+      const w = working()
+      w.amenities[0] = { ...w.amenities[0], name: 'WC', type: 'gate', description: 'd' }
+      const r = buildChangeset(original(), w)
+      expect(r.changeset.amenities.upsert).toEqual([{ id: 'a1', name: 'WC', type: 'gate', description: 'd' }])
+      expect(r.summary).toBe('1 amenity edited')
+    })
+
+    it('removed amenity → delete id', () => {
+      const w = working()
+      w.amenities = []
+      const r = buildChangeset(original(), w)
+      expect(r.changeset.amenities).toEqual({ upsert: [], delete: ['a1'] })
+      expect(r.summary).toBe('1 amenity deleted')
+      expect(r.isEmpty).toBe(false)
+    })
+
+    it('unchanged amenities → nothing', () => {
+      expect(buildChangeset(original(), working()).changeset.amenities).toEqual({ upsert: [], delete: [] })
     })
   })
 

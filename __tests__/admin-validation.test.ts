@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseFacts, unplacedMessage, validateNumber } from '@/lib/admin/validation'
+import { parseFacts, unplacedAmenityMessage, unplacedMessage, validateNumber } from '@/lib/admin/validation'
 
 const ex = (id: string, section: string | null, number: number | null) => ({ id, section, number })
 
@@ -73,6 +73,24 @@ describe('unplacedMessage', () => {
   it('counts and names exhibits missing section or number', () => {
     expect(unplacedMessage([e('Banyan', 'A', 1), e('Pond', null, null), e('', 'B', null)])).toBe(
       '2 unplaced exhibit(s): fix before saving (Pond, Untitled exhibit)',
+    )
+  })
+})
+
+describe('unplacedAmenityMessage', () => {
+  const a = (name: string, section: string | null) => ({ name, section })
+
+  it('returns null when all amenities are placed', () => {
+    expect(unplacedAmenityMessage([a('WC', 'A')])).toBeNull()
+    expect(unplacedAmenityMessage([])).toBeNull()
+  })
+
+  it('counts and names amenities without a section', () => {
+    expect(unplacedAmenityMessage([a('WC', 'A'), a('Cafe', null)])).toBe(
+      '1 unplaced amenity: fix before saving (Cafe)',
+    )
+    expect(unplacedAmenityMessage([a('', null), a('Gate', null)])).toBe(
+      '2 unplaced amenities: fix before saving (Untitled amenity, Gate)',
     )
   })
 })

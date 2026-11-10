@@ -1,5 +1,5 @@
 import type { Fact } from '@/lib/types'
-import type { AdminExhibit } from './types'
+import type { AdminAmenity, AdminExhibit } from './types'
 
 export type Validated<T> = { ok: true; value: T } | { ok: false; error: string }
 
@@ -45,4 +45,12 @@ export function unplacedMessage(exhibits: Pick<AdminExhibit, 'name' | 'section' 
   if (!unplaced.length) return null
   const names = unplaced.map((e) => e.name || 'Untitled exhibit').join(', ')
   return `${unplaced.length} unplaced exhibit(s): fix before saving (${names})`
+}
+
+/** Save blocker: null if every amenity is in a section, else a message naming the unplaced ones. */
+export function unplacedAmenityMessage(amenities: Pick<AdminAmenity, 'name' | 'section'>[]): string | null {
+  const unplaced = amenities.filter((a) => a.section === null)
+  if (!unplaced.length) return null
+  const names = unplaced.map((a) => a.name || 'Untitled amenity').join(', ')
+  return `${unplaced.length} unplaced ${unplaced.length === 1 ? 'amenity' : 'amenities'}: fix before saving (${names})`
 }
