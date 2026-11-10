@@ -15,8 +15,7 @@ export function filterExhibits(
     .filter(
       (e) =>
         (!mustVisit || e.tier === 'gold') &&
-        (matchesQuery(e.name, q) ||
-          (e.displayNumber !== null && String(e.displayNumber).startsWith(q)))
+        (matchesQuery(e.name, q) || e.displayId.toLowerCase().startsWith(q.toLowerCase()))
     )
     .sort((a, b) => a.name.localeCompare(b.name))
 }

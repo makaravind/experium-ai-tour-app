@@ -10,7 +10,7 @@ export type MarkerInput = {
   lat: number
   lng: number
   status: 'live' | 'coming_soon'
-  number: number | null
+  label: string
 }
 
 const RISE_DURATION_MS = 400
@@ -68,8 +68,8 @@ function darkenHex(hex: string, amount: number): string {
   return `rgb(${r},${g},${b})`
 }
 
-/** Baked 96×96 marker disc: tinted gradient ring, dark gap, white disc, exhibit number. One per marker × tint. */
-function buildDiscTexture(num: number | null, tintKey: TintKey): THREE.CanvasTexture {
+/** Baked 96×96 marker disc: tinted gradient ring, dark gap, white disc, display ID. One per marker × tint. */
+function buildDiscTexture(label: string, tintKey: TintKey): THREE.CanvasTexture {
   const s = 96
   const c = s / 2
   const R_outer = 44
@@ -114,14 +114,12 @@ function buildDiscTexture(num: number | null, tintKey: TintKey): THREE.CanvasTex
   ctx.arc(c, c, R_disc, 0, Math.PI * 2)
   ctx.fill()
 
-  // 4. Number (omitted when null — disc stays blank until park number is assigned)
-  if (num !== null) {
-    ctx.fillStyle = isDimmed ? '#aaaaaa' : '#1c1c1c'
-    ctx.font = 'bold 22px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(String(num), c, c)
-  }
+  // 4. Display ID (e.g. K11)
+  ctx.fillStyle = isDimmed ? '#aaaaaa' : '#1c1c1c'
+  ctx.font = 'bold 22px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(label, c, c)
 
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
@@ -213,13 +211,13 @@ export function createMarkerLayer(opts: {
   let activeId: string | null = null
   let activeSince = 0
 
-  function createMarkerEntry(number: number | null): MarkerEntry {
+  function createMarkerEntry(label: string): MarkerEntry {
     const pivot = new THREE.Group()
 
     const discTextures: Record<TintKey, THREE.CanvasTexture> = {
-      unvisited: buildDiscTexture(number, 'unvisited'),
-      visited: buildDiscTexture(number, 'visited'),
-      coming_soon: buildDiscTexture(number, 'coming_soon'),
+      unvisited: buildDiscTexture(label, 'unvisited'),
+      visited: buildDiscTexture(label, 'visited'),
+      coming_soon: buildDiscTexture(label, 'coming_soon'),
     }
 
     const discMat = new THREE.MeshBasicMaterial({
@@ -397,7 +395,7 @@ export function createMarkerLayer(opts: {
         seen.add(exhibit.id)
         let entry = markers.get(exhibit.id)
         if (!entry) {
-          entry = createMarkerEntry(exhibit.number)
+          entry = createMarkerEntry(exhibit.label)
           markers.set(exhibit.id, entry)
         }
 

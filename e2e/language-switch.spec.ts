@@ -43,10 +43,11 @@ async function seedVisitor(
                 gps_lat: 17.3816,
                 gps_lng: 78.1916283,
                 exhibitStatus: 'live',
+                displayId: 'K1',
               },
             ],
           },
-          version: 3,
+          version: 4,
         })
       )
     },

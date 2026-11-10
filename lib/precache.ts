@@ -83,7 +83,7 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
     const { data, error } = await supabase
       .from('exhibits')
       .select(
-        'id, code, name, type, tier, facts, status, gps_lat, gps_lng, exhibit_audio(language, audio_url, status)'
+        'id, code, section, number, name, type, tier, facts, status, gps_lat, gps_lng, exhibit_audio(language, audio_url, status)'
       )
       .abortSignal(ctrl.signal)
     // postgrest-js returns { error } on abort instead of throwing
@@ -99,7 +99,7 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
       return {
         id: row.id,
         code: row.code == null ? null : String(row.code),
-        displayNumber: (row.code as number | null) ?? null,
+        displayId: `${row.section}${row.number}`,
         status: row.status === 'live' ? 'active' : 'coming_soon',
         name: row.name,
         type: row.type,
