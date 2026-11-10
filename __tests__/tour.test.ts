@@ -161,22 +161,21 @@ describe('isFreshTourSpot', () => {
   const spot: TourSpot = { nodeId: 'n', lat: 1, lng: 2, heading: 0, label: 'L', at: 100_000 }
 
   it('is true within 10 s of being written', () => {
-    expect(isFreshTourSpot(spot, 100_000, null)).toBe(true)
-    expect(isFreshTourSpot(spot, 110_000, null)).toBe(true)
+    expect(isFreshTourSpot(spot, 100_000)).toBe(true)
+    expect(isFreshTourSpot(spot, 110_000)).toBe(true)
   })
 
   it('is false when older than 10 s, or in the future', () => {
-    expect(isFreshTourSpot(spot, 110_001, null)).toBe(false)
-    expect(isFreshTourSpot(spot, 99_999, null)).toBe(false)
+    expect(isFreshTourSpot(spot, 110_001)).toBe(false)
+    expect(isFreshTourSpot(spot, 99_999)).toBe(false)
   })
 
   it('is false with no spot', () => {
-    expect(isFreshTourSpot(null, 100_000, null)).toBe(false)
+    expect(isFreshTourSpot(null, 100_000)).toBe(false)
   })
 
   it('is false once the map already flew to this spot', () => {
-    expect(isFreshTourSpot(spot, 101_000, 100_000)).toBe(false)
-    expect(isFreshTourSpot(spot, 101_000, 50_000)).toBe(true)
+    expect(isFreshTourSpot({ ...spot, flown: true }, 101_000)).toBe(false)
   })
 })
 

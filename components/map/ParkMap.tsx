@@ -714,11 +714,9 @@ export default function ParkMap({
         if (pending) map.flyTo({ center: [pending.gps_lng, pending.gps_lat], zoom: 19 })
       } else {
         // Just left the virtual tour: land on the spot, once
-        const { tourSpotFlownAt, setTourSpotFlownAt, flyToTourSpotTrigger } = useMapStore.getState()
-        const spot = useStore.getState().tourSpot
-        if (isFreshTourSpot(spot, Date.now(), tourSpotFlownAt)) {
-          setTourSpotFlownAt(spot!.at)
-          flyToTourSpotTrigger?.()
+        if (isFreshTourSpot(useStore.getState().tourSpot, Date.now())) {
+          useStore.getState().markTourSpotFlown()
+          useMapStore.getState().flyToTourSpotTrigger?.()
         }
       }
 

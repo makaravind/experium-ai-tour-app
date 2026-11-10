@@ -23,6 +23,8 @@ export interface TourSpot {
   label: string
   /** Date.now() when written */
   at: number
+  /** the map already flew to this spot, so a reload doesn't fly again */
+  flown?: boolean
 }
 
 /** One exhibit row in the upfront-precached dataset (gh-64), with audio for every published language. */

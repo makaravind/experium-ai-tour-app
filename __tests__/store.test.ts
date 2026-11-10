@@ -193,6 +193,19 @@ describe('persist migration v1 -> v2', () => {
     expect(persisted().tourSpot).toBeNull()
   })
 
+  it('marks the tourSpot flown and persists the mark', () => {
+    const spot = { nodeId: 'n', lat: 1, lng: 2, heading: 90, label: 'L', at: 5 }
+    useStore.getState().setTourSpot(spot)
+    useStore.getState().markTourSpotFlown()
+    const persisted = useStore.persist.getOptions().partialize!(useStore.getState()) as {
+      tourSpot: unknown
+    }
+    expect(persisted.tourSpot).toEqual({ ...spot, flown: true })
+    useStore.getState().clearTourSpot()
+    useStore.getState().markTourSpotFlown() // no spot: stays null
+    expect(useStore.getState().tourSpot).toBeNull()
+  })
+
   it('persists cachedAmenities', () => {
     useStore.setState({ cachedAmenities: [{ id: 'a' } as never] })
     const out = useStore.persist.getOptions().partialize!(useStore.getState()) as Record<

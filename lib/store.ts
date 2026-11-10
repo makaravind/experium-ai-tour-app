@@ -31,6 +31,7 @@ interface Store {
   tourSpot: TourSpot | null
   setTourSpot: (s: TourSpot) => void
   clearTourSpot: () => void
+  markTourSpotFlown: () => void
 
   // QR codes already counted toward totalDiscovered
   discoveredCodes: string[]
@@ -107,6 +108,8 @@ export const useStore = create<Store>()(
       tourSpot: null,
       setTourSpot: (tourSpot) => set({ tourSpot }),
       clearTourSpot: () => set({ tourSpot: null }),
+      markTourSpotFlown: () =>
+        set((s) => (s.tourSpot ? { tourSpot: { ...s.tourSpot, flown: true } } : s)),
 
       discoveredCodes: [],
       discoverCode: (code) => {

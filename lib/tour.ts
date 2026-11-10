@@ -40,12 +40,8 @@ export const yawToHeading = (yaw: number) => ((((yaw * 180) / Math.PI) % 360) + 
 export const TOUR_SPOT_FRESH_MS = 10_000
 
 /** True when `spot` was written within TOUR_SPOT_FRESH_MS of `now` and the map hasn't already flown to it. */
-export function isFreshTourSpot(
-  spot: TourSpot | null,
-  now: number,
-  flownAt: number | null
-): boolean {
-  return !!spot && spot.at !== flownAt && now - spot.at >= 0 && now - spot.at <= TOUR_SPOT_FRESH_MS
+export function isFreshTourSpot(spot: TourSpot | null, now: number): boolean {
+  return !!spot && !spot.flown && now - spot.at >= 0 && now - spot.at <= TOUR_SPOT_FRESH_MS
 }
 
 /** `heading` search param (degrees) -> radians; missing or non-numeric -> 0. */
