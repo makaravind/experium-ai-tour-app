@@ -294,6 +294,25 @@
   }
 }
 
+.tour-pan {
+  background-size: auto 100%;
+  background-position: 0% 50%;
+  animation: tour-pan 20s linear infinite alternate;
+}
+
+@keyframes tour-pan {
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-pan {
+    animation: none;
+    background-position: 50% 50%;
+  }
+}
+
 .listen-popper-caret::after {
   content: '';
   position: absolute;

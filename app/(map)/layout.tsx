@@ -31,6 +31,10 @@ function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
     languages: exhibit.languages,
     displayId: exhibit.displayId,
     facts: exhibit.facts,
+    tour_node_id: exhibit.tour_node_id,
+    tour_heading: exhibit.tour_heading,
+    tour_pitch: exhibit.tour_pitch,
+    tour_preview_url: exhibit.tour_preview_url,
   }
 }
 

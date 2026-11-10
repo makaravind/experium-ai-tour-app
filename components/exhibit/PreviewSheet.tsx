@@ -271,6 +271,14 @@ export default function PreviewSheet({
   const durationLabel = duration > 0 ? ` · ${formatTime(duration)}` : ''
   const typeLabel = exhibit?.type?.replace(/_/g, ' ')
   const progress = duration > 0 ? elapsed / duration : 0
+  const tourNodeId = exhibit?.tour_node_id ?? null
+  const enterTour = () => {
+    if (!exhibit || !tourNodeId) return
+    const params = new URLSearchParams({ node: tourNodeId })
+    if (exhibit.tour_heading != null) params.set('heading', String(exhibit.tour_heading))
+    params.set('exhibitId', exhibit.id)
+    router.push(`/tour?${params}`)
+  }
 
   return (
     <>
@@ -339,6 +347,8 @@ export default function PreviewSheet({
                 expanded={expanded}
                 displayId={exhibit?.displayId}
                 onExpand={expand}
+                tourPreviewUrl={tourNodeId ? exhibit?.tour_preview_url : null}
+                onTourEnter={enterTour}
                 thumb={
                   <div className="relative w-14 h-14">
                     <div
@@ -349,6 +359,11 @@ export default function PreviewSheet({
                         overflow: 'hidden',
                       }}
                     />
+                    {tourNodeId && (
+                      <span className="absolute top-1 left-1 px-1 rounded-full text-[9px] font-extrabold leading-4 bg-black/60 text-white">
+                        360°
+                      </span>
+                    )}
                     {exhibit?.displayId != null && (
                       <div className="absolute" style={{ bottom: -4, right: -4 }}>
                         <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">

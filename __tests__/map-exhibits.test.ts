@@ -46,6 +46,18 @@ describe('toMapExhibits', () => {
     expect(out.displayId).toBe('K11')
   })
 
+  it('passes tour fields through', () => {
+    const [out] = toMapExhibits([
+      cached({ tour_node_id: 'n1', tour_heading: 90, tour_pitch: -5, tour_preview_url: 'u' }),
+    ])
+    expect(out).toMatchObject({
+      tour_node_id: 'n1',
+      tour_heading: 90,
+      tour_pitch: -5,
+      tour_preview_url: 'u',
+    })
+  })
+
   it('takes languages from the audio keys and status from exhibitStatus', () => {
     const [out] = toMapExhibits([cached({ exhibitStatus: 'coming_soon' })])
     expect(out.languages).toEqual(['en', 'hi'])

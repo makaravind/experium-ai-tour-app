@@ -18,6 +18,10 @@ export function toMapExhibits(cached: CachedExhibit[]): MapExhibit[] {
             status: e.exhibitStatus,
             displayId: e.displayId,
             facts: e.facts,
+            tour_node_id: e.tour_node_id,
+            tour_heading: e.tour_heading,
+            tour_pitch: e.tour_pitch,
+            tour_preview_url: e.tour_preview_url,
           },
         ]
   )

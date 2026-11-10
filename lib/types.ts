@@ -74,6 +74,10 @@ export interface MapExhibit {
   status: ExhibitStatus
   displayId: string
   facts: Fact[]
+  tour_node_id?: string | null
+  tour_heading?: number | null
+  tour_pitch?: number | null
+  tour_preview_url?: string | null
 }
 
 /** Exhibit shape used by PreviewSheet — no GPS needed. */
