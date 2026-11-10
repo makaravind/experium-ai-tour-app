@@ -1,4 +1,5 @@
 import type { EquirectangularMultiTilesPanorama } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
+import type { CachedExhibit } from '@/lib/types'
 
 export interface TourNode {
   id: string
@@ -86,6 +87,36 @@ export function nodeLinks(nodeId: string, { nodes, edges }: TourGraph): TourLink
       name: labels.get(e.to_node_id)!,
       position: { yaw: degToRad(e.bearing), pitch: degToRad(e.pitch) },
     }))
+}
+
+/** Exhibit pin on a node: where it sits (radians, in the node's own pano) and how it looks. */
+export interface TourPin {
+  exhibitId: string
+  displayId: string
+  name: string
+  position: { yaw: number; pitch: number }
+  visited: boolean
+}
+
+/** Pins for the exhibits linked to `nodeId`; exhibits without an authored heading/pitch are skipped. */
+export function nodeMarkers(
+  nodeId: string,
+  exhibits: CachedExhibit[],
+  visitedIds: string[]
+): TourPin[] {
+  return exhibits.flatMap((e) =>
+    e.tour_node_id === nodeId && e.tour_heading != null && e.tour_pitch != null
+      ? [
+          {
+            exhibitId: e.id,
+            displayId: e.displayId,
+            name: e.name,
+            position: { yaw: degToRad(e.tour_heading), pitch: degToRad(e.tour_pitch) },
+            visited: visitedIds.includes(e.id),
+          },
+        ]
+      : []
+  )
 }
 
 export type SplashView = 'hidden' | 'loading' | 'slow' | 'offline'

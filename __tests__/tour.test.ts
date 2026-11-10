@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import type { CachedExhibit } from '@/lib/types'
 import {
   manifestToPanorama,
   nodeLinks,
+  nodeMarkers,
   parseHeading,
   resolveNode,
   tourHref,
@@ -104,5 +106,40 @@ describe('nodeLinks', () => {
   })
   it('ignores edges to unknown nodes', () => {
     expect(nodeLinks('a', { nodes, edges: [edge('a', 'ghost')] })).toEqual([])
+  })
+})
+
+describe('nodeMarkers', () => {
+  const exhibit = (id: string, over: Partial<CachedExhibit> = {}) =>
+    ({
+      id,
+      name: `Exhibit ${id}`,
+      displayId: `K${id}`,
+      tour_node_id: 'a',
+      tour_heading: 90,
+      tour_pitch: -10,
+      ...over,
+    }) as CachedExhibit
+
+  it('keeps only exhibits linked to the node', () => {
+    const pins = nodeMarkers('a', [exhibit('1'), exhibit('2', { tour_node_id: 'b' })], [])
+    expect(pins.map((p) => p.exhibitId)).toEqual(['1'])
+  })
+  it('skips exhibits without an authored heading or pitch', () => {
+    const pins = nodeMarkers(
+      'a',
+      [exhibit('1', { tour_heading: null }), exhibit('2', { tour_pitch: null }), exhibit('3')],
+      []
+    )
+    expect(pins.map((p) => p.exhibitId)).toEqual(['3'])
+  })
+  it('converts degrees to radians, keeping 0', () => {
+    const [pin] = nodeMarkers('a', [exhibit('1', { tour_heading: 180, tour_pitch: 0 })], [])
+    expect(pin.position.yaw).toBeCloseTo(Math.PI)
+    expect(pin.position.pitch).toBe(0)
+  })
+  it('flags visited exhibits', () => {
+    const pins = nodeMarkers('a', [exhibit('1'), exhibit('2')], ['2'])
+    expect(pins.map((p) => p.visited)).toEqual([false, true])
   })
 })
