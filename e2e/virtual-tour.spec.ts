@@ -467,6 +467,28 @@ test.describe('Virtual tour navigation', () => {
     await expect(sheetName(page)).toHaveCount(0)
   })
 
+  test('exhibit pin opens the PreviewSheet; swiping the sheet down closes it', async ({ page }) => {
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+
+    await pins(page).filter({ hasText: 'K1' }).click()
+    await expect(sheetName(page)).toBeVisible()
+
+    const handle = await page
+      .getByRole('button', { name: 'Expand to full view' })
+      .first()
+      .boundingBox()
+    const x = handle!.x + handle!.width / 2
+    const y = handle!.y + handle!.height / 2
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x, y + 30, { steps: 3 })
+    await page.mouse.move(x, y + 150, { steps: 3 })
+    await page.mouse.up()
+    await expect(sheetName(page)).toHaveCount(0)
+  })
+
   test('only the node a pin is linked to shows it', async ({ page }) => {
     await navVisitor(page)
     await page.goto('/tour')
