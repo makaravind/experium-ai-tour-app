@@ -2,6 +2,10 @@ import { expect, type Page } from '@playwright/test'
 
 const QR_CODE = 'baobab-forest'
 
+/** 1x1 PNG: valid for `new Image()` and as a CSS background. */
+export const PIXEL_PNG_B64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
 // Same-origin paths so page.route intercepts on all browsers (including WebKit's <audio> element).
 const BASE_URL = `http://localhost:${process.env.E2E_PORT ?? '3000'}`
 export const FAKE_AUDIO_URL = `${BASE_URL}/audio/baobab-forest-en.mp3`
@@ -15,8 +19,12 @@ export const FAKE_HI_AUDIO_URL = `${BASE_URL}/audio/baobab-forest-hi.mp3`
  * disabled there, so fetched audio never reaches Cache Storage and the gate ends on
  * "Connect to the internet".
  */
-export async function mockPrecacheDataset(page: Page, { seedCache = true } = {}) {
+export async function mockPrecacheDataset(
+  page: Page,
+  { seedCache = true, tour }: { seedCache?: boolean; tour?: SeedTour } = {}
+) {
   if (seedCache) await seedAudioCache(page)
+  if (tour) await seedTourPreviewCache(page, tour.previewUrl)
   await seedMapCache(page)
   await mockAmenities(page)
   await page.route(FAKE_AUDIO_URL, (route) =>
@@ -40,6 +48,11 @@ export async function mockPrecacheDataset(page: Page, { seedCache = true } = {})
           status: 'live',
           gps_lat: 17.3816,
           gps_lng: 78.1916283,
+          // PostgREST shape of the exhibits -> tour_nodes embed (lib/precache.ts fetchCachedExhibits)
+          tour_node_id: tour?.nodeId ?? null,
+          tour_heading: tour?.heading ?? null,
+          tour_pitch: tour?.pitch ?? null,
+          tour_nodes: tour ? { preview_url: tour.previewUrl } : null,
           exhibit_audio: [
             { language: 'en', audio_url: FAKE_AUDIO_URL, status: 'published' },
             { language: 'hi', audio_url: FAKE_HI_AUDIO_URL, status: 'published' },
@@ -139,6 +152,19 @@ export async function seedAudioCache(page: Page) {
   )
 }
 
+/** Puts a node preview in `tour-preview-cache` at every document load so a linked exhibit has no precache gap. */
+export async function seedTourPreviewCache(page: Page, url: string) {
+  await page.addInitScript(
+    ({ url, b64 }: { url: string; b64: string }) => {
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+      void caches
+        .open('tour-preview-cache')
+        .then((c) => c.put(url, new Response(bytes, { status: 200 })))
+    },
+    { url, b64: PIXEL_PNG_B64 }
+  )
+}
+
 /** Puts /park.pmtiles in `map-tiles-cache` at every document load so the gate passes. */
 export async function seedMapCache(page: Page, body: Buffer | string = MINIMAL_PMTILES) {
   const buf = typeof body === 'string' ? Buffer.from(body) : body
@@ -172,15 +198,26 @@ export async function markPrecacheComplete(page: Page) {
   })
 }
 
+/** Tour link for the seeded exhibit (CachedExhibit tour_* fields). */
+export interface SeedTour {
+  nodeId: string
+  heading: number | null
+  pitch: number | null
+  previewUrl: string
+}
+
 /**
  * A QR-scan bypass visit (`/s/*`) skips the precache, so nothing fills `cachedExhibits`, and the
  * exhibit page's live-fetch path can't resolve the non-numeric e2e code. Seed the persisted store
  * with the exhibit but an empty `completionByGroup` (precache not done) -- what the page sees there.
  * Shape/version must match lib/store.ts, else `migrate` drops cachedExhibits.
  */
-export async function seedCachedExhibit(page: Page, { onboarded }: { onboarded: boolean }) {
+export async function seedCachedExhibit(
+  page: Page,
+  { onboarded, tour }: { onboarded: boolean; tour?: SeedTour }
+) {
   await page.addInitScript(
-    ({ url, code, onboarded }) => {
+    ({ url, code, onboarded, tour }) => {
       if (onboarded) localStorage.setItem('experium_onboarded', '1')
       else localStorage.removeItem('experium_onboarded')
       if (localStorage.getItem('experium-store')) return // keep state across reloads / markPrecacheComplete
@@ -206,10 +243,10 @@ export async function seedCachedExhibit(page: Page, { onboarded }: { onboarded: 
                 gps_lng: 78.1916283,
                 exhibitStatus: 'live',
                 displayId: 'K1',
-                tour_node_id: null,
-                tour_heading: null,
-                tour_pitch: null,
-                tour_preview_url: null,
+                tour_node_id: tour?.nodeId ?? null,
+                tour_heading: tour?.heading ?? null,
+                tour_pitch: tour?.pitch ?? null,
+                tour_preview_url: tour?.previewUrl ?? null,
               },
             ],
           },
@@ -217,6 +254,6 @@ export async function seedCachedExhibit(page: Page, { onboarded }: { onboarded: 
         })
       )
     },
-    { url: FAKE_AUDIO_URL, code: QR_CODE, onboarded }
+    { url: FAKE_AUDIO_URL, code: QR_CODE, onboarded, tour }
   )
 }
