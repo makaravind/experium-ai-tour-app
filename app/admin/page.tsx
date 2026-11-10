@@ -31,6 +31,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
+  const [panelError, setPanelError] = useState<string | null>(null)
 
   const apply = (state: AdminState) => {
     setOriginal(state)
@@ -42,6 +43,13 @@ export default function AdminPage() {
   }, [])
 
   const diff = useMemo(() => (original && working ? buildChangeset(original, working) : null), [original, working])
+
+  // saved letters of sections deleted this session (in the original, no longer in working)
+  const deletedSectionIds = useMemo(() => {
+    if (!original || !working) return []
+    const kept = new Set(working.sections.map((s) => s.originalId))
+    return original.sections.map((s) => s.id).filter((id) => !kept.has(id))
+  }, [original, working])
 
   const unplaced = useMemo(() => (working ? unplacedMessage(working.exhibits) : null), [working])
 
@@ -98,10 +106,14 @@ export default function AdminPage() {
       <AdminMap
         sections={working.sections}
         exhibits={working.exhibits}
+        deletedSectionIds={deletedSectionIds}
         onSectionsChange={(sections) => setWorking((w) => w && { ...w, sections })}
         onExhibitsChange={(exhibits) => setWorking((w) => w && { ...w, exhibits })}
         selectedId={selectedId}
-        onSelect={setSelectedId}
+        onSelect={(id) => {
+          setSelectedId(id)
+          setPanelError(null)
+        }}
       />
 
       {selected && (
@@ -125,6 +137,7 @@ export default function AdminPage() {
                 exhibit={selected}
                 exhibits={working.exhibits}
                 onChange={(next) => setWorking((w) => w && { ...w, exhibits: replaceExhibit(w.exhibits, next) })}
+                onValidityChange={setPanelError}
               />
             )}
             {tab === 'Audio' && (
@@ -153,13 +166,14 @@ export default function AdminPage() {
           <Button size="sm" variant="outline" disabled={diff.isEmpty || saving} onClick={discard}>
             Discard
           </Button>
-          <Button size="sm" disabled={diff.isEmpty || saving || unplaced !== null} onClick={() => void save()}>
+          <Button size="sm" disabled={diff.isEmpty || saving || unplaced !== null || panelError !== null} onClick={() => void save()}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
         {diff.changeset.sections.rename.length > 0 && (
           <p className="text-xs text-muted-foreground">Renaming a section letter changes what visitors see.</p>
         )}
+        {panelError && <p className="text-xs text-destructive">Fix invalid fields before saving: {panelError}</p>}
         {unplaced && <p className="text-xs text-destructive">{unplaced}</p>}
         {saveError && <p className="text-xs text-destructive">{saveError}</p>}
         {saved && !saveError && <p className="text-xs text-muted-foreground">{saved}</p>}

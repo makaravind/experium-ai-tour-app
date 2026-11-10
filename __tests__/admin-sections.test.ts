@@ -33,6 +33,11 @@ describe('validateLetter', () => {
     expect(validateLetter('A', renamed, 'B').error).toMatch(/Save first/)
     expect(validateLetter('A', renamed, 'C').error).toBeNull() // its own original letter
   })
+  it('blocks a letter of a section deleted this session (renames run before deletes)', () => {
+    // B was deleted, so it is gone from the working sections but still saved in the DB
+    expect(validateLetter('B', [sec('A')], 'A', ['B']).error).toMatch(/Save first/)
+    expect(validateLetter('C', [sec('A')], 'A', ['B']).error).toBeNull()
+  })
 })
 
 describe('strandedExhibits', () => {

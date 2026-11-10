@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { AdminExhibit } from '@/lib/admin/types'
 import { parseFacts, validateNumber } from '@/lib/admin/validation'
 
@@ -15,6 +15,8 @@ interface Props {
   /** All exhibits in the working state (for the duplicate-number check). */
   exhibits: AdminExhibit[]
   onChange: (next: AdminExhibit) => void
+  /** Message while number or facts input is invalid (so not applied to the working state), else null. */
+  onValidityChange?: (error: string | null) => void
 }
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
@@ -29,7 +31,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 
 const formatFacts = (facts: AdminExhibit['facts']) => JSON.stringify(facts, null, 2)
 
-export default function DetailsPanel({ exhibit, exhibits, onChange }: Props) {
+export default function DetailsPanel({ exhibit, exhibits, onChange, onValidityChange }: Props) {
   // Number and facts keep raw text while typing and only emit when valid; reset it when the
   // exhibit changes underneath us (selection change, discard).
   const [numberText, setNumberText] = useState(String(exhibit.number ?? ''))
@@ -43,6 +45,13 @@ export default function DetailsPanel({ exhibit, exhibits, onChange }: Props) {
 
   const numberResult = validateNumber(numberText, exhibit, exhibits)
   const factsResult = parseFacts(factsText)
+
+  const placed = exhibit.section !== null
+  const error = placed && !numberResult.ok ? numberResult.error : factsResult.ok ? null : factsResult.error
+  useEffect(() => {
+    onValidityChange?.(error)
+  }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => onValidityChange?.(null), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (patch: Partial<AdminExhibit>) => onChange({ ...exhibit, ...patch })
 
@@ -63,8 +72,6 @@ export default function DetailsPanel({ exhibit, exhibits, onChange }: Props) {
       update({ facts: r.value })
     }
   }
-
-  const placed = exhibit.section !== null
 
   return (
     <div className="space-y-3 p-3">

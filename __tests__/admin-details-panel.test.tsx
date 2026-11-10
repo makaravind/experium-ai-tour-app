@@ -76,4 +76,33 @@ describe('DetailsPanel', () => {
     expect((screen.getByLabelText(/Facts/) as HTMLTextAreaElement).value).toBe(JSON.stringify(other.facts, null, 2))
     expect(screen.getByDisplayValue('2')).toBeTruthy()
   })
+
+  it('reports invalid number / facts via onValidityChange and clears when fixed or unmounted', () => {
+    const onValidityChange = vi.fn()
+    const e = make()
+    const { unmount } = render(
+      <DetailsPanel exhibit={e} exhibits={[e, other]} onChange={vi.fn()} onValidityChange={onValidityChange} />,
+    )
+    expect(onValidityChange).toHaveBeenLastCalledWith(null)
+    fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '2' } })
+    expect(onValidityChange).toHaveBeenLastCalledWith(expect.stringMatching(/already used in section A/))
+    fireEvent.change(screen.getByDisplayValue('2'), { target: { value: '3' } })
+    expect(onValidityChange).toHaveBeenLastCalledWith(null)
+    fireEvent.change(screen.getByLabelText(/Facts/), { target: { value: '[{"fact":' } })
+    expect(onValidityChange).toHaveBeenLastCalledWith(expect.stringMatching(/Invalid JSON/))
+    unmount()
+    expect(onValidityChange).toHaveBeenLastCalledWith(null)
+  })
+
+  it('reports valid again after the selection changes away from an invalid exhibit', () => {
+    const onValidityChange = vi.fn()
+    const e = make()
+    const { rerender } = render(
+      <DetailsPanel exhibit={e} exhibits={[e, other]} onChange={vi.fn()} onValidityChange={onValidityChange} />,
+    )
+    fireEvent.change(screen.getByLabelText(/Facts/), { target: { value: 'garbage' } })
+    expect(onValidityChange).toHaveBeenLastCalledWith(expect.any(String))
+    rerender(<DetailsPanel exhibit={other} exhibits={[e, other]} onChange={vi.fn()} onValidityChange={onValidityChange} />)
+    expect(onValidityChange).toHaveBeenLastCalledWith(null)
+  })
 })
