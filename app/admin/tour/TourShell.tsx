@@ -6,8 +6,11 @@ import dynamic from 'next/dynamic'
 import AimPanel from '@/components/admin/tour/AimPanel'
 import EdgesMap from '@/components/admin/tour/EdgesMap'
 import EdgesPanel from '@/components/admin/tour/EdgesPanel'
+import LinkMap from '@/components/admin/tour/LinkMap'
+import LinkPanel from '@/components/admin/tour/LinkPanel'
 import PlaceMap from '@/components/admin/tour/PlaceMap'
 import PlacePanel from '@/components/admin/tour/PlacePanel'
+import SavePanel from '@/components/admin/tour/SavePanel'
 import { Button } from '@/components/ui/button'
 import {
   aimMarkers,
@@ -18,6 +21,8 @@ import {
 } from '@/lib/admin/tour-aim'
 import { buildTourChangeset } from '@/lib/admin/tour-changeset'
 import { pairKey, proposeEdges, toPair, type EdgePair } from '@/lib/admin/tour-edges'
+import { LINK_RADIUS_M, proposeLinks, setExhibitNode } from '@/lib/admin/tour-links'
+import { tourBlockers } from '@/lib/admin/tour-validation'
 import type { TourAdminState, TourWorkingState } from '@/lib/admin/tour-types'
 import {
   addEdgePairs,
@@ -32,13 +37,13 @@ import { loadParkPaths, type ParkPaths } from '@/lib/park-paths'
 // PSV touches `window` on import, so the Aim viewer is client-only.
 const AimViewer = dynamic(() => import('@/components/admin/tour/AimViewer'), { ssr: false })
 
-// Workflow order. Steps 3-5 flip `ready` and render their panel in the mode switch below.
+// Workflow order.
 const MODES = [
   { id: 'Place', ready: true },
   { id: 'Edges', ready: true },
   { id: 'Aim', ready: true },
-  { id: 'Link', ready: false },
-  { id: 'Save', ready: false }, // Step 5: validate UI; the staged-edits bar below saves meanwhile
+  { id: 'Link', ready: true },
+  { id: 'Save', ready: true },
 ] as const
 type Mode = (typeof MODES)[number]['id']
 
@@ -61,6 +66,8 @@ export default function TourShell() {
   const [connecting, setConnecting] = useState(false)
   const [armed, setArmed] = useState<AimTarget | null>(null)
   const [focus, setFocus] = useState<{ yaw: number; pitch: number; n: number } | null>(null)
+  const [linkRadius, setLinkRadius] = useState(LINK_RADIUS_M)
+  const [linkPending, setLinkPending] = useState<Record<string, string>>({}) // exhibit id → proposed node id, UI-local
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -100,6 +107,8 @@ export default function TourShell() {
     () => (original && working ? buildTourChangeset(original, working) : null),
     [original, working]
   )
+
+  const blockers = useMemo(() => (working ? tourBlockers(working) : []), [working])
 
   if (loadError) return <p className="p-6 text-sm text-destructive">{loadError}</p>
   if (!original || !working || !diff)
@@ -149,6 +158,28 @@ export default function TourShell() {
         : setExhibitAim(w, armed.id, { heading: yaw, pitch })
     )
     setArmed(null)
+  }
+
+  const pickLink = (exhibitId: string, nodeId: string | null) =>
+    setLinkPending((p) => {
+      const rest = { ...p }
+      delete rest[exhibitId]
+      return nodeId ? { ...rest, [exhibitId]: nodeId } : rest
+    })
+  const acceptLinks = (ids: string[]) => {
+    update((w) => ids.reduce((acc, id) => setExhibitNode(acc, id, linkPending[id]), w))
+    setLinkPending((p) => Object.fromEntries(Object.entries(p).filter(([id]) => !ids.includes(id))))
+  }
+  const aimExhibit = (exhibitId: string, nodeId: string) => {
+    const x = working.exhibits.find((e) => e.id === exhibitId)
+    setSelectedId(nodeId)
+    setMode('Aim')
+    setArmed({ kind: 'exhibit', id: exhibitId })
+    setFocus(
+      x?.tour_heading != null
+        ? { yaw: x.tour_heading, pitch: x.tour_pitch ?? 0, n: (focus?.n ?? 0) + 1 }
+        : null
+    )
   }
 
   async function save() {
@@ -218,6 +249,10 @@ export default function TourShell() {
         </div>
       )}
 
+      {mode === 'Link' && (
+        <LinkMap nodes={working.nodes} exhibits={working.exhibits} pending={linkPending} />
+      )}
+
       <aside className="absolute bottom-0 left-0 top-0 z-10 flex w-96 flex-col border-r border-border bg-background shadow-lg">
         <div className="border-b border-border px-4 py-3">
           <h1 className="text-base font-semibold">Tour authoring</h1>
@@ -276,18 +311,52 @@ export default function TourShell() {
             onFocus={(yaw, pitch) => setFocus((f) => ({ yaw, pitch, n: (f?.n ?? 0) + 1 }))}
           />
         )}
+        {mode === 'Link' && (
+          <LinkPanel
+            working={working}
+            radiusM={linkRadius}
+            pending={linkPending}
+            onRadius={setLinkRadius}
+            onPropose={() =>
+              setLinkPending(
+                Object.fromEntries(
+                  proposeLinks(working.exhibits, working.nodes, { radiusM: linkRadius }).map(
+                    (p) => [p.exhibitId, p.nodeId]
+                  )
+                )
+              )
+            }
+            onAcceptAll={() => acceptLinks(Object.keys(linkPending))}
+            onPick={pickLink}
+            onAccept={(id) => acceptLinks([id])}
+            onClear={(id) => update((w) => setExhibitNode(w, id, null))}
+            onAim={aimExhibit}
+          />
+        )}
+        {mode === 'Save' && (
+          <SavePanel
+            summary={diff.summary}
+            isEmpty={diff.isEmpty}
+            blockers={blockers}
+            saving={saving}
+            error={saveError}
+            saved={saved}
+            onSave={save}
+          />
+        )}
       </aside>
 
-      <div className="absolute bottom-4 left-1/2 z-20 flex max-w-xl -translate-x-1/2 flex-col gap-1 rounded-lg border border-border bg-background px-4 py-2 shadow-lg">
-        <div className="flex items-center gap-3">
-          <span className="text-sm">{diff.isEmpty ? 'No unsaved changes' : diff.summary}</span>
-          <Button size="sm" disabled={diff.isEmpty || saving} onClick={() => void save()}>
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
-        </div>
-        {saveError && <p className="text-xs text-destructive">{saveError}</p>}
-        {saved && !saveError && <p className="text-xs text-muted-foreground">Saved.</p>}
-      </div>
+      <button
+        type="button"
+        title="Open the Save tab"
+        className="absolute bottom-4 left-1/2 z-20 max-w-xl -translate-x-1/2 rounded-lg border border-border bg-background px-4 py-2 text-sm shadow-lg hover:bg-muted"
+        onClick={() => switchMode('Save')}
+      >
+        {diff.isEmpty ? 'No unsaved changes' : diff.summary}
+        {blockers.length > 0 && (
+          <span className="ml-2 text-xs text-destructive">· {blockers.length} blocker(s)</span>
+        )}
+      </button>
     </div>
   )
 }
