@@ -16,3 +16,13 @@ export async function fetchManifest(url: string): Promise<TileManifest> {
   if (!res.ok) throw new Error(`manifest ${res.status}`)
   return res.json()
 }
+
+/** Resolves once the image is fetched (and cached), rejects on error. */
+export function preloadImage(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve()
+    img.onerror = () => reject(new Error(`image ${url}`))
+    img.src = url
+  })
+}
