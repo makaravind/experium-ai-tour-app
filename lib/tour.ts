@@ -72,6 +72,21 @@ export function tourHref(e: {
   return `/tour?${params}`
 }
 
+/** `/tour` link for the 360° map pin: re-enters the node, facing the last yaw. */
+export function tourSpotHref(spot: Pick<TourSpot, 'nodeId' | 'heading'>): string {
+  return `/tour?${new URLSearchParams({ node: spot.nodeId, heading: String(spot.heading) })}`
+}
+
+/** True when a `/tour` entry is the tap on `spot`'s pin (same node + heading, no exhibit), so the spot stays. */
+export function isTourSpotEntry(
+  spot: TourSpot | null,
+  node: string | null,
+  heading: string | null,
+  exhibitId: string | null
+): boolean {
+  return !!spot && !exhibitId && node === spot.nodeId && heading === String(spot.heading)
+}
+
 export function manifestToPanorama(manifest: TileManifest): EquirectangularMultiTilesPanorama {
   return {
     baseUrl: manifest.baseUrl,

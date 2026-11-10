@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { CachedExhibit, TourSpot } from '@/lib/types'
 import {
   isFreshTourSpot,
+  isTourSpotEntry,
   manifestToPanorama,
   nodeLinks,
   nodeMarkers,
   parseHeading,
   resolveNode,
   tourHref,
+  tourSpotHref,
   type TourEdge,
   type TourNode,
   yawToHeading,
@@ -175,5 +177,26 @@ describe('isFreshTourSpot', () => {
   it('is false once the map already flew to this spot', () => {
     expect(isFreshTourSpot(spot, 101_000, 100_000)).toBe(false)
     expect(isFreshTourSpot(spot, 101_000, 50_000)).toBe(true)
+  })
+})
+
+describe('tourSpotHref / isTourSpotEntry', () => {
+  const spot: TourSpot = { nodeId: 'n 1', lat: 1, lng: 2, heading: 123.5, label: 'L', at: 1 }
+
+  it('links to the node at the saved heading, no exhibit', () => {
+    expect(tourSpotHref(spot)).toBe('/tour?node=n+1&heading=123.5')
+  })
+
+  it('recognises its own href as a spot entry', () => {
+    const p = new URL(tourSpotHref(spot), 'http://x').searchParams
+    expect(isTourSpotEntry(spot, p.get('node'), p.get('heading'), p.get('exhibitId'))).toBe(true)
+  })
+
+  it('is not a spot entry from other routes', () => {
+    expect(isTourSpotEntry(spot, null, null, null)).toBe(false) // home button / virtual-tour QR
+    expect(isTourSpotEntry(spot, 'n 1', '123.5', 'ex1')).toBe(false) // gallery slide
+    expect(isTourSpotEntry(spot, 'n 1', null, null)).toBe(false)
+    expect(isTourSpotEntry(spot, 'other', '123.5', null)).toBe(false)
+    expect(isTourSpotEntry(null, 'n 1', '123.5', null)).toBe(false)
   })
 })
