@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { replaceExhibit, replaceExhibitPhotos, toWorking, upsertAudio } from '@/lib/admin/working'
-import type { AdminAudio, AdminExhibit, AdminPhoto, AdminState } from '@/lib/admin/types'
+import { addAmenity, deleteAmenity, replaceAmenity, replaceExhibit, replaceExhibitPhotos, toWorking, upsertAudio } from '@/lib/admin/working'
+import type { AdminAmenity, AdminAudio, AdminExhibit, AdminPhoto, AdminState } from '@/lib/admin/types'
 
 const exhibit = (id: string, name = id): AdminExhibit => ({
   id, code: 1, name, type: null, tier: 'silver', status: 'live', description: null, facts: [],
   gps_lat: null, gps_lng: null, section: null, number: null,
+})
+const amenity = (id: string, name = id): AdminAmenity => ({
+  id, name, type: 'washroom', description: null, gps_lat: 0, gps_lng: 0, section: 'A',
 })
 const audio = (exhibit_id: string, language: AdminAudio['language'], script: string | null = null): AdminAudio => ({
   exhibit_id, language, script, audio_url: null, status: 'draft',
@@ -17,13 +20,14 @@ describe('toWorking', () => {
   it('sets originalId = id on every section and keeps the rest', () => {
     const state: AdminState = {
       sections: [{ id: 'A', polygon: [[0, 0]] }],
-      exhibits: [exhibit('e1')], audio: [audio('e1', 'en')], photos: [photo('p1', 'e1')],
+      exhibits: [exhibit('e1')], audio: [audio('e1', 'en')], photos: [photo('p1', 'e1')], amenities: [amenity('a1')],
     }
     const w = toWorking(state)
     expect(w.sections).toEqual([{ id: 'A', polygon: [[0, 0]], originalId: 'A' }])
     expect(w.exhibits).toEqual(state.exhibits)
     expect(w.audio).toEqual(state.audio)
     expect(w.photos).toEqual(state.photos)
+    expect(w.amenities).toEqual(state.amenities)
   })
 })
 
@@ -57,5 +61,20 @@ describe('replaceExhibitPhotos', () => {
 
   it('can clear an exhibit’s photos', () => {
     expect(replaceExhibitPhotos([photo('a', 'e1')], 'e1', [])).toEqual([])
+  })
+})
+
+describe('amenity helpers', () => {
+  it('replaceAmenity replaces by id and leaves the others', () => {
+    const next = replaceAmenity([amenity('a'), amenity('b')], amenity('b', 'renamed'))
+    expect(next.map((a) => a.name)).toEqual(['a', 'renamed'])
+  })
+
+  it('deleteAmenity removes by id', () => {
+    expect(deleteAmenity([amenity('a'), amenity('b')], 'a').map((a) => a.id)).toEqual(['b'])
+  })
+
+  it('addAmenity appends', () => {
+    expect(addAmenity([amenity('a')], amenity('b')).map((a) => a.id)).toEqual(['a', 'b'])
   })
 })

@@ -1,5 +1,6 @@
 import type {
-  AdminAudio, AdminExhibit, AdminPhoto, AdminState, AudioChange, Changeset, ExhibitChange, PhotoUpdate, WorkingState,
+  AdminAmenity, AdminAudio, AdminExhibit, AdminPhoto, AdminState, AmenityChange, AudioChange, Changeset, ExhibitChange,
+  PhotoUpdate, WorkingState,
 } from './types'
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
@@ -9,6 +10,7 @@ const changed = <T extends object, K extends keyof T>(o: T, w: T, keys: K[]) =>
   Object.fromEntries(keys.filter((k) => !same(o[k], w[k])).map((k) => [k, w[k]])) as Partial<Pick<T, K>>
 
 const EDIT_FIELDS = ['name', 'type', 'status', 'description', 'facts'] as const satisfies readonly (keyof AdminExhibit)[]
+const AMENITY_EDIT_FIELDS = ['name', 'type', 'description'] as const satisfies readonly (keyof AdminAmenity)[]
 const AUDIO_FIELDS = ['script', 'status'] as const satisfies readonly (keyof AdminAudio)[]
 const PHOTO_FIELDS = ['url', 'caption', 'is_hero', 'sort_order'] as const satisfies readonly (keyof AdminPhoto)[]
 
@@ -22,10 +24,12 @@ export function buildChangeset(
     exhibits: [],
     audio: [],
     photos: { insert: [], update: [], delete: [] },
+    amenities: { upsert: [], delete: [] },
   }
   const n = { sectionAdded: 0, sectionRenamed: 0, sectionReshaped: 0, sectionDeleted: 0,
     exhibitAdded: 0, moved: 0, tier: 0, renumbered: 0, edited: 0,
-    audio: 0, photoAdded: 0, photoChanged: 0, photoRemoved: 0 }
+    audio: 0, photoAdded: 0, photoChanged: 0, photoRemoved: 0,
+    amenityAdded: 0, amenityMoved: 0, amenityEdited: 0, amenityRemoved: 0 }
 
   // sections
   const origSections = new Map(original.sections.map((s) => [s.id, s]))
@@ -130,6 +134,37 @@ export function buildChangeset(
     }
   }
 
+  // amenities
+  const origAmenities = new Map(original.amenities.map((a) => [a.id, a]))
+  const workingAmenityIds = new Set(working.amenities.map((a) => a.id))
+  for (const a of working.amenities) {
+    const o = origAmenities.get(a.id)
+    if (!o) {
+      cs.amenities.upsert.push({ ...a })
+      n.amenityAdded++
+      continue
+    }
+    // a section rename alone is not an amenity change (ON UPDATE CASCADE)
+    const oSection = o.section == null ? null : (renamed.get(o.section) ?? o.section)
+    const gpsChanged = o.gps_lat !== a.gps_lat || o.gps_lng !== a.gps_lng
+    const moved = gpsChanged || oSection !== a.section
+    const edit = changed(o, a, [...AMENITY_EDIT_FIELDS])
+    const hasEdit = Object.keys(edit).length > 0
+    if (!(moved || hasEdit)) continue
+
+    const patch: AmenityChange = { id: a.id, ...edit }
+    if (moved) Object.assign(patch, changed(o, a, ['gps_lat', 'gps_lng']), { section: a.section })
+    cs.amenities.upsert.push(patch)
+    if (moved) n.amenityMoved++
+    if (hasEdit) n.amenityEdited++
+  }
+  for (const a of original.amenities) {
+    if (!workingAmenityIds.has(a.id)) {
+      cs.amenities.delete.push(a.id)
+      n.amenityRemoved++
+    }
+  }
+
   const noun = (c: number, one: string, many: string) => `${c} ${c === 1 ? one : many}`
   const parts: [number, string][] = [
     [n.exhibitAdded, noun(n.exhibitAdded, 'exhibit added', 'exhibits added')],
@@ -137,6 +172,10 @@ export function buildChangeset(
     [n.renumbered, `${n.renumbered} renumbered`],
     [n.tier, `${n.tier} tier changed`],
     [n.edited, `${n.edited} edited`],
+    [n.amenityAdded, noun(n.amenityAdded, 'amenity added', 'amenities added')],
+    [n.amenityMoved, noun(n.amenityMoved, 'amenity moved', 'amenities moved')],
+    [n.amenityEdited, noun(n.amenityEdited, 'amenity edited', 'amenities edited')],
+    [n.amenityRemoved, noun(n.amenityRemoved, 'amenity deleted', 'amenities deleted')],
     [n.sectionAdded, noun(n.sectionAdded, 'section added', 'sections added')],
     [n.sectionRenamed, noun(n.sectionRenamed, 'section renamed', 'sections renamed')],
     [n.sectionReshaped, noun(n.sectionReshaped, 'section reshaped', 'sections reshaped')],
