@@ -2,6 +2,7 @@
 
 import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -10,12 +11,12 @@ import { useDebugStore } from '@/lib/debug-store'
 import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
 import { toMapExhibits } from '@/lib/map-exhibits'
-import { isFreshTourSpot } from '@/lib/tour'
+import { isFreshTourSpot, tourSpotHref } from '@/lib/tour'
 import { classifyGeoError, lerpPosition, type LatLng } from '@/lib/gps'
 import { nearestWithin, pinPixelHeight } from '@/lib/nearby'
 import { AmenityTypeIcon } from '@/components/icons'
 import { track } from '@vercel/analytics'
-import type { CachedAmenity, ExhibitStatus, MapExhibit } from '@/lib/types'
+import type { CachedAmenity, ExhibitStatus, MapExhibit, TourSpot } from '@/lib/types'
 
 interface ParkMapProps {
   onLoadError: () => void
@@ -231,6 +232,75 @@ function AmenityChipEl({ amenity, selected }: { amenity: CachedAmenity; selected
   )
 }
 
+/** White puck + "360°" chip (no view cone: panos aren't north-aligned). Tap re-enters the tour; ✕ dismisses. */
+function TourSpotPin({
+  spot,
+  onOpen,
+  onDismiss,
+}: {
+  spot: TourSpot
+  onOpen: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={`360° tour spot, ${spot.label}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          onOpen()
+        }}
+        style={{
+          display: 'block',
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          background: '#fff',
+          border: '3px solid var(--color-ex-forest)',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+        }}
+      />
+      <div
+        className="absolute left-1/2 -translate-x-1/2 flex items-center whitespace-nowrap text-ex-ink"
+        style={{
+          bottom: '100%',
+          marginBottom: 3,
+          background: '#fff',
+          borderRadius: 999,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.28)',
+          fontSize: 10,
+          fontWeight: 800,
+        }}
+      >
+        <button
+          type="button"
+          aria-label={`Back to 360° tour at ${spot.label}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpen()
+          }}
+          style={{ padding: '3px 4px 3px 8px' }}
+        >
+          360°
+        </button>
+        <button
+          type="button"
+          aria-label="Dismiss 360° pin"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDismiss()
+          }}
+          className="text-ex-muted"
+          style={{ padding: '3px 8px 3px 4px', fontSize: 11, lineHeight: 1 }}
+        >
+          ✕
+        </button>
+      </div>
+    </>
+  )
+}
+
 export default function ParkMap({
   onLoadError,
   onPinTap,
@@ -265,6 +335,9 @@ export default function ParkMap({
     { amenity: CachedAmenity; el: HTMLDivElement }[]
   >([])
   const cachedAmenities = useStore((s) => s.cachedAmenities)
+  const tourSpot = useStore((s) => s.tourSpot)
+  const router = useRouter()
+  const [spotEl, setSpotEl] = useState<HTMLDivElement | null>(null)
   const activeAmenityId = useMapStore((s) => s.activeAmenityId)
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
 
@@ -696,6 +769,25 @@ export default function ParkMap({
   }, [flyToTarget])
 
   // Amenity chips are DOM markers; React content is portalled into each marker element.
+  // 360° pin: a DOM marker at the saved tour spot, React content portalled in like the amenity chips.
+  // Keyed on the spot's position so a new spot recreates it; ✕ / replacement removes it.
+  const spotKey = tourSpot ? `${tourSpot.lat},${tourSpot.lng}` : null
+  useEffect(() => {
+    const map = mapRef.current
+    const spot = useStore.getState().tourSpot
+    if (!mapReady || !map || !spot) return
+    const el = document.createElement('div')
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([spot.lng, spot.lat])
+      .addTo(map)
+    el.removeAttribute('aria-label') // addTo sets a generic "Map marker" label; the buttons carry their own
+    setSpotEl(el)
+    return () => {
+      marker.remove()
+      setSpotEl(null)
+    }
+  }, [mapReady, spotKey])
+
   useEffect(() => {
     const map = mapRef.current
     if (!mapReady || !map || hideAmenities) return
@@ -811,6 +903,16 @@ export default function ParkMap({
           amenity.id
         )
       )}
+      {spotEl &&
+        tourSpot &&
+        createPortal(
+          <TourSpotPin
+            spot={tourSpot}
+            onOpen={() => router.push(tourSpotHref(tourSpot))}
+            onDismiss={() => useStore.getState().clearTourSpot()}
+          />,
+          spotEl
+        )}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {peekChips.map((chip) => (
           <PeekChipEl key={chip.id} chip={chip} />

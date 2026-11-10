@@ -19,6 +19,7 @@ import {
 } from '@/lib/timeouts'
 import { fetchManifest, fetchTourGraph, preloadImage } from '@/lib/tour-data'
 import {
+  isTourSpotEntry,
   manifestToPanorama,
   parseHeading,
   resolveNode,
@@ -125,6 +126,13 @@ function Tour() {
   const cachedExhibits = useStore((st) => st.cachedExhibits)
   const visitedIds = useStore((st) => st.visitedExhibits)
   const { loaded, failed, offline, loadKey, retry } = useTourNode(nodeParam)
+
+  // Any entry other than the 360° map pin replaces the old spot (the next exit writes a fresh one).
+  const headingParam = params.get('heading')
+  useEffect(() => {
+    const { tourSpot, clearTourSpot } = useStore.getState()
+    if (tourSpot && !isTourSpotEntry(tourSpot, nodeParam, headingParam, exhibitId)) clearTourSpot()
+  }, [nodeParam, headingParam, exhibitId])
   const { toast, showToast } = useTourToast(!!loaded)
 
   // Node the visitor has walked to, tagged with the load it belongs to so a new
