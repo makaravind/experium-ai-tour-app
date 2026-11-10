@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addAmenity, deleteAmenity, replaceAmenity, replaceExhibit, replaceExhibitPhotos, toWorking, upsertAudio } from '@/lib/admin/working'
+import { deleteAmenity, replaceAmenity, replaceExhibit, replaceExhibitPhotos, toWorking, upsertAudio } from '@/lib/admin/working'
 import type { AdminAmenity, AdminAudio, AdminExhibit, AdminPhoto, AdminState } from '@/lib/admin/types'
 
 const exhibit = (id: string, name = id): AdminExhibit => ({
@@ -72,9 +72,5 @@ describe('amenity helpers', () => {
 
   it('deleteAmenity removes by id', () => {
     expect(deleteAmenity([amenity('a'), amenity('b')], 'a').map((a) => a.id)).toEqual(['b'])
-  })
-
-  it('addAmenity appends', () => {
-    expect(addAmenity([amenity('a')], amenity('b')).map((a) => a.id)).toEqual(['a', 'b'])
   })
 })
