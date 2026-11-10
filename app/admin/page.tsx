@@ -3,14 +3,17 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import AdminMap from '@/components/admin/AdminMap'
+import AmenityPanel from '@/components/admin/AmenityPanel'
 import AudioPanel from '@/components/admin/AudioPanel'
 import DetailsPanel from '@/components/admin/DetailsPanel'
 import PhotosPanel from '@/components/admin/PhotosPanel'
 import { Button } from '@/components/ui/button'
 import { buildChangeset } from '@/lib/admin/changeset'
 import type { AdminState, WorkingState } from '@/lib/admin/types'
-import { unplacedMessage } from '@/lib/admin/validation'
-import { replaceExhibit, replaceExhibitPhotos, toWorking, upsertAudio } from '@/lib/admin/working'
+import { unplacedAmenityMessage, unplacedMessage } from '@/lib/admin/validation'
+import {
+  deleteAmenity, replaceAmenity, replaceExhibit, replaceExhibitPhotos, toWorking, upsertAudio,
+} from '@/lib/admin/working'
 
 const TABS = ['Details', 'Audio', 'Photos'] as const
 type Tab = (typeof TABS)[number]
@@ -27,6 +30,7 @@ export default function AdminPage() {
   const [working, setWorking] = useState<WorkingState | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedAmenityId, setSelectedAmenityId] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('Details')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -51,12 +55,21 @@ export default function AdminPage() {
     return original.sections.map((s) => s.id).filter((id) => !kept.has(id))
   }, [original, working])
 
+  // original rows of amenities deleted this session (in the original, no longer in working)
+  const deletedAmenities = useMemo(() => {
+    if (!original || !working) return []
+    const kept = new Set(working.amenities.map((a) => a.id))
+    return original.amenities.filter((a) => !kept.has(a.id))
+  }, [original, working])
+
   const unplaced = useMemo(() => (working ? unplacedMessage(working.exhibits) : null), [working])
+  const unplacedAmenity = useMemo(() => (working ? unplacedAmenityMessage(working.amenities) : null), [working])
 
   if (loadError) return <p className="p-6 text-sm text-destructive">{loadError}</p>
   if (!original || !working || !diff) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>
 
   const selected = working.exhibits.find((e) => e.id === selectedId) ?? null
+  const selectedAmenity = working.amenities.find((a) => a.id === selectedAmenityId) ?? null
 
   async function save() {
     if (!working || !diff) return
@@ -82,6 +95,7 @@ export default function AdminPage() {
           : 'Saved.',
       )
       setSelectedId(null)
+      setSelectedAmenityId(null)
       try {
         apply(await fetchState())
       } catch (e) {
@@ -109,12 +123,42 @@ export default function AdminPage() {
         deletedSectionIds={deletedSectionIds}
         onSectionsChange={(sections) => setWorking((w) => w && { ...w, sections })}
         onExhibitsChange={(exhibits) => setWorking((w) => w && { ...w, exhibits })}
+        amenities={working.amenities}
+        onAmenitiesChange={(amenities) => setWorking((w) => w && { ...w, amenities })}
+        deletedAmenities={deletedAmenities}
         selectedId={selectedId}
         onSelect={(id) => {
           setSelectedId(id)
           setPanelError(null)
         }}
+        selectedAmenityId={selectedAmenityId}
+        onSelectAmenity={(id) => {
+          setSelectedAmenityId(id)
+          setPanelError(null)
+        }}
       />
+
+      {selectedAmenity && (
+        <aside className="absolute bottom-0 right-0 top-0 z-10 flex w-96 flex-col border-l border-border bg-background shadow-lg">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-xs text-muted-foreground">
+              {`${selectedAmenity.type[0].toUpperCase()}${selectedAmenity.type.slice(1)} · ${selectedAmenity.section ?? 'unplaced'}`}
+            </p>
+            <h2 className="truncate text-base font-semibold">{selectedAmenity.name || 'Untitled amenity'}</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <AmenityPanel
+              amenity={selectedAmenity}
+              onChange={(next) => setWorking((w) => w && { ...w, amenities: replaceAmenity(w.amenities, next) })}
+              onDelete={() => {
+                setWorking((w) => w && { ...w, amenities: deleteAmenity(w.amenities, selectedAmenity.id) })
+                setSelectedAmenityId(null)
+              }}
+              onValidityChange={setPanelError}
+            />
+          </div>
+        </aside>
+      )}
 
       {selected && (
         <aside className="absolute bottom-0 right-0 top-0 z-10 flex w-96 flex-col border-l border-border bg-background shadow-lg">
@@ -166,7 +210,7 @@ export default function AdminPage() {
           <Button size="sm" variant="outline" disabled={diff.isEmpty || saving} onClick={discard}>
             Discard
           </Button>
-          <Button size="sm" disabled={diff.isEmpty || saving || unplaced !== null || panelError !== null} onClick={() => void save()}>
+          <Button size="sm" disabled={diff.isEmpty || saving || unplaced !== null || unplacedAmenity !== null || panelError !== null} onClick={() => void save()}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
@@ -175,6 +219,7 @@ export default function AdminPage() {
         )}
         {panelError && <p className="text-xs text-destructive">Fix invalid fields before saving: {panelError}</p>}
         {unplaced && <p className="text-xs text-destructive">{unplaced}</p>}
+        {unplacedAmenity && <p className="text-xs text-destructive">{unplacedAmenity}</p>}
         {saveError && <p className="text-xs text-destructive">{saveError}</p>}
         {saved && !saveError && <p className="text-xs text-muted-foreground">{saved}</p>}
       </div>
