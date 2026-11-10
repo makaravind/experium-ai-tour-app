@@ -475,6 +475,8 @@ test.describe('Virtual tour navigation', () => {
     await pins(page).filter({ hasText: 'K1' }).click()
     await expect(sheetName(page)).toBeVisible()
 
+    // Let the sheet finish sliding in to its peek position before dragging its handle
+    await page.waitForTimeout(600)
     const handle = await page
       .getByRole('button', { name: 'Expand to full view' })
       .first()
