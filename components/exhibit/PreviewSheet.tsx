@@ -10,6 +10,7 @@ import { CompassIcon, LeafOutlineIcon, PauseIcon, PlayIcon, StarIcon } from '@/c
 import { track } from '@vercel/analytics'
 import { AUDIO_CACHE_NAME } from '@/lib/precache'
 import { useStore } from '@/lib/store'
+import { tourHref } from '@/lib/tour'
 import { LANGUAGES, formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
 import type { ExhibitAudio, Language, PreviewExhibit } from '@/lib/types'
 
@@ -273,11 +274,8 @@ export default function PreviewSheet({
   const progress = duration > 0 ? elapsed / duration : 0
   const tourNodeId = exhibit?.tour_node_id ?? null
   const enterTour = () => {
-    if (!exhibit || !tourNodeId) return
-    const params = new URLSearchParams({ node: tourNodeId })
-    if (exhibit.tour_heading != null) params.set('heading', String(exhibit.tour_heading))
-    params.set('exhibitId', exhibit.id)
-    router.push(`/tour?${params}`)
+    const href = exhibit && tourHref(exhibit)
+    if (href) router.push(href)
   }
 
   return (

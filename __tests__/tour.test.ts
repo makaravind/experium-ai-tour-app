@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { manifestToPanorama, parseHeading, resolveNode, type TourNode } from '@/lib/tour'
+import { manifestToPanorama, parseHeading, resolveNode, tourHref, type TourNode } from '@/lib/tour'
 
 const node = (id: string, is_lobby = false): TourNode => ({
   id,
@@ -43,5 +43,30 @@ describe('manifestToPanorama', () => {
     expect(p.baseUrl).toBe('b.jpg')
     expect(p.levels).toHaveLength(1)
     expect(p.tileUrl(3, 1, 2)).toBe('https://x/37A/l2/3_1.jpg')
+  })
+})
+
+describe('tourHref', () => {
+  it('builds node, heading and exhibitId params', () => {
+    expect(tourHref({ id: 'e1', tour_node_id: 'n1', tour_heading: 90 })).toBe(
+      '/tour?node=n1&heading=90&exhibitId=e1'
+    )
+  })
+
+  it('keeps a 0 heading', () => {
+    expect(tourHref({ id: 'e1', tour_node_id: 'n1', tour_heading: 0 })).toBe(
+      '/tour?node=n1&heading=0&exhibitId=e1'
+    )
+  })
+
+  it('omits a null heading', () => {
+    expect(tourHref({ id: 'e1', tour_node_id: 'n1', tour_heading: null })).toBe(
+      '/tour?node=n1&exhibitId=e1'
+    )
+  })
+
+  it('returns null without a tour node', () => {
+    expect(tourHref({ id: 'e1', tour_node_id: null })).toBeNull()
+    expect(tourHref({ id: 'e1' })).toBeNull()
   })
 })
