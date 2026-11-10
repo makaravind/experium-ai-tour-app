@@ -29,12 +29,17 @@ class NoTourNodeError extends Error {}
 /**
  * Graph + current node's manifest + base.jpg. `failed` = no node to show (empty state);
  * `offline` = no connection or a load error (splash offers retry). `retry` re-runs the load.
+ * The result is tagged with `loadKey` (node + attempt), so a new load starts from a clean slate.
  */
 function useTourNode(nodeParam: string | null) {
-  const [loaded, setLoaded] = useState<Loaded | null>(null)
-  const [failed, setFailed] = useState(false)
-  const [offline, setOffline] = useState(false)
+  const [result, setResult] = useState<{
+    key: string
+    loaded: Loaded | null
+    failed: boolean
+    offline: boolean
+  } | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const loadKey = `${attempt}:${nodeParam}`
 
   useEffect(() => {
     let cancelled = false
@@ -45,23 +50,34 @@ function useTourNode(nodeParam: string | null) {
       if (!node) throw new NoTourNodeError()
       const manifest = await fetchManifest(node.tiles_url)
       await preloadImage(manifest.baseUrl)
-      if (!cancelled) setLoaded({ node, panorama: manifestToPanorama(manifest) })
+      if (!cancelled) {
+        setResult({
+          key: loadKey,
+          loaded: { node, panorama: manifestToPanorama(manifest) },
+          failed: false,
+          offline: false,
+        })
+      }
     })().catch((err) => {
       if (cancelled) return
-      if (err instanceof NoTourNodeError) setFailed(true)
-      else setOffline(true)
+      const failed = err instanceof NoTourNodeError
+      setResult({ key: loadKey, loaded: null, failed, offline: !failed })
     })
     return () => {
       cancelled = true
     }
-  }, [nodeParam, attempt])
+  }, [nodeParam, loadKey])
 
-  const retry = useCallback(() => {
-    setOffline(false)
-    setAttempt((a) => a + 1)
-  }, [])
+  const retry = useCallback(() => setAttempt((a) => a + 1), [])
 
-  return { loaded, failed, offline, retry }
+  const current = result?.key === loadKey ? result : null
+  return {
+    loaded: current?.loaded ?? null,
+    failed: current?.failed ?? false,
+    offline: current?.offline ?? false,
+    loadKey,
+    retry,
+  }
 }
 
 /** "Needs internet" toast when the connection drops after the viewer is up; one toast at a time. */
@@ -91,41 +107,40 @@ function Tour() {
   const yaw = useMemo(() => parseHeading(params.get('heading')), [params])
   const exhibitId = params.get('exhibitId')
   const exhibit = useStore((st) => st.cachedExhibits.find((e) => e.id === exhibitId))
-  const { loaded, failed, offline, retry } = useTourNode(nodeParam)
+  const { loaded, failed, offline, loadKey, retry } = useTourNode(nodeParam)
   const offlineToast = useOfflineToast(!!loaded)
 
-  // Splash timers: min display (per load attempt) and the slow state (restarted by Keep waiting)
-  const [minElapsed, setMinElapsed] = useState(false)
-  const [slow, setSlow] = useState(false)
+  // Splash timers record the load (and wait round) they fired for, so a new load (node change or
+  // retry) starts with min-display and slow cleared. Slow stops once loaded; Keep waiting restarts it.
+  const isLoaded = !!loaded
+  const [minDoneKey, setMinDoneKey] = useState<string | null>(null)
+  const [slowKey, setSlowKey] = useState<string | null>(null)
   const [waitRound, setWaitRound] = useState(0)
-  const [attempt, setAttempt] = useState(0)
+  const waitKey = `${loadKey}:${waitRound}`
 
   useEffect(() => {
-    const t = setTimeout(() => setMinElapsed(true), TOUR_SPLASH_MIN_MS)
+    const t = setTimeout(() => setMinDoneKey(loadKey), TOUR_SPLASH_MIN_MS)
     return () => clearTimeout(t)
-  }, [attempt])
+  }, [loadKey])
 
   useEffect(() => {
-    const t = setTimeout(() => setSlow(true), TOUR_SLOW_TIMEOUT_MS)
+    if (isLoaded) return
+    const t = setTimeout(() => setSlowKey(waitKey), TOUR_SLOW_TIMEOUT_MS)
     return () => clearTimeout(t)
-  }, [attempt, waitRound])
+  }, [waitKey, isLoaded])
 
-  const view = splashView({ loaded: !!loaded, minElapsed, offline, slow })
+  const view = splashView({
+    loaded: isLoaded,
+    minElapsed: minDoneKey === loadKey,
+    offline,
+    slow: !isLoaded && slowKey === waitKey,
+  })
 
   const cancel = () => {
     if (exhibit?.code) router.push(`/s/${exhibit.code}`)
     else router.back()
   }
-  const keepWaiting = () => {
-    setSlow(false)
-    setWaitRound((r) => r + 1)
-  }
-  const tryAgain = () => {
-    setMinElapsed(false)
-    setSlow(false)
-    setAttempt((a) => a + 1)
-    retry()
-  }
+  const keepWaiting = () => setWaitRound((r) => r + 1)
 
   return (
     <div className="relative h-dvh w-full bg-black">
@@ -158,7 +173,7 @@ function Tour() {
           backdropUrl={exhibit?.tour_preview_url ?? loaded?.node.preview_url ?? null}
           onCancel={cancel}
           onKeepWaiting={keepWaiting}
-          onRetry={tryAgain}
+          onRetry={retry}
           onBackToMap={() => router.push('/map')}
         />
       )}
