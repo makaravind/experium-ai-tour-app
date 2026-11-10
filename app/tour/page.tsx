@@ -4,8 +4,10 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { EquirectangularMultiTilesPanorama } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
+import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import ExhibitStrip from '@/components/tour/ExhibitStrip'
 import TourSplash from '@/components/tour/TourSplash'
+import { toPreviewExhibit } from '@/lib/map-exhibits'
 import { useStore } from '@/lib/store'
 import { TOUR_SLOW_TIMEOUT_MS, TOUR_SPLASH_MIN_MS, TOUR_TOAST_MS } from '@/lib/timeouts'
 import { fetchManifest, fetchTourGraph, preloadImage } from '@/lib/tour-data'
@@ -17,6 +19,7 @@ import {
   type TourGraph,
   type TourNode,
 } from '@/lib/tour'
+import type { ExhibitAudio, Language } from '@/lib/types'
 
 const TourViewer = dynamic(() => import('@/components/tour/TourViewer'), { ssr: false })
 
@@ -111,16 +114,50 @@ function Tour() {
   const yaw = useMemo(() => parseHeading(params.get('heading')), [params])
   const exhibitId = params.get('exhibitId')
   const exhibit = useStore((st) => st.cachedExhibits.find((e) => e.id === exhibitId))
+  const cachedExhibits = useStore((st) => st.cachedExhibits)
+  const visitedIds = useStore((st) => st.visitedExhibits)
   const { loaded, failed, offline, loadKey, retry } = useTourNode(nodeParam)
   const { toast, showToast } = useTourToast(!!loaded)
 
   // Label of the node the visitor has walked to, tagged with the load it belongs to so a new
   // entry node (URL change) or retry starts from the entry label again.
   const [walked, setWalked] = useState<{ key: string; label: string } | null>(null)
+  // Exhibit whose PreviewSheet is open, tagged with its load like `walked`; walking to another node closes it.
+  const [pinned, setPinned] = useState<{ key: string; id: string } | null>(null)
   const onNodeChange = useCallback(
-    (n: TourNode) => setWalked({ key: loadKey, label: n.label }),
+    (n: TourNode) => {
+      setWalked({ key: loadKey, label: n.label })
+      setPinned(null)
+    },
     [loadKey]
   )
+  const onPinSelect = useCallback((id: string) => setPinned({ key: loadKey, id }), [loadKey])
+  const onPanoClick = useCallback(() => setPinned(null), [])
+  const pinnedCached =
+    pinned?.key === loadKey ? cachedExhibits.find((e) => e.id === pinned.id) : null
+  const sheetExhibit = useMemo(
+    // Already in the tour: drop the sheet's own 360° badge / "enter tour" slide.
+    () =>
+      pinnedCached
+        ? {
+            ...toPreviewExhibit(pinnedCached),
+            tour_node_id: null,
+            tour_heading: null,
+            tour_pitch: null,
+            tour_preview_url: null,
+          }
+        : null,
+    [pinnedCached]
+  )
+  const sheetAudio = useMemo<ExhibitAudio[]>(
+    () =>
+      (Object.entries(pinnedCached?.audio ?? {}) as [Language, string][]).map(
+        ([language, audio_url]) => ({ language, audio_url, status: 'published' })
+      ),
+    [pinnedCached]
+  )
+  // Step 10: replace with the exit splash, then /map centred on the exhibit with activeExhibitId.
+  const handleNavigate = () => router.push('/map')
   const onNodeError = useCallback(
     () => showToast(navigator.onLine ? "Couldn't load that spot" : NEEDS_INTERNET),
     [showToast]
@@ -167,7 +204,11 @@ function Tour() {
           node={loaded.node}
           panorama={loaded.panorama}
           yaw={yaw}
+          exhibits={cachedExhibits}
+          visitedIds={visitedIds}
           onNodeChange={onNodeChange}
+          onPinSelect={onPinSelect}
+          onPanoClick={onPanoClick}
           onNodeError={onNodeError}
         />
       )}
@@ -198,6 +239,9 @@ function Tour() {
       )}
       {loaded && view === 'hidden' && exhibit?.code && (
         <ExhibitStrip name={exhibit.name} code={exhibit.code} />
+      )}
+      {loaded && (
+        <PreviewSheet exhibit={sheetExhibit} audio={sheetAudio} onNavigate={handleNavigate} />
       )}
       {toast && (
         <div
