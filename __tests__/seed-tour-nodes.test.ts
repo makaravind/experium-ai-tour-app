@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseArgs, resolveNodes, buildRow } from '@/tools/seed-tour-nodes.js'
+import { parseArgs, resolveNodes, buildRow, buildUpdate } from '@/tools/seed-tour-nodes.js'
 
 const URL = 'https://x.supabase.co'
 
@@ -68,5 +68,18 @@ describe('buildRow', () => {
     expect(
       buildRow(URL, { panoRef: 'lobby', label: 'p', isLobby: true, lat: 1, lng: 2 })
     ).toMatchObject({ lat: 1, lng: 2 })
+  })
+})
+
+describe('buildUpdate', () => {
+  it('drops label / is_lobby so a re-seed keeps admin edits, keeps URLs and lat/lng', () => {
+    const row = buildRow(URL, { panoRef: 'lobby', label: 'p', isLobby: true, lat: 1, lng: 2 })
+    expect(buildUpdate(row)).toEqual({
+      pano_ref: 'lobby',
+      tiles_url: row.tiles_url,
+      preview_url: row.preview_url,
+      lat: 1,
+      lng: 2,
+    })
   })
 })

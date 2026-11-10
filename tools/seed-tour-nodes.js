@@ -10,8 +10,9 @@
  *   --dry-run prints the rows and writes nothing.
  *
  * Prereqs (real mode): NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in
- * experium-ai-tour-app/.env.local. Re-running is idempotent (upsert on pano_ref); lat/lng are only
- * written when given, so coordinates placed later in /admin/tour are not clobbered.
+ * experium-ai-tour-app/.env.local. Re-running is idempotent: a new pano_ref is inserted whole; an
+ * existing one only has its URLs (and lat/lng, when given) refreshed, so label / is_lobby / coordinates
+ * edited later in /admin/tour are not clobbered.
  */
 
 import { pathToFileURL } from 'url'
@@ -44,7 +45,10 @@ export function parseArgs(argv) {
   return out
 }
 
-/** Nodes to seed: the one named by --pano-ref, else the m9a defaults (lobby + node 1). */
+/**
+ * Nodes to seed: the one named by --pano-ref, else the m9a defaults (lobby + node 1).
+ * @param {{ panoRef?: string, label?: string, lobby?: boolean, lat?: number, lng?: number }} args
+ */
 export function resolveNodes({ panoRef, label, lobby, lat, lng }) {
   if (panoRef) {
     return [{ panoRef, label: label ?? (lobby ? 'Park Entrance' : `Node ${panoRef}`), isLobby: lobby, lat, lng }]
@@ -55,7 +59,11 @@ export function resolveNodes({ panoRef, label, lobby, lat, lng }) {
   ]
 }
 
-/** tour_nodes row; lat/lng omitted when unset so a re-seed never overwrites placed coordinates. */
+/**
+ * tour_nodes row; lat/lng omitted when unset so a re-seed never overwrites placed coordinates.
+ * @param {string} supabaseUrl
+ * @param {{ panoRef: string, label: string, isLobby: boolean, lat?: number, lng?: number }} node
+ */
 export function buildRow(supabaseUrl, { panoRef, label, isLobby, lat, lng }) {
   return {
     pano_ref: panoRef,
@@ -65,6 +73,11 @@ export function buildRow(supabaseUrl, { panoRef, label, isLobby, lat, lng }) {
     is_lobby: isLobby,
     ...(lat !== undefined && { lat, lng }),
   }
+}
+
+/** Columns a re-seed may touch on an existing row: label / is_lobby are seed-time defaults only. */
+export function buildUpdate({ label, is_lobby, ...rest }) {
+  return rest
 }
 
 async function main() {
@@ -110,11 +123,19 @@ async function main() {
 
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
+  const { data: found, error: readError } = await supabase
+    .from('tour_nodes')
+    .select('pano_ref')
+    .in('pano_ref', rows.map(r => r.pano_ref))
+  if (readError) throw new Error(`Read failed: ${readError.message}`)
+  const existing = new Set(found.map(r => r.pano_ref))
   for (const row of rows) {
-    const { error } = await supabase.from('tour_nodes').upsert(row, { onConflict: 'pano_ref' })
-    if (error) throw new Error(`Upsert failed for pano_ref "${row.pano_ref}": ${error.message}`)
+    const { error } = existing.has(row.pano_ref)
+      ? await supabase.from('tour_nodes').update(buildUpdate(row)).eq('pano_ref', row.pano_ref)
+      : await supabase.from('tour_nodes').insert(row)
+    if (error) throw new Error(`Seed failed for pano_ref "${row.pano_ref}": ${error.message}`)
   }
-  console.log(`Seeded ${rows.length} tour_nodes.`)
+  console.log(`Seeded ${rows.length} tour_nodes (${existing.size} existing: label/is_lobby kept).`)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
