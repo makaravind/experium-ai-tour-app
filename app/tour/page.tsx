@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { EquirectangularMultiTilesPanorama } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
+import ExhibitStrip from '@/components/tour/ExhibitStrip'
 import TourSplash from '@/components/tour/TourSplash'
 import { useStore } from '@/lib/store'
 import { TOUR_SLOW_TIMEOUT_MS, TOUR_SPLASH_MIN_MS, TOUR_TOAST_MS } from '@/lib/timeouts'
@@ -160,6 +161,9 @@ function Tour() {
           onRetry={tryAgain}
           onBackToMap={() => router.push('/map')}
         />
+      )}
+      {loaded && view === 'hidden' && exhibit?.code && (
+        <ExhibitStrip name={exhibit.name} code={exhibit.code} />
       )}
       {offlineToast && (
         <div
