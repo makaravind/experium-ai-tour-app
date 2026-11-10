@@ -18,6 +18,7 @@ const WASHROOM = {
   photos: [],
   gps_lat: 17.381282,
   gps_lng: 78.1916483,
+  section: 'K',
 }
 const DESCRIPTION = 'Near Gate 2 · Token ₹5'
 
@@ -58,7 +59,7 @@ async function seedVisitor(page: Page) {
             ],
             cachedAmenities: [washroom],
           },
-          version: 4,
+          version: 5,
         })
       )
     },
@@ -96,7 +97,7 @@ test.describe('Amenities', () => {
     // Ring, peek content; no GPS fix so the badge has no distance
     await expect(page.locator('[data-selected="true"]')).toBeVisible()
     await expect(page.getByText(DESCRIPTION)).toBeVisible()
-    await expect(page.getByText('Washroom', { exact: true })).toBeVisible()
+    await expect(page.getByText('Washroom · Section K', { exact: true })).toBeVisible()
 
     await amenityHandle(page).click()
     await expect(amenityHandle(page)).toHaveAttribute('aria-expanded', 'true')
@@ -236,7 +237,7 @@ test.describe('Amenities', () => {
 
       await page.goto('/map')
       await chip(page).click()
-      await expect(page.getByText(/^Washroom · \d+m away$/)).toBeVisible()
+      await expect(page.getByText(/^Washroom · Section K · \d+m away$/)).toBeVisible()
 
       await navigate(page).click()
       await expect(page.getByText(DESCRIPTION)).toBeHidden()
@@ -249,7 +250,7 @@ test.describe('Amenities', () => {
     }) => {
       await page.goto('/map')
       await chip(page).click()
-      await expect(page.getByText(/^Washroom · \d+m away$/)).toBeVisible()
+      await expect(page.getByText(/^Washroom · Section K · \d+m away$/)).toBeVisible()
       await expect(page.getByText(DESCRIPTION)).toBeVisible()
 
       await scrimTap(page)

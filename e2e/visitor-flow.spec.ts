@@ -136,7 +136,7 @@ test.describe('Visitor flow — returning visitor', () => {
                 },
               ],
             },
-            version: 4,
+            version: 5,
           })
         )
       },

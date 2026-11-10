@@ -209,7 +209,7 @@ export async function seedCachedExhibit(page: Page, { onboarded }: { onboarded: 
               },
             ],
           },
-          version: 4,
+          version: 5,
         })
       )
     },

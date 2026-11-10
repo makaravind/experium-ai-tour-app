@@ -32,6 +32,7 @@ const amenityRow = {
   photos: [],
   gps_lat: 17.937684,
   gps_lng: 78.461197,
+  section: 'G',
 }
 
 const exhibitRow = {
