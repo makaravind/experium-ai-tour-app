@@ -54,3 +54,17 @@ export function manifestToPanorama(manifest: TileManifest): EquirectangularMulti
         .replace('{row}', String(row)),
   }
 }
+
+export type SplashView = 'hidden' | 'loading' | 'slow' | 'offline'
+
+/** Which splash state to show. Offline fails immediately; ready hides only after the minimum display time. */
+export function splashView(s: {
+  loaded: boolean
+  minElapsed: boolean
+  offline: boolean
+  slow: boolean
+}): SplashView {
+  if (s.offline) return 'offline'
+  if (s.loaded && s.minElapsed) return 'hidden'
+  return s.slow ? 'slow' : 'loading'
+}
