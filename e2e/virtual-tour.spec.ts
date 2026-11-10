@@ -467,7 +467,14 @@ test.describe('Virtual tour navigation', () => {
     await expect(sheetName(page)).toHaveCount(0)
   })
 
-  test('exhibit pin opens the PreviewSheet; swiping the sheet down closes it', async ({ page }) => {
+  test('exhibit pin opens the PreviewSheet; swiping the sheet down closes it', async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(
+      browserName === 'webkit',
+      "Playwright's mouse doesn't start the sheet's pointer drag on emulated WebKit; no touch swipe API"
+    )
     await navVisitor(page)
     await page.goto(`/tour?node=${NAV_1.id}&heading=120`)
     await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
