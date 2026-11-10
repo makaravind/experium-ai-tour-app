@@ -362,7 +362,7 @@ export default function PreviewSheet({
                             dominantBaseline="central"
                             fontFamily="sans-serif"
                             fontWeight="bold"
-                            fontSize="9"
+                            fontSize={exhibit.displayId.length > 2 ? 7 : 9}
                             fill="#1c1c1c"
                           >
                             {exhibit.displayId}
