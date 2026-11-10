@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { CachedExhibit } from '@/lib/types'
+import type { CachedExhibit, TourSpot } from '@/lib/types'
 import {
+  isFreshTourSpot,
   manifestToPanorama,
   nodeLinks,
   nodeMarkers,
@@ -9,6 +10,7 @@ import {
   tourHref,
   type TourEdge,
   type TourNode,
+  yawToHeading,
 } from '@/lib/tour'
 
 const node = (id: string, is_lobby = false): TourNode => ({
@@ -141,5 +143,37 @@ describe('nodeMarkers', () => {
   it('flags visited exhibits', () => {
     const pins = nodeMarkers('a', [exhibit('1'), exhibit('2')], ['2'])
     expect(pins.map((p) => p.visited)).toEqual([false, true])
+  })
+})
+
+describe('yawToHeading', () => {
+  it('converts radians to degrees in [0, 360)', () => {
+    expect(yawToHeading(0)).toBe(0)
+    expect(yawToHeading(Math.PI / 2)).toBeCloseTo(90)
+    expect(yawToHeading(-Math.PI / 2)).toBeCloseTo(270)
+    expect(yawToHeading(2 * Math.PI + Math.PI)).toBeCloseTo(180)
+  })
+})
+
+describe('isFreshTourSpot', () => {
+  const spot: TourSpot = { nodeId: 'n', lat: 1, lng: 2, heading: 0, label: 'L', at: 100_000 }
+
+  it('is true within 10 s of being written', () => {
+    expect(isFreshTourSpot(spot, 100_000, null)).toBe(true)
+    expect(isFreshTourSpot(spot, 110_000, null)).toBe(true)
+  })
+
+  it('is false when older than 10 s, or in the future', () => {
+    expect(isFreshTourSpot(spot, 110_001, null)).toBe(false)
+    expect(isFreshTourSpot(spot, 99_999, null)).toBe(false)
+  })
+
+  it('is false with no spot', () => {
+    expect(isFreshTourSpot(null, 100_000, null)).toBe(false)
+  })
+
+  it('is false once the map already flew to this spot', () => {
+    expect(isFreshTourSpot(spot, 101_000, 100_000)).toBe(false)
+    expect(isFreshTourSpot(spot, 101_000, 50_000)).toBe(true)
   })
 })

@@ -10,6 +10,7 @@ import { useDebugStore } from '@/lib/debug-store'
 import { useMapStore } from '@/lib/map-store'
 import { useStore } from '@/lib/store'
 import { toMapExhibits } from '@/lib/map-exhibits'
+import { isFreshTourSpot } from '@/lib/tour'
 import { classifyGeoError, lerpPosition, type LatLng } from '@/lib/gps'
 import { nearestWithin, pinPixelHeight } from '@/lib/nearby'
 import { AmenityTypeIcon } from '@/components/icons'
@@ -568,6 +569,10 @@ export default function ParkMap({
       useMapStore.getState().setFlyToParkTrigger(() => {
         map.flyTo({ center: STARTING_CENTER, zoom: STARTING_ZOOM })
       })
+      useMapStore.getState().setFlyToTourSpotTrigger(() => {
+        const spot = useStore.getState().tourSpot
+        if (spot) map.flyTo({ center: [spot.lng, spot.lat], zoom: 19 })
+      })
       useMapStore.getState().setRetryGpsTrigger(startWatcher)
       // Screen position of a fixed reference point; its per-tick delta is the pan in px at any zoom.
       let dragPrevPx = map.project(STARTING_CENTER)
@@ -634,6 +639,14 @@ export default function ParkMap({
       if (flyToTargetRef.current) {
         const pending = exhibitsRef.current.find((ex) => ex.id === flyToTargetRef.current)
         if (pending) map.flyTo({ center: [pending.gps_lng, pending.gps_lat], zoom: 19 })
+      } else {
+        // Just left the virtual tour: land on the spot, once
+        const { tourSpotFlownAt, setTourSpotFlownAt, flyToTourSpotTrigger } = useMapStore.getState()
+        const spot = useStore.getState().tourSpot
+        if (isFreshTourSpot(spot, Date.now(), tourSpotFlownAt)) {
+          setTourSpotFlownAt(spot!.at)
+          flyToTourSpotTrigger?.()
+        }
       }
 
       // Initial peek chip calculation — moveend won't fire on first load
@@ -669,6 +682,7 @@ export default function ParkMap({
       useMapStore.getState().setRecenterTrigger(null)
       useMapStore.getState().setRetryGpsTrigger(null)
       useMapStore.getState().setFlyToParkTrigger(null)
+      useMapStore.getState().setFlyToTourSpotTrigger(null)
       useMapStore.getState().setGpsOutOfBounds(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- map initialises once; callbacks are stable refs
