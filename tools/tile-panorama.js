@@ -98,7 +98,8 @@ async function writeTiles(sharp, master, outDir) {
       for (let col = 0; col < grid.cols; col++) {
         const left = col * TILE_SIZE
         const top = row * TILE_SIZE
-        await sharp(data, { raw: info })
+        // not `raw: info`: a PNG master with alpha leaves premultiplied:true there, which blows out the colours
+        await sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
           .extract({ left, top, width: Math.min(TILE_SIZE, grid.width - left), height: Math.min(TILE_SIZE, levelHeight - top) })
           .jpeg(jpeg)
           .toFile(join(outDir, tilePath(level, col, row)))
