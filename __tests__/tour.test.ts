@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { manifestToPanorama, parseHeading, resolveNode, tourHref, type TourNode } from '@/lib/tour'
+import {
+  manifestToPanorama,
+  nodeLinks,
+  parseHeading,
+  resolveNode,
+  tourHref,
+  type TourEdge,
+  type TourNode,
+} from '@/lib/tour'
 
 const node = (id: string, is_lobby = false): TourNode => ({
   id,
@@ -68,5 +76,33 @@ describe('tourHref', () => {
   it('returns null without a tour node', () => {
     expect(tourHref({ id: 'e1', tour_node_id: null })).toBeNull()
     expect(tourHref({ id: 'e1' })).toBeNull()
+  })
+})
+
+describe('nodeLinks', () => {
+  const nodes = [{ ...node('a'), label: 'Lobby' }, { ...node('b'), label: 'Pond' }, node('c')]
+  const edge = (from_node_id: string, to_node_id: string, bearing = 0, pitch = 0): TourEdge => ({
+    from_node_id,
+    to_node_id,
+    bearing,
+    pitch,
+  })
+
+  it('converts yaw/pitch degrees to radians and names the link after the target', () => {
+    const [link] = nodeLinks('a', { nodes, edges: [edge('a', 'b', 90, -10)] })
+    expect(link.nodeId).toBe('b')
+    expect(link.name).toBe('Pond')
+    expect(link.position.yaw).toBeCloseTo(Math.PI / 2)
+    expect(link.position.pitch).toBeCloseTo((-10 * Math.PI) / 180)
+  })
+  it('only returns edges leaving the node', () => {
+    const edges = [edge('a', 'b'), edge('b', 'a'), edge('a', 'c')]
+    expect(nodeLinks('a', { nodes, edges }).map((l) => l.nodeId)).toEqual(['b', 'c'])
+  })
+  it('returns no links for a node without edges', () => {
+    expect(nodeLinks('c', { nodes, edges: [edge('a', 'b')] })).toEqual([])
+  })
+  it('ignores edges to unknown nodes', () => {
+    expect(nodeLinks('a', { nodes, edges: [edge('a', 'ghost')] })).toEqual([])
   })
 })

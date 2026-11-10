@@ -68,6 +68,26 @@ export function manifestToPanorama(manifest: TileManifest): EquirectangularMulti
   }
 }
 
+/** Arrow on a node: where it sits (radians, in the node's own pano) and where it leads. */
+export interface TourLink {
+  nodeId: string
+  /** target node's label */
+  name: string
+  position: { yaw: number; pitch: number }
+}
+
+/** Outgoing edges of `nodeId` as plugin links. Edges to nodes not in the graph are dropped. */
+export function nodeLinks(nodeId: string, { nodes, edges }: TourGraph): TourLink[] {
+  const labels = new Map(nodes.map((n) => [n.id, n.label]))
+  return edges
+    .filter((e) => e.from_node_id === nodeId && labels.has(e.to_node_id))
+    .map((e) => ({
+      nodeId: e.to_node_id,
+      name: labels.get(e.to_node_id)!,
+      position: { yaw: degToRad(e.bearing), pitch: degToRad(e.pitch) },
+    }))
+}
+
 export type SplashView = 'hidden' | 'loading' | 'slow' | 'offline'
 
 /** Which splash state to show. Offline fails immediately; ready hides only after the minimum display time. */
