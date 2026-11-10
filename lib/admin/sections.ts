@@ -1,6 +1,6 @@
 import { pointInPolygon, sectionAt } from './geometry'
 import { lowestFreeNumber } from './numbering'
-import type { AdminExhibit, LngLat, WorkingSection } from './types'
+import type { AdminAmenity, AdminExhibit, LngLat, WorkingSection } from './types'
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -41,7 +41,7 @@ export function validateLetter(
   return { id, error: null }
 }
 
-/** Exhibits of `sectionId` whose pin would fall outside `polygon`. */
+/** Exhibits (or amenities: any rows with `section` + gps) of `sectionId` whose pin would fall outside `polygon`. */
 export function strandedExhibits<T extends Pick<AdminExhibit, 'section' | 'gps_lat' | 'gps_lng'>>(
   exhibits: T[],
   sectionId: string,
@@ -64,6 +64,11 @@ export function renameSection(sections: WorkingSection[], fromId: string, toId: 
 /** Exhibits re-pointed from `fromId` to `toId`. */
 export function renameExhibitsSection(exhibits: AdminExhibit[], fromId: string, toId: string): AdminExhibit[] {
   return exhibits.map((e) => (e.section === fromId ? { ...e, section: toId } : e))
+}
+
+/** Amenities re-pointed from `fromId` to `toId`. */
+export function renameAmenitiesSection(amenities: AdminAmenity[], fromId: string, toId: string): AdminAmenity[] {
+  return amenities.map((a) => (a.section === fromId ? { ...a, section: toId } : a))
 }
 
 /** Polygon centroid (vertex average, as in the marker-placer) for label placement. */
