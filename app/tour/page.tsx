@@ -14,17 +14,21 @@ import {
   parseHeading,
   resolveNode,
   splashView,
+  type TourGraph,
   type TourNode,
 } from '@/lib/tour'
 
 const TourViewer = dynamic(() => import('@/components/tour/TourViewer'), { ssr: false })
 
 interface Loaded {
+  graph: TourGraph
   node: TourNode
   panorama: EquirectangularMultiTilesPanorama
 }
 
 class NoTourNodeError extends Error {}
+
+const NEEDS_INTERNET = 'Needs internet'
 
 /**
  * Graph + current node's manifest + base.jpg. `failed` = no node to show (empty state);
@@ -45,15 +49,15 @@ function useTourNode(nodeParam: string | null) {
     let cancelled = false
     ;(async () => {
       if (!navigator.onLine) throw new Error('offline')
-      const { nodes } = await fetchTourGraph()
-      const node = resolveNode(nodes, nodeParam)
+      const graph = await fetchTourGraph()
+      const node = resolveNode(graph.nodes, nodeParam)
       if (!node) throw new NoTourNodeError()
       const manifest = await fetchManifest(node.tiles_url)
       await preloadImage(manifest.baseUrl)
       if (!cancelled) {
         setResult({
           key: loadKey,
-          loaded: { node, panorama: manifestToPanorama(manifest) },
+          loaded: { graph, node, panorama: manifestToPanorama(manifest) },
           failed: false,
           offline: false,
         })
@@ -80,24 +84,24 @@ function useTourNode(nodeParam: string | null) {
   }
 }
 
-/** "Needs internet" toast when the connection drops after the viewer is up; one toast at a time. */
-function useOfflineToast(active: boolean) {
-  const [toast, setToast] = useState(false)
+/** One toast at a time: "Needs internet" when the connection drops after the viewer is up, or a message from `show`. */
+function useTourToast(active: boolean) {
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     if (!active) return
-    const show = () => setToast(true)
+    const show = () => setToast(NEEDS_INTERNET)
     window.addEventListener('offline', show)
     return () => window.removeEventListener('offline', show)
   }, [active])
 
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(() => setToast(false), TOUR_TOAST_MS)
+    const t = setTimeout(() => setToast(null), TOUR_TOAST_MS)
     return () => clearTimeout(t)
   }, [toast])
 
-  return toast
+  return { toast, showToast: setToast }
 }
 
 function Tour() {
@@ -108,7 +112,20 @@ function Tour() {
   const exhibitId = params.get('exhibitId')
   const exhibit = useStore((st) => st.cachedExhibits.find((e) => e.id === exhibitId))
   const { loaded, failed, offline, loadKey, retry } = useTourNode(nodeParam)
-  const offlineToast = useOfflineToast(!!loaded)
+  const { toast, showToast } = useTourToast(!!loaded)
+
+  // Label of the node the visitor has walked to, tagged with the load it belongs to so a new
+  // entry node (URL change) or retry starts from the entry label again.
+  const [walked, setWalked] = useState<{ key: string; label: string } | null>(null)
+  const onNodeChange = useCallback(
+    (n: TourNode) => setWalked({ key: loadKey, label: n.label }),
+    [loadKey]
+  )
+  const onNodeError = useCallback(
+    () => showToast(navigator.onLine ? "Couldn't load that spot" : NEEDS_INTERNET),
+    [showToast]
+  )
+  const pillLabel = walked?.key === loadKey ? walked.label : loaded?.node.label
 
   // Splash timers record the load (and wait round) they fired for, so a new load (node change or
   // retry) starts with min-display and slow cleared. Slow stops once loaded; Keep waiting restarts it.
@@ -146,10 +163,12 @@ function Tour() {
     <div className="relative h-dvh w-full bg-black">
       {loaded && (
         <TourViewer
-          nodeId={loaded.node.id}
-          name={loaded.node.label}
+          graph={loaded.graph}
+          node={loaded.node}
           panorama={loaded.panorama}
           yaw={yaw}
+          onNodeChange={onNodeChange}
+          onNodeError={onNodeError}
         />
       )}
       {failed && (
@@ -180,12 +199,12 @@ function Tour() {
       {loaded && view === 'hidden' && exhibit?.code && (
         <ExhibitStrip name={exhibit.name} code={exhibit.code} />
       )}
-      {offlineToast && (
+      {toast && (
         <div
           role="status"
           className="absolute inset-x-8 bottom-8 z-30 rounded-xl border border-white/20 bg-black/80 px-4 py-3 text-center text-sm text-white"
         >
-          Needs internet
+          {toast}
         </div>
       )}
       {!failed && (
@@ -198,7 +217,7 @@ function Tour() {
       )}
       {loaded && (
         <div className="pointer-events-none absolute top-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1.5 text-sm text-white backdrop-blur-sm">
-          {loaded.node.label}
+          {pillLabel}
         </div>
       )}
     </div>
