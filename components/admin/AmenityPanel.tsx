@@ -69,7 +69,7 @@ export default function AmenityPanel({ amenity, onChange, onDelete, onValidityCh
             ))}
           </select>
         </Field>
-        <Field label="Section (drag the pin to change)">
+        <Field label="Section (drag pin)">
           <input className={inputCls} value={amenity.section ?? 'unplaced'} disabled readOnly />
         </Field>
       </div>
