@@ -1,12 +1,21 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import dynamic from 'next/dynamic'
 
+import AimPanel from '@/components/admin/tour/AimPanel'
 import EdgesMap from '@/components/admin/tour/EdgesMap'
 import EdgesPanel from '@/components/admin/tour/EdgesPanel'
 import PlaceMap from '@/components/admin/tour/PlaceMap'
 import PlacePanel from '@/components/admin/tour/PlacePanel'
 import { Button } from '@/components/ui/button'
+import {
+  aimMarkers,
+  clickToAim,
+  setEdgeAim,
+  setExhibitAim,
+  type AimTarget,
+} from '@/lib/admin/tour-aim'
 import { buildTourChangeset } from '@/lib/admin/tour-changeset'
 import { pairKey, proposeEdges, toPair, type EdgePair } from '@/lib/admin/tour-edges'
 import type { TourAdminState, TourWorkingState } from '@/lib/admin/tour-types'
@@ -20,11 +29,14 @@ import {
 } from '@/lib/admin/tour-working'
 import { loadParkPaths, type ParkPaths } from '@/lib/park-paths'
 
+// PSV touches `window` on import, so the Aim viewer is client-only.
+const AimViewer = dynamic(() => import('@/components/admin/tour/AimViewer'), { ssr: false })
+
 // Workflow order. Steps 3-5 flip `ready` and render their panel in the mode switch below.
 const MODES = [
   { id: 'Place', ready: true },
   { id: 'Edges', ready: true },
-  { id: 'Aim', ready: false },
+  { id: 'Aim', ready: true },
   { id: 'Link', ready: false },
   { id: 'Save', ready: false }, // Step 5: validate UI; the staged-edits bar below saves meanwhile
 ] as const
@@ -47,6 +59,8 @@ export default function TourShell() {
   const [proposals, setProposals] = useState<EdgePair[]>([]) // UI-local, never persisted
   const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [armed, setArmed] = useState<AimTarget | null>(null)
+  const [focus, setFocus] = useState<{ yaw: number; pitch: number; n: number } | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -113,6 +127,30 @@ export default function TourShell() {
     }
   }
 
+  const selectNode = (id: string) => {
+    setSelectedId(id)
+    setArmed(null)
+    setFocus(null)
+  }
+  const switchMode = (m: Mode) => {
+    setMode(m)
+    setArmed(null)
+    // Aim needs a node: fall back to the lobby, then the first node
+    if (m === 'Aim' && !selectedId)
+      setSelectedId((working.nodes.find((n) => n.is_lobby) ?? working.nodes[0])?.id ?? null)
+  }
+  const aimNode = working.nodes.find((n) => n.id === selectedId)
+  const onAim = (yawRad: number, pitchRad: number) => {
+    if (!armed || !selectedId) return
+    const { yaw, pitch } = clickToAim(yawRad, pitchRad)
+    update((w) =>
+      armed.kind === 'edge'
+        ? setEdgeAim(w, selectedId, armed.to, { bearing: yaw, pitch })
+        : setExhibitAim(w, armed.id, { heading: yaw, pitch })
+    )
+    setArmed(null)
+  }
+
   async function save() {
     if (!diff) return
     setSaving(true)
@@ -168,6 +206,18 @@ export default function TourShell() {
         />
       )}
 
+      {mode === 'Aim' && aimNode && (
+        <div className="absolute inset-0 pl-96">
+          <AimViewer
+            tilesUrl={aimNode.tiles_url}
+            markers={aimMarkers(working, aimNode.id)}
+            focus={focus}
+            armed={armed !== null}
+            onAim={onAim}
+          />
+        </div>
+      )}
+
       <aside className="absolute bottom-0 left-0 top-0 z-10 flex w-96 flex-col border-r border-border bg-background shadow-lg">
         <div className="border-b border-border px-4 py-3">
           <h1 className="text-base font-semibold">Tour authoring</h1>
@@ -179,7 +229,7 @@ export default function TourShell() {
                 variant={m.id === mode ? 'default' : 'ghost'}
                 disabled={!m.ready}
                 title={m.ready ? undefined : 'Coming soon'}
-                onClick={() => setMode(m.id)}
+                onClick={() => switchMode(m.id)}
               >
                 {m.id}
               </Button>
@@ -214,6 +264,16 @@ export default function TourShell() {
               setPickedKey(null)
             }}
             onToggleConnect={() => setConnecting((c) => !c)}
+          />
+        )}
+        {mode === 'Aim' && (
+          <AimPanel
+            working={working}
+            selectedId={selectedId}
+            armed={armed}
+            onSelect={selectNode}
+            onArm={setArmed}
+            onFocus={(yaw, pitch) => setFocus((f) => ({ yaw, pitch, n: (f?.n ?? 0) + 1 }))}
           />
         )}
       </aside>
