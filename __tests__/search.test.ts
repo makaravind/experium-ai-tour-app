@@ -5,7 +5,7 @@ import type { CachedAmenity, MapExhibit } from '@/lib/types'
 const ex = (
   id: string,
   name: string,
-  displayNumber: number | null = null,
+  displayId = 'Z99',
   tier = 'silver'
 ): MapExhibit => ({
   id,
@@ -17,7 +17,7 @@ const ex = (
   qr_code: null,
   languages: ['en'],
   status: 'live',
-  displayNumber,
+  displayId,
   facts: [],
 })
 
@@ -64,25 +64,27 @@ describe('filterExhibits', () => {
     expect(filterExhibits(mixed, '').map((e) => e.name)).toEqual(['Apple', 'mango', 'zebra'])
   })
 
-  it('matches by displayNumber prefix', () => {
-    const numbered = [
-      ex('1', 'Amla Grove', 4),
-      ex('2', 'Banyan Tree', 40),
-      ex('3', 'Lotus Pond', 14),
+  it('matches by displayId prefix, case-insensitive', () => {
+    const ids = [
+      ex('1', 'Amla Grove', 'A3'),
+      ex('2', 'Banyan Tree', 'A30'),
+      ex('3', 'Lotus Pond', 'B3'),
     ]
-    expect(filterExhibits(numbered, '4').map((e) => e.id)).toEqual(['1', '2'])
+    expect(filterExhibits(ids, 'a3').map((e) => e.id)).toEqual(['1', '2'])
+    expect(filterExhibits(ids, 'A3').map((e) => e.id)).toEqual(['1', '2'])
+    expect(filterExhibits(ids, ' b3 ').map((e) => e.id)).toEqual(['3'])
   })
 
-  it('ignores null displayNumber when matching by number', () => {
-    const mixed = [ex('1', 'Amla Grove', null), ex('2', 'Banyan Tree', 4)]
-    expect(filterExhibits(mixed, '4').map((e) => e.id)).toEqual(['2'])
+  it('matches displayId by prefix only, not substring', () => {
+    const ids = [ex('1', 'Amla Grove', 'K11'), ex('2', 'Banyan Tree', 'A1')]
+    expect(filterExhibits(ids, '11')).toEqual([])
   })
 
   describe('mustVisit filter', () => {
     const mixed = [
-      ex('1', 'Amla Grove', null, 'gold'),
-      ex('2', 'Banyan Tree', null, 'silver'),
-      ex('3', 'Lotus Pond', null, 'gold'),
+      ex('1', 'Amla Grove', 'Z1', 'gold'),
+      ex('2', 'Banyan Tree', 'Z2', 'silver'),
+      ex('3', 'Lotus Pond', 'Z3', 'gold'),
     ]
 
     it('mustVisit=false returns all (default)', () => {

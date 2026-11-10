@@ -31,7 +31,7 @@ function toPreview(ex: CachedExhibit): PreviewExhibit {
     tier: ex.tier,
     qr_code: ex.code,
     facts: ex.facts,
-    displayNumber: ex.displayNumber,
+    displayId: ex.displayId,
   }
 }
 

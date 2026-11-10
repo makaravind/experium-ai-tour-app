@@ -337,7 +337,7 @@ export default function PreviewSheet({
             <div className="px-4">
               <SheetSummary
                 expanded={expanded}
-                displayNumber={exhibit?.displayNumber}
+                displayId={exhibit?.displayId}
                 onExpand={expand}
                 thumb={
                   <div className="relative w-14 h-14">
@@ -349,7 +349,7 @@ export default function PreviewSheet({
                         overflow: 'hidden',
                       }}
                     />
-                    {exhibit?.displayNumber != null && (
+                    {exhibit?.displayId != null && (
                       <div className="absolute" style={{ bottom: -4, right: -4 }}>
                         <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
                           <circle cx="16" cy="16" r="16" fill="#dda15e" />
@@ -365,7 +365,7 @@ export default function PreviewSheet({
                             fontSize="9"
                             fill="#1c1c1c"
                           >
-                            {exhibit.displayNumber}
+                            {exhibit.displayId}
                           </text>
                         </svg>
                       </div>

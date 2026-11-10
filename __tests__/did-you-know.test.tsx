@@ -18,7 +18,7 @@ function makeExhibit(overrides: Partial<CachedExhibit> = {}): CachedExhibit {
     gps_lat: null,
     gps_lng: null,
     exhibitStatus: 'active',
-    displayNumber: 1,
+    displayId: 'A1',
     ...overrides,
   }
 }
