@@ -18,7 +18,7 @@ declare const self: ServiceWorkerGlobalScope
 // Every page document, fetched at install so any route opens offline. Not precached: Serwist's
 // precache route answers cache-first, so online visitors would get the previous deploy's pages.
 const PAGES_CACHE = 'pages-cache'
-const PAGES = ['/', '/map', '/scan', '/collection', '/s/_shell']
+const PAGES = ['/', '/map', '/scan', '/collection', '/tour', '/s/_shell']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
