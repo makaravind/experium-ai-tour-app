@@ -67,7 +67,7 @@ export function parseArgs(argv) {
   return { master, panoRef, label: label ?? `Node ${panoRef}`, dryRun }
 }
 
-function loadEnv() {
+export function loadEnv() {
   return Object.fromEntries(
     readFileSync(join(APP, '.env.local'), 'utf8')
       .split('\n')
