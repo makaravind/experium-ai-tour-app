@@ -1,6 +1,8 @@
 'use client'
 
+import { useCallback, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import PreviewLightbox from './PreviewLightbox'
 import type { TourNode } from '@/lib/tour'
 
 interface PlacePanelProps {
@@ -18,6 +20,9 @@ export default function PlacePanel({
   onLabelChange,
   onClearPosition,
 }: PlacePanelProps) {
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  const closePreview = useCallback(() => setPreviewId(null), [])
+  const preview = nodes.find((n) => n.id === previewId) ?? null
   const selected = nodes.find((n) => n.id === selectedId) ?? null
   const placed = nodes.filter((n) => n.lat !== null).length
 
@@ -48,21 +53,31 @@ export default function PlacePanel({
       </div>
       <ul className="flex-1 overflow-y-auto">
         {nodes.map((n) => (
-          <li key={n.id}>
+          <li
+            key={n.id}
+            className={`flex items-center border-b border-border hover:bg-muted ${
+              n.id === selectedId ? 'bg-muted' : ''
+            }`}
+          >
             <button
               type="button"
-              data-node={n.pano_ref}
-              onClick={() => onSelect(n.id)}
-              className={`flex w-full items-center gap-3 border-b border-border px-4 py-2 text-left hover:bg-muted ${
-                n.id === selectedId ? 'bg-muted' : ''
-              }`}
+              aria-label={`View ${n.label} preview large`}
+              onClick={() => setPreviewId(n.id)}
+              className="shrink-0 py-2 pl-4"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- dev-only admin thumbnails */}
               <img
                 src={n.preview_url}
                 alt=""
-                className="h-10 w-16 shrink-0 rounded bg-muted object-cover"
+                className="h-10 w-16 cursor-zoom-in rounded bg-muted object-cover"
               />
+            </button>
+            <button
+              type="button"
+              data-node={n.pano_ref}
+              onClick={() => onSelect(n.id)}
+              className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-4 text-left"
+            >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{n.label}</span>
                 <span className="block truncate text-xs text-muted-foreground">{n.pano_ref}</span>
@@ -77,6 +92,14 @@ export default function PlacePanel({
           </li>
         ))}
       </ul>
+      {preview && (
+        <PreviewLightbox
+          src={preview.preview_url}
+          label={preview.label}
+          panoRef={preview.pano_ref}
+          onClose={closePreview}
+        />
+      )}
     </>
   )
 }
