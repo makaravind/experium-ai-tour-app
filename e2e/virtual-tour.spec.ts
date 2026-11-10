@@ -14,18 +14,42 @@ const BASE_URL = `http://localhost:${process.env.E2E_PORT ?? '3000'}`
 const PIXEL = Buffer.from(PIXEL_PNG_B64, 'base64')
 
 const pano = (ref: string, file: string) => `${BASE_URL}/e2e-pano/${ref}/${file}`
-const node = (id: string, ref: string, label: string, isLobby = false) => ({
+const node = (
+  id: string,
+  ref: string,
+  label: string,
+  isLobby = false,
+  at: { lat: number; lng: number } | null = null
+) => ({
   id,
   label,
   pano_ref: ref,
   tiles_url: pano(ref, 'manifest.json'),
   preview_url: pano(ref, 'preview.jpg'),
-  lat: null,
-  lng: null,
+  lat: at?.lat ?? null,
+  lng: at?.lng ?? null,
   is_lobby: isLobby,
 })
 const LOBBY = node('node-lobby', 'lobby', 'Park Entrance', true)
 const NODE_1 = node('node-1', '1', 'Node 1')
+
+// Mocked 3-node graph for the navigation specs: lobby <-> 1 <-> 2, all placed on the map.
+const NAV_LOBBY = node('node-lobby', 'lobby', 'Park Entrance', true, { lat: 17.3812, lng: 78.1914 })
+const NAV_1 = node('node-1', '1', 'Node 1', false, { lat: 17.3814, lng: 78.1916 })
+const NAV_2 = node('node-2', '2', 'Node 2', false, { lat: 17.3816, lng: 78.1918 })
+const NAV_NODES = [NAV_LOBBY, NAV_1, NAV_2]
+const edge = (from: string, to: string, bearing: number) => ({
+  from_node_id: from,
+  to_node_id: to,
+  bearing,
+  pitch: -30,
+})
+const NAV_EDGES = [
+  edge(NAV_LOBBY.id, NAV_1.id, 90),
+  edge(NAV_1.id, NAV_LOBBY.id, 270),
+  edge(NAV_1.id, NAV_2.id, 200),
+  edge(NAV_2.id, NAV_1.id, 20),
+]
 
 const TOUR: SeedTour = {
   nodeId: NODE_1.id,
@@ -33,6 +57,9 @@ const TOUR: SeedTour = {
   pitch: -10,
   previewUrl: NODE_1.preview_url,
 }
+
+// The seeded exhibit's pin on node 1, off the arrows' bearings
+const NAV_TOUR: SeedTour = { ...TOUR, heading: 120, pitch: 0 }
 
 const manifest = (ref: string) => ({
   baseUrl: pano(ref, 'base.jpg'),
@@ -46,6 +73,7 @@ const manifest = (ref: string) => ({
 
 interface TourMocks {
   nodes?: object[]
+  edges?: object[]
   /** manifest.json requests never answer (slow-load scenarios) */
   hangManifest?: boolean
   /** every tour_nodes request fails */
@@ -55,7 +83,7 @@ interface TourMocks {
 /** Mocks tour_nodes/tour_edges, the manifests and every same-origin pano file (base, preview, tiles). */
 async function mockTour(
   page: Page,
-  { nodes = [LOBBY, NODE_1], hangManifest, failGraph }: TourMocks = {}
+  { nodes = [LOBBY, NODE_1], edges = [], hangManifest, failGraph }: TourMocks = {}
 ) {
   const requested: string[] = []
   await page.route('**/rest/v1/tour_nodes*', (route) =>
@@ -68,7 +96,7 @@ async function mockTour(
         })
   )
   await page.route('**/rest/v1/tour_edges*', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(edges) })
   )
   await page.route('**/e2e-pano/**', (route) => {
     const url = new URL(route.request().url())
@@ -387,5 +415,178 @@ test.describe('Virtual tour exhibit strip', () => {
 
     await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
     await expect(strip(page)).toBeHidden()
+  })
+})
+
+const navVisitor = (page: Page) =>
+  seedVisitor(page, { tour: NAV_TOUR, mocks: { nodes: NAV_NODES, edges: NAV_EDGES } })
+
+// PSV renders arrows as CSS3D elements, one per outgoing edge; exhibit pins are marker elements
+const arrows = (page: Page) => page.locator('.psv-virtual-tour-link')
+const pins = (page: Page) => page.locator('.psv-marker')
+const sheetName = (page: Page) => page.getByText('Baobab Forest')
+const navigateButton = (page: Page) => page.getByRole('button', { name: 'Navigate' })
+const spotPin = (page: Page) => page.getByRole('button', { name: /^360° tour spot/ })
+const savedSpot = (page: Page) =>
+  page.evaluate(() => JSON.parse(localStorage.getItem('experium-store')!).state.tourSpot)
+
+test.describe('Virtual tour navigation', () => {
+  test('arrow tap walks to the next node: pill updates, arrows follow edges, URL stays', async ({
+    page,
+  }) => {
+    await navVisitor(page)
+    await page.goto('/tour')
+    await expect(nodePill(page, 'Park Entrance')).toBeVisible({ timeout: 15000 })
+    await expect(arrows(page)).toHaveCount(1)
+    const url = page.url()
+
+    await arrows(page).first().click()
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+    await expect(nodePill(page, 'Park Entrance')).toBeHidden()
+    // Node 1 has two outgoing edges (lobby, node 2)
+    await expect(arrows(page)).toHaveCount(2)
+    expect(page.url()).toBe(url)
+  })
+
+  test('exhibit pin opens the PreviewSheet; tapping the panorama closes it', async ({ page }) => {
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+    // The sheet is always mounted; it shows the exhibit's name only while open
+    await expect(sheetName(page)).toHaveCount(0)
+
+    await pins(page).filter({ hasText: 'K1' }).click()
+    await expect(sheetName(page)).toBeVisible()
+    await expect(navigateButton(page)).toBeVisible()
+
+    // Top of the screen: panorama, clear of the sheet
+    const size = page.viewportSize()!
+    // PSV reads two taps within 300 ms as a double-click (it pans instead of emitting click)
+    await page.waitForTimeout(400)
+    await page.mouse.click(size.width / 2, size.height * 0.15)
+    await expect(sheetName(page)).toHaveCount(0)
+  })
+
+  test('only the node a pin is linked to shows it', async ({ page }) => {
+    await navVisitor(page)
+    await page.goto('/tour')
+    await expect(nodePill(page, 'Park Entrance')).toBeVisible({ timeout: 15000 })
+    await expect(pins(page)).toHaveCount(0)
+  })
+})
+
+test.describe('Virtual tour exit and 360° pin', () => {
+  test('Map pill: exit splash, then /map with tourSpot saved', async ({ page }) => {
+    await navVisitor(page)
+    await freezeClock(page)
+    const base = page.waitForResponse('**/e2e-pano/1/base.jpg')
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120`)
+    await base
+    await page.clock.fastForward(800)
+    await expect(nodePill(page, 'Node 1')).toBeVisible()
+
+    await mapButton(page).click()
+    await expect(page.getByText('Landing at Node 1')).toBeVisible()
+    await expect(page.getByText('Spot saved')).toBeVisible()
+    await expect(page).toHaveURL(/\/tour/)
+    const spot = await savedSpot(page)
+    expect(spot).toMatchObject({
+      nodeId: NAV_1.id,
+      lat: NAV_1.lat,
+      lng: NAV_1.lng,
+      label: 'Node 1',
+    })
+
+    await page.clock.fastForward(600)
+    await expect(page).toHaveURL(/\/map$/)
+  })
+
+  test('Navigate in the sheet: lands on /map with that exhibit open', async ({ page }) => {
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+
+    await pins(page).filter({ hasText: 'K1' }).click()
+    await navigateButton(page).click()
+
+    await expect(page).toHaveURL(/\/map$/, { timeout: 15000 })
+    expect(await savedSpot(page)).toMatchObject({ nodeId: NAV_1.id })
+    // The map's own sheet is open on the exhibit, ready for its Navigate
+    await expect(page.getByText('Baobab Forest').first()).toBeVisible({ timeout: 15000 })
+    await expect(navigateButton(page)).toBeVisible()
+  })
+
+  test('tourSpot survives a reload and keeps its pin', async ({ page, browserName }) => {
+    test.skip(
+      browserName === 'webkit',
+      "WebKit drops Cache Storage on a second document load, so the gate shows 'low on storage' (see seedAudioCache)"
+    )
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+    await mapButton(page).click()
+    await expect(page).toHaveURL(/\/map$/, { timeout: 15000 })
+    await expect(spotPin(page)).toBeVisible({ timeout: 15000 })
+
+    await page.reload()
+    expect(await savedSpot(page)).toMatchObject({ nodeId: NAV_1.id })
+    await expect(spotPin(page)).toBeVisible({ timeout: 15000 })
+  })
+
+  test('the pin re-enters the tour at its node; ✕ dismisses it', async ({ page }) => {
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+    await mapButton(page).click()
+    await expect(page).toHaveURL(/\/map$/, { timeout: 15000 })
+    await expect(spotPin(page)).toBeVisible({ timeout: 15000 })
+
+    // Tap the pin: back in the tour at the same node, spot kept
+    await spotPin(page).click()
+    await expect(page).toHaveURL(new RegExp(`/tour\\?node=${NAV_1.id}&heading=`), {
+      timeout: 15000,
+    })
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+    expect(await savedSpot(page)).toMatchObject({ nodeId: NAV_1.id })
+
+    await mapButton(page).click()
+    await expect(page).toHaveURL(/\/map$/, { timeout: 15000 })
+    await page.getByRole('button', { name: 'Dismiss 360° pin' }).click()
+    await expect(spotPin(page)).toBeHidden()
+    expect(await savedSpot(page)).toBeNull()
+  })
+
+  test('entering the tour any other way replaces the old spot', async ({ page }) => {
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+    await mapButton(page).click()
+    await expect(page).toHaveURL(/\/map$/, { timeout: 15000 })
+    expect(await savedSpot(page)).not.toBeNull()
+
+    // Client-side, as an in-app entry point does (WebKit's second document load can trip the storage gate)
+    await page.evaluate(() => (window as any).next.router.push('/tour'))
+    await expect(nodePill(page, 'Park Entrance')).toBeVisible({ timeout: 15000 })
+    expect(await savedSpot(page)).toBeNull()
+  })
+})
+
+test.describe('Home 360° Virtual Tour button', () => {
+  test('visible online, links to /tour', async ({ page }) => {
+    await navVisitor(page)
+    await page.goto('/')
+    const link = page.getByRole('link', { name: '360° Virtual Tour →' })
+    await expect(link).toBeVisible({ timeout: 15000 })
+    await expect(link).toHaveAttribute('href', '/tour')
+  })
+
+  test('hidden offline', async ({ page }) => {
+    await navVisitor(page)
+    await startOffline(page)
+    await page.goto('/')
+    await expect(page.getByRole('link', { name: 'Explore the Park →' })).toBeVisible({
+      timeout: 15000,
+    })
+    await expect(page.getByRole('link', { name: '360° Virtual Tour →' })).toBeHidden()
   })
 })
