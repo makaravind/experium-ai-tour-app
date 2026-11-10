@@ -38,3 +38,11 @@ export function validateNumber(
   if (clash) return { ok: false, error: `Number ${n} is already used in section ${exhibit.section}` }
   return { ok: true, value: n }
 }
+
+/** Save blocker: null if every exhibit is placed (section + number), else a message naming the unplaced ones. */
+export function unplacedMessage(exhibits: Pick<AdminExhibit, 'name' | 'section' | 'number'>[]): string | null {
+  const unplaced = exhibits.filter((e) => e.section === null || e.number === null)
+  if (!unplaced.length) return null
+  const names = unplaced.map((e) => e.name || 'Untitled exhibit').join(', ')
+  return `${unplaced.length} unplaced exhibit(s): fix before saving (${names})`
+}

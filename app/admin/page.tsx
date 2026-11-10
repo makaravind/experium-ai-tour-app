@@ -9,6 +9,7 @@ import PhotosPanel from '@/components/admin/PhotosPanel'
 import { Button } from '@/components/ui/button'
 import { buildChangeset } from '@/lib/admin/changeset'
 import type { AdminState, WorkingState } from '@/lib/admin/types'
+import { unplacedMessage } from '@/lib/admin/validation'
 import { replaceExhibit, replaceExhibitPhotos, toWorking, upsertAudio } from '@/lib/admin/working'
 
 const TABS = ['Details', 'Audio', 'Photos'] as const
@@ -41,6 +42,8 @@ export default function AdminPage() {
   }, [])
 
   const diff = useMemo(() => (original && working ? buildChangeset(original, working) : null), [original, working])
+
+  const unplaced = useMemo(() => (working ? unplacedMessage(working.exhibits) : null), [working])
 
   if (loadError) return <p className="p-6 text-sm text-destructive">{loadError}</p>
   if (!original || !working || !diff) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>
@@ -150,13 +153,14 @@ export default function AdminPage() {
           <Button size="sm" variant="outline" disabled={diff.isEmpty || saving} onClick={discard}>
             Discard
           </Button>
-          <Button size="sm" disabled={diff.isEmpty || saving} onClick={() => void save()}>
+          <Button size="sm" disabled={diff.isEmpty || saving || unplaced !== null} onClick={() => void save()}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
         {diff.changeset.sections.rename.length > 0 && (
           <p className="text-xs text-muted-foreground">Renaming a section letter changes what visitors see.</p>
         )}
+        {unplaced && <p className="text-xs text-destructive">{unplaced}</p>}
         {saveError && <p className="text-xs text-destructive">{saveError}</p>}
         {saved && !saveError && <p className="text-xs text-muted-foreground">{saved}</p>}
       </div>
