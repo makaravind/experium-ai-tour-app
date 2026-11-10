@@ -15,6 +15,10 @@ const cached = (over: Partial<CachedExhibit> = {}): CachedExhibit => ({
   gps_lng: 78.460897,
   exhibitStatus: 'live',
   displayId: 'K7',
+  tour_node_id: null,
+  tour_heading: null,
+  tour_pitch: null,
+  tour_preview_url: null,
   ...over,
 })
 

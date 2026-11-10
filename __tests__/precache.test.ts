@@ -57,17 +57,32 @@ describe('getAssetGroups', () => {
     expect(getAssetGroups(ex, 'en')).toEqual([
       { cacheName: 'audio-cache', urls: [u(1), u(2)] },
       { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
+      { cacheName: 'tour-preview-cache', urls: [] },
     ])
     expect(getAssetGroups(ex, 'hi')).toEqual([
       { cacheName: 'audio-cache', urls: [u(10), u(11), u(12)] },
       { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
+      { cacheName: 'tour-preview-cache', urls: [] },
     ])
+  })
+
+  it('adds deduped preview urls, only for exhibits with a linked tour node', () => {
+    const withTour = [
+      { audio: {}, tour_preview_url: 'https://cdn.test/panoramas/1/preview.jpg' },
+      { audio: {}, tour_preview_url: 'https://cdn.test/panoramas/1/preview.jpg' },
+      { audio: {}, tour_preview_url: null },
+    ] as CachedExhibit[]
+    expect(getAssetGroups(withTour, 'en')[2]).toEqual({
+      cacheName: 'tour-preview-cache',
+      urls: ['https://cdn.test/panoramas/1/preview.jpg'],
+    })
   })
 
   it('returns an empty audio group when no exhibit has the language', () => {
     expect(getAssetGroups(ex, 'te')).toEqual([
       { cacheName: 'audio-cache', urls: [] },
       { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
+      { cacheName: 'tour-preview-cache', urls: [] },
     ])
   })
 })

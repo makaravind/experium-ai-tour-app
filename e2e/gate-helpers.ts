@@ -206,10 +206,14 @@ export async function seedCachedExhibit(page: Page, { onboarded }: { onboarded: 
                 gps_lng: 78.1916283,
                 exhibitStatus: 'live',
                 displayId: 'K1',
+                tour_node_id: null,
+                tour_heading: null,
+                tour_pitch: null,
+                tour_preview_url: null,
               },
             ],
           },
-          version: 5,
+          version: 6,
         })
       )
     },

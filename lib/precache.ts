@@ -1,6 +1,6 @@
 import { track } from '@vercel/analytics'
 import { supabase } from '@/lib/supabase'
-import { MAP_CACHE, MAP_URL } from '@/lib/cache-names'
+import { MAP_CACHE, MAP_URL, TOUR_PREVIEW_CACHE } from '@/lib/cache-names'
 import { useStore } from '@/lib/store'
 import { AUDIO_IDLE_TIMEOUT_MS, ConnectionTimeoutError, DATASET_TIMEOUT_MS } from '@/lib/timeouts'
 import type {
@@ -28,7 +28,7 @@ const isPermanent = (err: unknown): err is AssetFetchError =>
 export const AUDIO_CACHE_NAME = 'audio-cache'
 export const MAX_ATTEMPTS = 3
 export const CONCURRENCY = 6
-export const CONTENT_CACHE_NAMES = [AUDIO_CACHE_NAME, MAP_CACHE] as const
+export const CONTENT_CACHE_NAMES = [AUDIO_CACHE_NAME, MAP_CACHE, TOUR_PREVIEW_CACHE] as const
 
 export interface AssetGroup {
   cacheName: string
@@ -83,7 +83,7 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
     const { data, error } = await supabase
       .from('exhibits')
       .select(
-        'id, code, section, number, name, type, tier, facts, status, gps_lat, gps_lng, exhibit_audio(language, audio_url, status)'
+        'id, code, section, number, name, type, tier, facts, status, gps_lat, gps_lng, tour_node_id, tour_heading, tour_pitch, tour_nodes(preview_url), exhibit_audio(language, audio_url, status)'
       )
       .abortSignal(ctrl.signal)
     // postgrest-js returns { error } on abort instead of throwing
@@ -109,6 +109,11 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
         gps_lat: row.gps_lat,
         gps_lng: row.gps_lng,
         exhibitStatus: (row.status as ExhibitStatus | null) ?? 'live',
+        tour_node_id: row.tour_node_id,
+        tour_heading: row.tour_heading,
+        tour_pitch: row.tour_pitch,
+        tour_preview_url:
+          (row.tour_nodes as unknown as { preview_url: string } | null)?.preview_url ?? null,
       }
     })
   } finally {
@@ -144,7 +149,7 @@ export async function fetchCachedAmenities(): Promise<CachedAmenity[]> {
 }
 
 /**
- * Two groups: audio (one language) then map tiles. Add future asset types by appending entries here.
+ * Three groups: audio (one language), map tiles, then tour node previews (linked exhibits only). Add future asset types by appending entries here.
  * Defaults to the precache language, falling back to the playback language.
  */
 export function getAssetGroups(
@@ -152,9 +157,11 @@ export function getAssetGroups(
   language: Language = useStore.getState().precacheLanguage ?? useStore.getState().language
 ): AssetGroup[] {
   const audio = exhibits.flatMap((e) => (e.audio[language] ? [e.audio[language]!] : []))
+  const previews = exhibits.flatMap((e) => (e.tour_preview_url ? [e.tour_preview_url] : []))
   return [
     { cacheName: AUDIO_CACHE_NAME, urls: [...new Set(audio)] },
     { cacheName: MAP_CACHE, urls: [MAP_URL] },
+    { cacheName: TOUR_PREVIEW_CACHE, urls: [...new Set(previews)] },
   ]
 }
 

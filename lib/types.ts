@@ -27,6 +27,10 @@ export interface CachedExhibit {
   gps_lng: number | null
   exhibitStatus: ExhibitStatus // exhibits.status; `status` above is the same, as active/coming_soon
   displayId: string // `${section}${number}` e.g. 'K1'; park reference shown to visitors
+  tour_node_id: string | null // linked 360° node; null if the exhibit has no tour view
+  tour_heading: number | null // yaw in degrees when entering the node from this exhibit
+  tour_pitch: number | null
+  tour_preview_url: string | null // tour_nodes.preview_url, precached for the gallery slide
 }
 
 export type AmenityType = 'washroom' | 'ticketing' | 'food' | 'gate' | 'leisure'
@@ -82,4 +86,8 @@ export interface PreviewExhibit {
   facts?: Fact[] | null
   languages?: string[]
   displayId: string | null // null when the exhibit page opens before the dataset is cached
+  tour_node_id?: string | null
+  tour_heading?: number | null
+  tour_pitch?: number | null
+  tour_preview_url?: string | null
 }

@@ -150,7 +150,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'experium-store',
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<Store>
         if (version === 0) {
@@ -170,6 +170,8 @@ export const useStore = create<Store>()(
         if (version < 4) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
         // v4 cachedAmenities lack section: clear to force re-fetch
         if (version < 5) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
+        // v5 cachedExhibits lack tour_* fields: clear to force re-fetch
+        if (version < 6) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
         return state as Store
       },
       partialize: (s) => ({
