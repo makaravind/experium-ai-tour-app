@@ -43,6 +43,19 @@ export function resolveNode(nodes: TourNode[], nodeId: string | null): TourNode 
   return (nodes.find((n) => n.id === nodeId) ?? nodes.find((n) => n.is_lobby)) || null
 }
 
+/** `/tour` link for an exhibit linked to a node; null when it has none. Heading omitted if null. */
+export function tourHref(e: {
+  id: string
+  tour_node_id?: string | null
+  tour_heading?: number | null
+}): string | null {
+  if (!e.tour_node_id) return null
+  const params = new URLSearchParams({ node: e.tour_node_id })
+  if (e.tour_heading != null) params.set('heading', String(e.tour_heading))
+  params.set('exhibitId', e.id)
+  return `/tour?${params}`
+}
+
 export function manifestToPanorama(manifest: TileManifest): EquirectangularMultiTilesPanorama {
   return {
     baseUrl: manifest.baseUrl,

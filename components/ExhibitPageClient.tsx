@@ -1,9 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
 import { enqueueScan } from '@/lib/scan-queue'
+import { tourHref } from '@/lib/tour'
 import type { ExhibitAudio, ExhibitData, PreviewExhibit } from '@/lib/types'
 import { track } from '@vercel/analytics'
 
@@ -24,6 +26,8 @@ export default function ExhibitPageClient({
   const language = useStore((s) => s.language)
   const cachedExhibit = useStore((s) => s.cachedExhibits.find((e) => e.id === exhibitId))
   const displayId = cachedExhibit?.displayId ?? null
+  const router = useRouter()
+  const virtualTourMode = useSearchParams().get('mode') === 'virtual-tour'
   const setListenedCurrentExhibit = useStore((s) => s.setListenedCurrentExhibit)
   const markVisited = useStore((s) => s.markVisited)
   const { setExhibitPageData, clearExhibitPageData } = useMapStore()
@@ -54,6 +58,17 @@ export default function ExhibitPageClient({
       language,
     })
   }, [visitorId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Virtual-tour QR: jump to the linked node. replace keeps back from /tour out of a redirect loop.
+  // Exhibits without a node (or not in cache) fall through to the normal page.
+  const tourRedirectedRef = useRef(false)
+  useEffect(() => {
+    if (!virtualTourMode || tourRedirectedRef.current) return
+    const href = cachedExhibit && tourHref(cachedExhibit)
+    if (!href) return
+    tourRedirectedRef.current = true
+    router.replace(href)
+  }, [virtualTourMode, cachedExhibit, router])
 
   const handleFirstPlay = useCallback(() => {
     setListenedCurrentExhibit(true)
