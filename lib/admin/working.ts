@@ -27,7 +27,3 @@ export function replaceAmenity(amenities: AdminAmenity[], next: AdminAmenity): A
 export function deleteAmenity(amenities: AdminAmenity[], id: string): AdminAmenity[] {
   return amenities.filter((a) => a.id !== id)
 }
-
-export function addAmenity(amenities: AdminAmenity[], next: AdminAmenity): AdminAmenity[] {
-  return [...amenities, next]
-}
