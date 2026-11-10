@@ -39,7 +39,7 @@ function exhibit(
     qr_code: null,
     languages: [],
     status,
-    displayNumber: null,
+    displayId: 'A1',
     facts: [],
   }
 }

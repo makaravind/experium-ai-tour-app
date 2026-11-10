@@ -6,9 +6,11 @@ const tabBar = (page: Page) => page.getByRole('navigation', { name: 'Primary' })
 const homeScreen = (page: Page) => page.getByRole('link', { name: 'Scan Now' })
 const mapScreen = (page: Page) => page.getByRole('button', { name: 'Search', exact: true })
 
-const exhibitRow = (code: string, name: string) => ({
+const exhibitRow = (code: string, name: string, number: number) => ({
   id: `e2e-${code}`,
   code,
+  section: 'K',
+  number,
   name,
   type: null,
   tier: 'free',
@@ -109,8 +111,8 @@ test.describe('Offline pages', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify([
-          exhibitRow('baobab-forest', 'Baobab Forest'),
-          exhibitRow('e2e-second', 'E2E Second'),
+          exhibitRow('baobab-forest', 'Baobab Forest', 1),
+          exhibitRow('e2e-second', 'E2E Second', 2),
         ]),
       })
     })

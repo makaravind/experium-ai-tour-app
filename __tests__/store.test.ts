@@ -141,11 +141,31 @@ describe('persist migration v1 -> v2', () => {
     expect(out.cachedAmenities).toEqual([])
   })
 
-  it('leaves v3 state untouched', () => {
+  it('clears datasets on v3->v4 migration (displayNumber -> displayId)', () => {
+    const fn = useStore.persist.getOptions().migrate!
+    const out = fn(
+      { cachedExhibits: [{ id: 'x', displayNumber: 7 }], cachedAmenities: [{ id: 'a' }] },
+      3
+    ) as unknown as Record<string, unknown>
+    expect(out.cachedExhibits).toEqual([])
+    expect(out.cachedAmenities).toEqual([])
+  })
+
+  it('clears datasets on v4->v5 migration (amenity section)', () => {
     const fn = useStore.persist.getOptions().migrate!
     const out = fn(
       { cachedExhibits: [{ id: 'x' }], cachedAmenities: [{ id: 'a' }] },
-      3
+      4
+    ) as unknown as Record<string, unknown>
+    expect(out.cachedExhibits).toEqual([])
+    expect(out.cachedAmenities).toEqual([])
+  })
+
+  it('leaves v5 state untouched', () => {
+    const fn = useStore.persist.getOptions().migrate!
+    const out = fn(
+      { cachedExhibits: [{ id: 'x' }], cachedAmenities: [{ id: 'a' }] },
+      5
     ) as unknown as Record<string, unknown>
     expect(out.cachedExhibits).toEqual([{ id: 'x' }])
     expect(out.cachedAmenities).toEqual([{ id: 'a' }])

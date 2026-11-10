@@ -32,11 +32,14 @@ const amenityRow = {
   photos: [],
   gps_lat: 17.937684,
   gps_lng: 78.461197,
+  section: 'G',
 }
 
 const exhibitRow = {
   id: 'e1',
   code: 7,
+  section: 'K',
+  number: 11,
   name: 'Baobab Forest',
   type: null,
   tier: 'free',
@@ -95,6 +98,7 @@ describe('runPrecache dataset', () => {
       gps_lat: 17.937484,
       gps_lng: 78.460897,
       code: '7',
+      displayId: 'K11',
       exhibitStatus: 'live',
       status: 'active',
     })

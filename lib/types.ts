@@ -26,7 +26,7 @@ export interface CachedExhibit {
   gps_lat: number | null
   gps_lng: number | null
   exhibitStatus: ExhibitStatus // exhibits.status; `status` above is the same, as active/coming_soon
-  displayNumber: number | null // exhibits.code SMALLINT; park reference number (1–99)
+  displayId: string // `${section}${number}` e.g. 'K1'; park reference shown to visitors
 }
 
 export type AmenityType = 'washroom' | 'ticketing' | 'food' | 'gate' | 'leisure'
@@ -40,6 +40,7 @@ export interface CachedAmenity {
   photos: string[]
   gps_lat: number
   gps_lng: number
+  section: string
 }
 
 export interface ExhibitData {
@@ -67,7 +68,7 @@ export interface MapExhibit {
   qr_code: string | null
   languages: string[]
   status: ExhibitStatus
-  displayNumber: number | null
+  displayId: string
   facts: Fact[]
 }
 
@@ -80,5 +81,5 @@ export interface PreviewExhibit {
   qr_code: string | null
   facts?: Fact[] | null
   languages?: string[]
-  displayNumber: number | null
+  displayId: string | null // null when the exhibit page opens before the dataset is cached
 }
