@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 import ExploreParkLink from '@/components/exhibit/ExploreParkLink'
 import ScanNowButton from '@/components/exhibit/ScanNowButton'
+import VirtualTourLink from '@/components/exhibit/VirtualTourLink'
 import TabBar from '@/components/exhibit/TabBar'
 import UserMenu from '@/components/more/UserMenu'
 import TrailCard from '@/components/exhibit/TrailCard'
@@ -61,6 +62,7 @@ export default function Home() {
 
         <ScanNowButton />
         <ExploreParkLink />
+        <VirtualTourLink />
 
         <div className="mt-auto pt-3.5 border-t border-ex-border flex items-center gap-3">
           <div className="w-11 h-11 rounded-lg flex-none bg-ex-sage/40" />
