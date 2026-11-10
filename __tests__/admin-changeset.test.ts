@@ -33,9 +33,9 @@ const working = (o: AdminState = original()): WorkingState => ({
 
 const empty = {
   sections: { rename: [], upsert: [], delete: [] },
-  exhibits: { upsert: [] },
-  audio: { upsert: [] },
-  photos: { upsert: [], delete: [] },
+  exhibits: [],
+  audio: [],
+  photos: { insert: [], update: [], delete: [] },
 }
 
 describe('buildChangeset', () => {
@@ -51,28 +51,38 @@ describe('buildChangeset', () => {
       const w = working()
       w.exhibits[0] = { ...w.exhibits[0], gps_lat: 6 }
       const r = buildChangeset(original(), w)
-      expect(r.changeset.exhibits.upsert).toEqual([w.exhibits[0]])
+      expect(r.changeset.exhibits).toEqual([{ id: 'e1', gps_lat: 6 }])
       expect(r.summary).toBe('1 moved')
     })
 
-    it('section change → moved, upserts full row', () => {
+    it('section change → moved, section + number sent together', () => {
       const w = working()
       w.exhibits[0] = { ...w.exhibits[0], section: 'B', number: 1, gps_lng: 25 }
       const r = buildChangeset(original(), w)
-      expect(r.changeset.exhibits.upsert).toEqual([w.exhibits[0]])
+      expect(r.changeset.exhibits).toEqual([{ id: 'e1', section: 'B', number: 1, gps_lng: 25 }])
       expect(r.summary).toBe('1 moved')
+    })
+
+    it('section change with same number still sends both', () => {
+      const w = working()
+      w.exhibits[0] = { ...w.exhibits[0], section: 'B' } // number stays 1
+      expect(buildChangeset(original(), w).changeset.exhibits).toEqual([{ id: 'e1', section: 'B', number: 1 }])
     })
 
     it('tier change', () => {
       const w = working()
       w.exhibits[1] = { ...w.exhibits[1], tier: 'gold' }
-      expect(buildChangeset(original(), w).summary).toBe('1 tier changed')
+      const r = buildChangeset(original(), w)
+      expect(r.changeset.exhibits).toEqual([{ id: 'e2', tier: 'gold' }])
+      expect(r.summary).toBe('1 tier changed')
     })
 
     it('number change within a section → renumbered', () => {
       const w = working()
       w.exhibits[0] = { ...w.exhibits[0], number: 5 }
-      expect(buildChangeset(original(), w).summary).toBe('1 renumbered')
+      const r = buildChangeset(original(), w)
+      expect(r.changeset.exhibits).toEqual([{ id: 'e1', number: 5 }])
+      expect(r.summary).toBe('1 renumbered')
     })
 
     it.each([
@@ -85,15 +95,17 @@ describe('buildChangeset', () => {
       const w = working()
       w.exhibits[0] = { ...w.exhibits[0], ...patch }
       const r = buildChangeset(original(), w)
-      expect(r.changeset.exhibits.upsert).toHaveLength(1)
+      expect(r.changeset.exhibits).toEqual([{ id: 'e1', ...patch }])
       expect(r.summary).toBe('1 edited')
     })
 
-    it('new exhibit (not in original) → added, not double-counted', () => {
+    it('new exhibit (not in original) → full row without code, not double-counted', () => {
       const w = working()
-      w.exhibits.push(exhibit({ id: 'new1', code: null, section: 'A', number: 3 }))
+      const fresh = exhibit({ id: 'new1', code: null, section: 'A', number: 3 })
+      w.exhibits.push(fresh)
       const r = buildChangeset(original(), w)
-      expect(r.changeset.exhibits.upsert.map((e) => e.id)).toEqual(['new1'])
+      expect(r.changeset.exhibits).toEqual([{ ...fresh, code: undefined }])
+      expect(r.changeset.exhibits[0]).not.toHaveProperty('code')
       expect(r.summary).toBe('1 exhibit added')
     })
 
@@ -101,7 +113,7 @@ describe('buildChangeset', () => {
       const w = working()
       w.exhibits[0] = { ...w.exhibits[0], gps_lat: 9, tier: 'gold', name: 'Z' }
       const r = buildChangeset(original(), w)
-      expect(r.changeset.exhibits.upsert).toHaveLength(1)
+      expect(r.changeset.exhibits).toEqual([{ id: 'e1', name: 'Z', tier: 'gold', gps_lat: 9 }])
       expect(r.summary).toBe('1 moved, 1 tier changed, 1 edited')
     })
 
@@ -137,7 +149,7 @@ describe('buildChangeset', () => {
       const r = buildChangeset(original(), w)
       expect(r.changeset.sections.rename).toEqual([{ from: 'A', to: 'Z' }])
       expect(r.changeset.sections.upsert).toEqual([])
-      expect(r.changeset.exhibits.upsert).toEqual([])
+      expect(r.changeset.exhibits).toEqual([])
       expect(r.summary).toBe('1 section renamed')
     })
 
@@ -177,37 +189,56 @@ describe('buildChangeset', () => {
   })
 
   describe('audio', () => {
-    it('script/status/url change → upsert full row, "audio changed"', () => {
+    it('existing row → partial, audio_url sent as url', () => {
       const w = working()
       w.audio[0] = { ...w.audio[0], status: 'published', audio_url: 'u2' }
       const r = buildChangeset(original(), w)
-      expect(r.changeset.audio.upsert).toEqual([w.audio[0]])
+      expect(r.changeset.audio).toEqual([{ exhibit_id: 'e1', language: 'en', status: 'published', url: 'u2' }])
       expect(r.summary).toBe('1 audio changed')
     })
 
-    it('new language row → upsert', () => {
+    it('script-only change omits url/status', () => {
+      const w = working()
+      w.audio[0] = { ...w.audio[0], script: 'new script' }
+      expect(buildChangeset(original(), w).changeset.audio).toEqual([
+        { exhibit_id: 'e1', language: 'en', script: 'new script' },
+      ])
+    })
+
+    it('url cleared to null is sent explicitly', () => {
+      const w = working()
+      w.audio[0] = { ...w.audio[0], audio_url: null }
+      expect(buildChangeset(original(), w).changeset.audio).toEqual([
+        { exhibit_id: 'e1', language: 'en', url: null },
+      ])
+    })
+
+    it('new language row → full row', () => {
       const w = working()
       w.audio.push(audio({ language: 'hi', script: 'नमस्ते', audio_url: null }))
       const r = buildChangeset(original(), w)
-      expect(r.changeset.audio.upsert.map((a) => a.language)).toEqual(['hi'])
+      expect(r.changeset.audio).toEqual([
+        { exhibit_id: 'e1', language: 'hi', script: 'नमस्ते', status: 'draft', url: null },
+      ])
       expect(r.summary).toBe('1 audio changed')
     })
   })
 
   describe('photos', () => {
-    it('new photo → upsert, "photo added"', () => {
+    it('new photo → insert full row', () => {
       const w = working()
-      w.photos.push(photo({ id: 'p2', is_hero: false, sort_order: 1 }))
+      const added = photo({ id: 'p2', is_hero: false, sort_order: 1 })
+      w.photos.push(added)
       const r = buildChangeset(original(), w)
-      expect(r.changeset.photos.upsert.map((p) => p.id)).toEqual(['p2'])
+      expect(r.changeset.photos).toEqual({ insert: [added], update: [], delete: [] })
       expect(r.summary).toBe('1 photo added')
     })
 
-    it('caption / hero / order change → upsert, "photo changed"', () => {
+    it('existing photo → update with only changed keys', () => {
       const w = working()
-      w.photos[0] = { ...w.photos[0], caption: 'c' }
+      w.photos[0] = { ...w.photos[0], caption: 'c', sort_order: 2 }
       const r = buildChangeset(original(), w)
-      expect(r.changeset.photos.upsert).toEqual([w.photos[0]])
+      expect(r.changeset.photos).toEqual({ insert: [], update: [{ id: 'p1', caption: 'c', sort_order: 2 }], delete: [] })
       expect(r.summary).toBe('1 photo changed')
     })
 
@@ -215,7 +246,7 @@ describe('buildChangeset', () => {
       const w = working()
       w.photos = []
       const r = buildChangeset(original(), w)
-      expect(r.changeset.photos.delete).toEqual(['p1'])
+      expect(r.changeset.photos).toEqual({ insert: [], update: [], delete: ['p1'] })
       expect(r.summary).toBe('1 photo removed')
     })
   })

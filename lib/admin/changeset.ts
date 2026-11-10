@@ -1,12 +1,16 @@
-import type { AdminAudio, AdminExhibit, AdminPhoto, AdminState, Changeset, WorkingState } from './types'
+import type {
+  AdminAudio, AdminExhibit, AdminPhoto, AdminState, AudioChange, Changeset, ExhibitChange, PhotoUpdate, WorkingState,
+} from './types'
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
-const pick = <T extends object, K extends keyof T>(o: T, keys: K[]) => keys.map((k) => o[k])
+/** Keys of `w` whose value differs from `o`, with `w`'s values. */
+const changed = <T extends object, K extends keyof T>(o: T, w: T, keys: K[]) =>
+  Object.fromEntries(keys.filter((k) => !same(o[k], w[k])).map((k) => [k, w[k]])) as Partial<Pick<T, K>>
 
-const EDIT_FIELDS: (keyof AdminExhibit)[] = ['name', 'type', 'status', 'description', 'facts']
-const AUDIO_FIELDS: (keyof AdminAudio)[] = ['script', 'audio_url', 'status']
-const PHOTO_FIELDS: (keyof AdminPhoto)[] = ['url', 'caption', 'is_hero', 'sort_order']
+const EDIT_FIELDS = ['name', 'type', 'status', 'description', 'facts'] as const satisfies readonly (keyof AdminExhibit)[]
+const AUDIO_FIELDS = ['script', 'status'] as const satisfies readonly (keyof AdminAudio)[]
+const PHOTO_FIELDS = ['url', 'caption', 'is_hero', 'sort_order'] as const satisfies readonly (keyof AdminPhoto)[]
 
 /** Diff original vs working state into the save payload plus a human summary ('' when nothing changed). */
 export function buildChangeset(
@@ -15,9 +19,9 @@ export function buildChangeset(
 ): { changeset: Changeset; summary: string; isEmpty: boolean } {
   const cs: Changeset = {
     sections: { rename: [], upsert: [], delete: [] },
-    exhibits: { upsert: [] },
-    audio: { upsert: [] },
-    photos: { upsert: [], delete: [] },
+    exhibits: [],
+    audio: [],
+    photos: { insert: [], update: [], delete: [] },
   }
   const n = { sectionAdded: 0, sectionRenamed: 0, sectionReshaped: 0, sectionDeleted: 0,
     exhibitAdded: 0, moved: 0, tier: 0, renumbered: 0, edited: 0,
@@ -59,31 +63,48 @@ export function buildChangeset(
   for (const e of working.exhibits) {
     const o = origExhibits.get(e.id)
     if (!o) {
-      cs.exhibits.upsert.push(e)
+      const row: Partial<AdminExhibit> = { ...e }
+      delete row.code // assigned server-side
+      cs.exhibits.push(row as ExhibitChange)
       n.exhibitAdded++
       continue
     }
     // a section rename alone is not an exhibit change (ON UPDATE CASCADE)
     const oSection = o.section == null ? null : (renamed.get(o.section) ?? o.section)
     const sectionChanged = oSection !== e.section
-    const moved = sectionChanged || o.gps_lat !== e.gps_lat || o.gps_lng !== e.gps_lng
+    const gpsChanged = o.gps_lat !== e.gps_lat || o.gps_lng !== e.gps_lng
     const renumbered = !sectionChanged && o.number !== e.number
+    const edit = changed(o, e, [...EDIT_FIELDS])
     const tier = o.tier !== e.tier
-    const edited = !same(pick(o, EDIT_FIELDS), pick(e, EDIT_FIELDS))
-    if (!(moved || renumbered || tier || edited)) continue
-    cs.exhibits.upsert.push(e)
-    if (moved) n.moved++
+    const hasEdit = Object.keys(edit).length > 0
+    if (!(sectionChanged || gpsChanged || renumbered || tier || hasEdit)) continue
+
+    const patch: ExhibitChange = { id: e.id, ...edit, ...changed(o, e, ['tier', 'gps_lat', 'gps_lng']) }
+    if (sectionChanged || renumbered) {
+      patch.number = e.number
+      if (sectionChanged) patch.section = e.section
+    }
+    cs.exhibits.push(patch)
+    if (sectionChanged || gpsChanged) n.moved++
     if (renumbered) n.renumbered++
     if (tier) n.tier++
-    if (edited) n.edited++
+    if (hasEdit) n.edited++
   }
 
   // audio
   const origAudio = new Map(original.audio.map((a) => [`${a.exhibit_id}:${a.language}`, a]))
   for (const a of working.audio) {
     const o = origAudio.get(`${a.exhibit_id}:${a.language}`)
-    if (o && same(pick(o, AUDIO_FIELDS), pick(a, AUDIO_FIELDS))) continue
-    cs.audio.upsert.push(a)
+    const row: AudioChange = { exhibit_id: a.exhibit_id, language: a.language }
+    if (!o) {
+      Object.assign(row, { script: a.script, status: a.status, url: a.audio_url })
+    } else {
+      const patch = changed(o, a, [...AUDIO_FIELDS])
+      if (!same(o.audio_url, a.audio_url)) row.url = a.audio_url
+      Object.assign(row, patch)
+      if (Object.keys(row).length === 2) continue
+    }
+    cs.audio.push(row)
     n.audio++
   }
 
@@ -93,12 +114,14 @@ export function buildChangeset(
   for (const p of working.photos) {
     const o = origPhotos.get(p.id)
     if (!o) {
-      cs.photos.upsert.push(p)
+      cs.photos.insert.push(p)
       n.photoAdded++
-    } else if (!same(pick(o, PHOTO_FIELDS), pick(p, PHOTO_FIELDS))) {
-      cs.photos.upsert.push(p)
-      n.photoChanged++
+      continue
     }
+    const patch = changed(o, p, [...PHOTO_FIELDS])
+    if (Object.keys(patch).length === 0) continue
+    cs.photos.update.push({ id: p.id, ...patch } satisfies PhotoUpdate)
+    n.photoChanged++
   }
   for (const p of original.photos) {
     if (!workingPhotoIds.has(p.id)) {

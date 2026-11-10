@@ -62,12 +62,26 @@ export interface WorkingState extends Omit<AdminState, 'sections'> {
   sections: WorkingSection[]
 }
 
+/** Exhibit entry in the save payload: full row (minus `code`) for a new exhibit, `id` + changed keys for an existing one. */
+export type ExhibitChange = { id: string } & Partial<Omit<AdminExhibit, 'id' | 'code'>>
+
+/** Audio entry in the save payload: full row for a new (exhibit, language), changed keys otherwise. `url` is stored in exhibit_audio.audio_url. */
+export interface AudioChange {
+  exhibit_id: string
+  language: Language
+  script?: string | null
+  status?: string
+  url?: string | null
+}
+
+/** `id` + changed keys of an existing photo. */
+export type PhotoUpdate = { id: string } & Partial<Pick<AdminPhoto, 'url' | 'caption' | 'is_hero' | 'sort_order'>>
+
 /**
- * Payload for POST /api/admin/save → admin_apply_changes(jsonb).
- * Apply order: sections.rename → sections.upsert → exhibits.upsert → audio.upsert
- * → photos.delete → photos.upsert → sections.delete.
- * Upserts carry full rows (not partial). Exhibits whose only change is a section
- * rename are omitted (ON UPDATE CASCADE handles them).
+ * Payload for POST /api/admin/save → admin_apply_changes(jsonb); mirrors the input
+ * shape documented in supabase/migrations/20261110000100_sections.sql.
+ * Exhibits whose only change is a section rename are omitted (ON UPDATE CASCADE).
+ * `section` and `number` are always sent together when either changes.
  */
 export interface Changeset {
   sections: {
@@ -75,14 +89,11 @@ export interface Changeset {
     upsert: Section[] // new or reshaped; `id` is the post-rename id
     delete: string[]
   }
-  exhibits: {
-    upsert: AdminExhibit[] // code === null → insert with code = max(code)+1
-  }
-  audio: {
-    upsert: AdminAudio[] // conflict target (exhibit_id, language)
-  }
+  exhibits: ExhibitChange[] // code is never sent; new rows get max(code)+1
+  audio: AudioChange[]
   photos: {
-    upsert: AdminPhoto[]
+    insert: AdminPhoto[]
+    update: PhotoUpdate[]
     delete: string[] // photo ids
   }
 }
