@@ -8,20 +8,21 @@ describe('panoRefFromFile', () => {
     expect(panoRefFromFile('5.PNG')).toBe('5')
   })
 
-  it('maps "Front Top View" to lobby', () => {
-    expect(panoRefFromFile('Front Top View.png')).toBe('lobby')
-  })
 })
 
 describe('selectMasters', () => {
   const files = ['Front Top View.png', '1.jpg', '2.png', '37A.jpg', '.DS_Store', 'notes.txt']
 
-  it('skips lobby and 1 by default and ignores non-images', () => {
+  it('skips 1 by default and ignores non-images', () => {
     expect(selectMasters(files).map((m) => m.panoRef)).toEqual(['2', '37A'])
   })
 
   it('honours a custom skip list', () => {
-    expect(selectMasters(files, ['2']).map((m) => m.panoRef)).toEqual(['lobby', '1', '37A'])
+    expect(selectMasters(files, ['2']).map((m) => m.panoRef)).toEqual(['1', '37A'])
+  })
+
+  it('always ignores "Front Top View" (duplicate of node 1), even with an empty skip list', () => {
+    expect(selectMasters(files, []).map((m) => m.panoRef)).toEqual(['1', '2', '37A'])
   })
 
   it('rejects two masters with the same ref', () => {

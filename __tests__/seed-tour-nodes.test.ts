@@ -36,10 +36,9 @@ describe('parseArgs', () => {
 })
 
 describe('resolveNodes', () => {
-  it('defaults to lobby + node 1, coordinates on the lobby only', () => {
+  it('defaults to node 1 as the lobby, with coordinates', () => {
     expect(resolveNodes({ lobby: false, lat: 1, lng: 2 })).toEqual([
-      { panoRef: 'lobby', label: 'Park Entrance', isLobby: true, lat: 1, lng: 2 },
-      { panoRef: '1', label: 'Node 1', isLobby: false },
+      { panoRef: '1', label: 'Park Entrance', isLobby: true, lat: 1, lng: 2 },
     ])
   })
 
@@ -66,16 +65,16 @@ describe('buildRow', () => {
   it('omits lat/lng unless set', () => {
     expect('lat' in buildRow(URL, { panoRef: '1', label: 'n', isLobby: false })).toBe(false)
     expect(
-      buildRow(URL, { panoRef: 'lobby', label: 'p', isLobby: true, lat: 1, lng: 2 })
+      buildRow(URL, { panoRef: '1', label: 'p', isLobby: true, lat: 1, lng: 2 })
     ).toMatchObject({ lat: 1, lng: 2 })
   })
 })
 
 describe('buildUpdate', () => {
   it('drops label / is_lobby so a re-seed keeps admin edits, keeps URLs and lat/lng', () => {
-    const row = buildRow(URL, { panoRef: 'lobby', label: 'p', isLobby: true, lat: 1, lng: 2 })
+    const row = buildRow(URL, { panoRef: '1', label: 'p', isLobby: true, lat: 1, lng: 2 })
     expect(buildUpdate(row)).toEqual({
-      pano_ref: 'lobby',
+      pano_ref: '1',
       tiles_url: row.tiles_url,
       preview_url: row.preview_url,
       lat: 1,

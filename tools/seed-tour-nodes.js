@@ -4,7 +4,7 @@
  *
  * Usage:
  *   node tools/seed-tour-nodes.js --lat <gate_lat> --lng <gate_lng> [--dry-run]
- *       seeds the m9a defaults: lobby ('Park Entrance', is_lobby, at --lat/--lng) + node '1' ('Node 1')
+ *       seeds the default: node '1' as the lobby ('Park Entrance', is_lobby, at --lat/--lng)
  *   node tools/seed-tour-nodes.js --pano-ref <ref> [--label <label>] [--lobby] [--lat <n> --lng <n>] [--dry-run]
  *       seeds one node
  *   --dry-run prints the rows and writes nothing.
@@ -46,17 +46,14 @@ export function parseArgs(argv) {
 }
 
 /**
- * Nodes to seed: the one named by --pano-ref, else the m9a defaults (lobby + node 1).
+ * Nodes to seed: the one named by --pano-ref, else the default (node '1' as the lobby).
  * @param {{ panoRef?: string, label?: string, lobby?: boolean, lat?: number, lng?: number }} args
  */
 export function resolveNodes({ panoRef, label, lobby, lat, lng }) {
   if (panoRef) {
     return [{ panoRef, label: label ?? (lobby ? 'Park Entrance' : `Node ${panoRef}`), isLobby: lobby, lat, lng }]
   }
-  return [
-    { panoRef: 'lobby', label: 'Park Entrance', isLobby: true, lat, lng },
-    { panoRef: '1', label: 'Node 1', isLobby: false },
-  ]
+  return [{ panoRef: '1', label: 'Park Entrance', isLobby: true, lat, lng }]
 }
 
 /**
