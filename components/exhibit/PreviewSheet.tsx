@@ -42,6 +42,7 @@ export default function PreviewSheet({
   audio = [],
   onNavigate,
   onClose,
+  onSwipeClose,
   autoExpand,
   autoPlay,
   scanSrc,
@@ -56,6 +57,7 @@ export default function PreviewSheet({
   scanSrc?: string | null
   onNavigate?: () => void
   onClose?: () => void
+  onSwipeClose?: () => void
   onFirstPlay?: () => void
   onQuartile?: (sec: number, quartile: number) => void
   onAudioEnded?: () => void
@@ -284,6 +286,7 @@ export default function PreviewSheet({
         ref={sheetRef}
         itemId={exhibit?.id ?? null}
         onClose={onClose}
+        onSwipeClose={onSwipeClose}
         onCollapse={resetAudio}
         onReady={() => setReady(true)}
       >

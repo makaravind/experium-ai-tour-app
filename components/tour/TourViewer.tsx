@@ -85,12 +85,16 @@ export default function TourViewer({
     if (!containerRef.current) return
     // Tapping an arrow runs setCurrentNode with no catch, so a failed getNode surfaces as an
     // unhandled rejection (after PSV shows its blocking error overlay). Turn that into a toast.
-    // Also swallow the rejection PSV's start-node load throws if the viewer is destroyed first
-    // (StrictMode remount, leaving /tour early).
+    // Also swallow the rejection PSV's start-node load throws if the viewer is destroyed in the same
+    // tick (StrictMode remount): the plugin's datasource is gone by then, so it rejects with a TypeError
+    // naming it (Chrome/Safari: "...loadNode", Firefox: "this.datasource is undefined").
+    // Any other rejection is left alone.
     let destroyed = false
     const onRejection = (e: PromiseRejectionEvent) => {
       const failedNode = e.reason instanceof NodeLoadError
-      if (!destroyed && !failedNode) return
+      const tornDownStart =
+        destroyed && e.reason instanceof TypeError && /loadNode|datasource/.test(e.reason.message)
+      if (!failedNode && !tornDownStart) return
       e.preventDefault()
       e.stopImmediatePropagation()
       if (destroyed) return

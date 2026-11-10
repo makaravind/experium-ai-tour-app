@@ -282,7 +282,12 @@ function Tour() {
         <ExhibitStrip name={exhibit.name} code={exhibit.code} />
       )}
       {loaded && (
-        <PreviewSheet exhibit={sheetExhibit} audio={sheetAudio} onNavigate={handleNavigate} />
+        <PreviewSheet
+          exhibit={sheetExhibit}
+          audio={sheetAudio}
+          onNavigate={handleNavigate}
+          onSwipeClose={onPanoClick}
+        />
       )}
       {exiting && <ExitSplash label={exiting.label} spotSaved={exiting.spotSaved} />}
       {toast && (

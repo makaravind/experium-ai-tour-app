@@ -467,6 +467,37 @@ test.describe('Virtual tour navigation', () => {
     await expect(sheetName(page)).toHaveCount(0)
   })
 
+  test('exhibit pin opens the PreviewSheet; swiping the sheet down closes it', async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(
+      browserName === 'webkit',
+      "Playwright's mouse doesn't start the sheet's pointer drag on emulated WebKit; no touch swipe API"
+    )
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+
+    await pins(page).filter({ hasText: 'K1' }).click()
+    await expect(sheetName(page)).toBeVisible()
+
+    // Let the sheet finish sliding in to its peek position before dragging its handle
+    await page.waitForTimeout(600)
+    const handle = await page
+      .getByRole('button', { name: 'Expand to full view' })
+      .first()
+      .boundingBox()
+    const x = handle!.x + handle!.width / 2
+    const y = handle!.y + handle!.height / 2
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x, y + 30, { steps: 3 })
+    await page.mouse.move(x, y + 150, { steps: 3 })
+    await page.mouse.up()
+    await expect(sheetName(page)).toHaveCount(0)
+  })
+
   test('only the node a pin is linked to shows it', async ({ page }) => {
     await navVisitor(page)
     await page.goto('/tour')

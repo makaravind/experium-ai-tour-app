@@ -112,20 +112,29 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   }, [isExhibitPage])
 
   // Arriving from /tour's Navigate: open that exhibit's sheet and centre on it. Taken from the store
-  // once into a ref, so StrictMode's second effect pass (which re-runs the clear above) re-applies it.
-  const tourFocusRef = useRef<string | null>(null)
+  // once into a ref and kept until the exhibit is in `mapExhibits` (the dataset may land after mount).
+  // StrictMode's second effect pass re-runs the clear above, so it re-applies against the same
+  // `mapExhibits`; a later change of `mapExhibits` drops the ref so a refresh can't reopen the sheet.
+  const tourFocusRef = useRef<{ id: string; appliedWith: MapExhibit[] | null } | null>(null)
   useEffect(() => {
     const { tourFocusExhibitId, setTourFocusExhibitId } = useMapStore.getState()
     if (tourFocusExhibitId) {
-      tourFocusRef.current = tourFocusExhibitId
+      tourFocusRef.current = { id: tourFocusExhibitId, appliedWith: null }
       setTourFocusExhibitId(null)
     }
-    const exhibit = mapExhibits.find((e) => e.id === tourFocusRef.current)
+    const pending = tourFocusRef.current
+    if (!pending) return
+    if (pending.appliedWith && pending.appliedWith !== mapExhibits) {
+      tourFocusRef.current = null
+      return
+    }
+    const exhibit = mapExhibits.find((e) => e.id === pending.id)
     if (!exhibit) return
-    setMapSelectedExhibit(toPreviewExhibit(exhibit))  
+    pending.appliedWith = mapExhibits
+    setMapSelectedExhibit(toPreviewExhibit(exhibit))
     setFlyToTarget(exhibit.id)
     setNavigateEnabled(true)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapExhibits])
 
   // Fly to exhibit when page data arrives or changes
 

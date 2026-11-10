@@ -39,9 +39,6 @@ interface MapStoreState {
   setRecenterTrigger: (fn: (() => void) | null) => void
   flyToTourSpotTrigger: (() => void) | null
   setFlyToTourSpotTrigger: (fn: (() => void) | null) => void
-  // `at` of the last tourSpot the map flew to, so a remount doesn't fly to it again
-  tourSpotFlownAt: number | null
-  setTourSpotFlownAt: (at: number | null) => void
   // Exhibit /tour's Navigate hands to the map: the layout opens its sheet and centres on it, once
   tourFocusExhibitId: string | null
   setTourFocusExhibitId: (id: string | null) => void
@@ -90,8 +87,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   setRecenterTrigger: (fn) => set({ recenterTrigger: fn }),
   flyToTourSpotTrigger: null,
   setFlyToTourSpotTrigger: (fn) => set({ flyToTourSpotTrigger: fn }),
-  tourSpotFlownAt: null,
-  setTourSpotFlownAt: (at) => set({ tourSpotFlownAt: at }),
   tourFocusExhibitId: null,
   setTourFocusExhibitId: (id) => set({ tourFocusExhibitId: id }),
   retryGpsTrigger: null,
