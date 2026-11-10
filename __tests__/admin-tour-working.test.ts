@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import { buildTourChangeset } from '@/lib/admin/tour-changeset'
 import type { TourAdminState } from '@/lib/admin/tour-types'
-import { setNodeLabel, setNodePosition, toTourWorking } from '@/lib/admin/tour-working'
+import {
+  DEFAULT_EDGE_PITCH,
+  addEdgePairs,
+  hasEdgePair,
+  neighbourCount,
+  removeEdgePair,
+  setNodeLabel,
+  setNodePosition,
+  toTourWorking,
+} from '@/lib/admin/tour-working'
 import type { TourNode } from '@/lib/tour'
 
 const node = (id: string, over: Partial<TourNode> = {}): TourNode => ({
@@ -51,5 +60,53 @@ describe('tour working-state helpers', () => {
     const w = toTourWorking(state)
     setNodePosition(w, 'a', { lat: 1, lng: 2 })
     expect(w.nodes[0].lat).toBeNull()
+  })
+})
+
+describe('tour edge-pair helpers', () => {
+  const base = toTourWorking(state)
+
+  it('addEdgePairs adds both directed rows, unaimed with the default pitch', () => {
+    const w = addEdgePairs(base, [{ a: 'a', b: 'b' }])
+    expect(w.edges).toEqual([
+      { from_node_id: 'a', to_node_id: 'b', bearing: null, pitch: DEFAULT_EDGE_PITCH },
+      { from_node_id: 'b', to_node_id: 'a', bearing: null, pitch: DEFAULT_EDGE_PITCH },
+    ])
+    expect(DEFAULT_EDGE_PITCH).toBe(-15)
+  })
+
+  it('addEdgePairs skips existing (either direction) and self pairs', () => {
+    const w = addEdgePairs(base, [{ a: 'a', b: 'b' }])
+    expect(
+      addEdgePairs(w, [
+        { a: 'b', b: 'a' },
+        { a: 'a', b: 'a' },
+      ]).edges
+    ).toHaveLength(2)
+  })
+
+  it('unaimed pairs stage no changeset rows', () => {
+    const w = addEdgePairs(base, [{ a: 'a', b: 'b' }])
+    expect(buildTourChangeset(state, w).changeset.edges.upsert).toEqual([])
+  })
+
+  it('removeEdgePair drops both directions only for that pair', () => {
+    const w = addEdgePairs(base, [
+      { a: 'a', b: 'b' },
+      { a: 'a', b: 'c' },
+    ])
+    const r = removeEdgePair(w, 'b', 'a')
+    expect(r.edges.map((e) => `${e.from_node_id}>${e.to_node_id}`)).toEqual(['a>c', 'c>a'])
+    expect(hasEdgePair(r, 'a', 'b')).toBe(false)
+  })
+
+  it('neighbourCount counts distinct neighbours in either direction', () => {
+    const w = addEdgePairs(base, [
+      { a: 'a', b: 'b' },
+      { a: 'a', b: 'c' },
+    ])
+    expect(neighbourCount(w, 'a')).toBe(2)
+    expect(neighbourCount(w, 'b')).toBe(1)
+    expect(neighbourCount(w, 'z')).toBe(0)
   })
 })

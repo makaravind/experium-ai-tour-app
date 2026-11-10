@@ -14,6 +14,18 @@ export async function loadParkPaths(): Promise<ParkPaths> {
 }
 
 type Node = { x: number; y: number }
+
+/** Closest point to `n` on segment A-B (all in the same planar metre frame); `t` is 0..1 along A-B. */
+export function projectToSegment(n: Node, A: Node, B: Node) {
+  const dx = B.x - A.x,
+    dy = B.y - A.y
+  const len2 = dx * dx + dy * dy
+  const t = len2 ? Math.max(0, Math.min(1, ((n.x - A.x) * dx + (n.y - A.y) * dy) / len2)) : 0
+  const x = A.x + t * dx,
+    y = A.y + t * dy
+  return { t, x, y, d: Math.hypot(n.x - x, n.y - y) }
+}
+
 type Seg = { pi: number; a: number; b: number; ins: { t: number; id: number }[] }
 
 export function findRoute(
@@ -54,17 +66,7 @@ export function findRoute(
     verts[pi].slice(0, -1).map((a, i) => ({ pi, a, b: verts[pi][i + 1], ins: [] as Seg['ins'] }))
   )
 
-  const project = (n: Node, seg: Seg) => {
-    const A = nodes[seg.a],
-      B = nodes[seg.b]
-    const dx = B.x - A.x,
-      dy = B.y - A.y
-    const len2 = dx * dx + dy * dy
-    const t = len2 ? Math.max(0, Math.min(1, ((n.x - A.x) * dx + (n.y - A.y) * dy) / len2)) : 0
-    const x = A.x + t * dx,
-      y = A.y + t * dy
-    return { t, x, y, d: Math.hypot(n.x - x, n.y - y) }
-  }
+  const project = (n: Node, seg: Seg) => projectToSegment(n, nodes[seg.a], nodes[seg.b])
 
   const insertNode = (seg: Seg, pr: { t: number; x: number; y: number }) => {
     const id = addNode(pr.x, pr.y)
