@@ -119,12 +119,12 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
         tour_pitch: row.tour_pitch,
         tour_preview_url:
           (row.tour_nodes as unknown as { preview_url: string } | null)?.preview_url ?? null,
-        photos: (
-          (row.exhibit_photos as
+        photos: [
+          ...((row.exhibit_photos as
             | { url: string; caption: string | null; is_hero: boolean; sort_order: number }[]
-            | null) ?? []
-        )
-          .toSorted((a, b) => a.sort_order - b.sort_order)
+            | null) ?? []),
+        ]
+          .sort((a, b) => a.sort_order - b.sort_order)
           .map(({ url, caption, is_hero }) => ({ url, caption, is_hero })),
       }
     })

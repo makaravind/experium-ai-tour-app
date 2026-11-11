@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState, type SyntheticEvent } from 'react'
+import { useCallback, useRef, useState, type ComponentProps, type SyntheticEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LeafOutlineIcon } from '@/components/icons'
@@ -24,8 +24,13 @@ const hideBroken = (e: SyntheticEvent<HTMLImageElement>) => {
   e.currentTarget.style.visibility = 'hidden'
 }
 
+/** Remounts when the slides change so `active`/`fullscreen`/scroll never point at a stale slide. */
+export default function Gallery(props: ComponentProps<typeof GalleryInner>) {
+  return <GalleryInner key={props.slides?.map((s) => s.url).join('|')} {...props} />
+}
+
 /** `slides` (from galleryPhotos) wins; without it, `count`/`tourPreviewUrl` build placeholder slides. */
-export default function Gallery({
+function GalleryInner({
   slides,
   name,
   count = 4,
