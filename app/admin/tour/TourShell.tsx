@@ -26,6 +26,8 @@ import { tourBlockers } from '@/lib/admin/tour-validation'
 import type { TourAdminState, TourWorkingState } from '@/lib/admin/tour-types'
 import {
   addEdgePairs,
+  addMissingReverses,
+  missingReverseEdges,
   neighbourCount,
   removeEdgePair,
   setNodeLabel,
@@ -287,6 +289,7 @@ export default function TourShell() {
             proposed={visibleProposals}
             picked={picked}
             connecting={connecting}
+            missingReverse={missingReverseEdges(working).length}
             neighbours={(id) => neighbourCount(working, id)}
             onSelect={setSelectedId}
             onPropose={() =>
@@ -299,6 +302,7 @@ export default function TourShell() {
               setPickedKey(null)
             }}
             onToggleConnect={() => setConnecting((c) => !c)}
+            onAddMissingReverses={() => update(addMissingReverses)}
           />
         )}
         {mode === 'Aim' && (

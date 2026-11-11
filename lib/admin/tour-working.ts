@@ -51,6 +51,30 @@ export function addEdgePairs(working: TourWorkingState, pairs: EdgePair[]): Tour
   return { ...working, edges }
 }
 
+/** Directed edges A→B with no B→A in the working set. */
+export function missingReverseEdges(working: TourWorkingState): TourWorkingState['edges'] {
+  const have = new Set(working.edges.map((e) => `${e.from_node_id}>${e.to_node_id}`))
+  return working.edges.filter((e) => !have.has(`${e.to_node_id}>${e.from_node_id}`))
+}
+
+/** Add an unaimed B→A (`bearing: null`) for every A→B without one; existing edges are untouched. */
+export function addMissingReverses(working: TourWorkingState): TourWorkingState {
+  const missing = missingReverseEdges(working)
+  if (missing.length === 0) return working
+  return {
+    ...working,
+    edges: [
+      ...working.edges,
+      ...missing.map((e) => ({
+        from_node_id: e.to_node_id,
+        to_node_id: e.from_node_id,
+        bearing: null,
+        pitch: DEFAULT_EDGE_PITCH,
+      })),
+    ],
+  }
+}
+
 /** Remove both directions of a pair. */
 export function removeEdgePair(working: TourWorkingState, a: string, b: string): TourWorkingState {
   const key = pairKey(a, b)
