@@ -140,10 +140,13 @@ function Tour() {
   const [walked, setWalked] = useState<{ key: string; node: TourNode } | null>(null)
   // Exhibit whose PreviewSheet is open, tagged with its load like `walked`; walking to another node closes it.
   const [pinned, setPinned] = useState<{ key: string; id: string } | null>(null)
+  // Node whose exhibit strip the visitor dismissed; walking to another node brings the strip back.
+  const [dismissedNodeId, setDismissedNodeId] = useState<string | null>(null)
   const onNodeChange = useCallback(
     (n: TourNode) => {
       setWalked({ key: loadKey, node: n })
       setPinned(null)
+      setDismissedNodeId(null)
     },
     [loadKey]
   )
@@ -278,8 +281,13 @@ function Tour() {
           onBackToMap={() => router.push('/map')}
         />
       )}
-      {loaded && view === 'hidden' && exhibit?.code && (
-        <ExhibitStrip name={exhibit.name} code={exhibit.code} />
+      {loaded && view === 'hidden' && exhibit?.code && dismissedNodeId !== currentNode?.id && (
+        <ExhibitStrip
+          name={exhibit.name}
+          code={exhibit.code}
+          onInfo={() => setPinned({ key: loadKey, id: exhibit.id })}
+          onDismiss={() => setDismissedNodeId(currentNode?.id ?? null)}
+        />
       )}
       {loaded && (
         <PreviewSheet

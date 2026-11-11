@@ -420,6 +420,48 @@ test.describe('Virtual tour exhibit strip', () => {
     await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
     await expect(strip(page)).toBeHidden()
   })
+
+  test('✕ hides the strip; walking to another node brings it back', async ({ page }) => {
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120&exhibitId=${EXHIBIT_ID}`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+    await expect(strip(page)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Dismiss' }).click()
+    await expect(strip(page)).toBeHidden()
+    await expect(page).toHaveURL(/\/tour\?/)
+
+    await arrows(page).first().click()
+    await expect(nodePill(page, 'Park Entrance')).toBeVisible({ timeout: 15000 })
+    await expect(strip(page)).toBeVisible()
+  })
+
+  test('ⓘ opens the exhibit PreviewSheet without following the strip link', async ({ page }) => {
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120&exhibitId=${EXHIBIT_ID}`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+    await expect(sheetName(page)).toHaveCount(1) // strip's own name only
+
+    await page.getByRole('button', { name: 'Exhibit details' }).click()
+    await expect(navigateButton(page)).toBeVisible()
+    await expect(page).toHaveURL(/\/tour\?/)
+    await expect(strip(page)).toBeVisible()
+  })
+
+  test('strip sits clear of the bottom nav-arrow band on a 390×844 viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await navVisitor(page)
+    await page.goto(`/tour?node=${NAV_1.id}&heading=120&exhibitId=${EXHIBIT_ID}`)
+    await expect(nodePill(page, 'Node 1')).toBeVisible({ timeout: 15000 })
+
+    await expect(arrows(page)).toHaveCount(2)
+    const box = (await strip(page).boundingBox())!
+    expect(box.y + box.height).toBeLessThan(844 * 0.5)
+    for (const arrow of await arrows(page).all()) {
+      const a = (await arrow.boundingBox())!
+      expect(a.y).toBeGreaterThan(box.y + box.height)
+    }
+  })
 })
 
 const navVisitor = (page: Page) =>
