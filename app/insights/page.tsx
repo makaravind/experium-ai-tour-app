@@ -113,13 +113,16 @@ export default function InsightsPage() {
       signal: controller.signal,
     })
       .then(async (res) => {
+        if (controller.signal.aborted) return
         if (res.status === 401) {
           // Rotated or wrong key: clearing it triggers the redirect effect above.
           setInsightsKey(null)
           return
         }
         if (!res.ok) throw new Error(`insights ${res.status}`)
-        setResult({ req, data: (await res.json()) as Summary })
+        const data = (await res.json()) as Summary
+        if (controller.signal.aborted) return
+        setResult({ req, data })
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
