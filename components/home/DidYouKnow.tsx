@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
+import { thumbUrl } from '@/lib/exhibit-photos'
 import type { CachedExhibit, PreviewExhibit } from '@/lib/types'
 
 type FactPair = { fact: string; exhibit: CachedExhibit }
@@ -220,6 +221,7 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
               const slot = (i - activeIdx + 3) % 3
               const zIdx = cyclingFrom === i && slot !== 0 ? SLOT_Z[0] : SLOT_Z[slot]
               const isCycling = cyclingFrom !== null
+              const thumb = thumbUrl(pair.exhibit)
               const delay = isCycling ? SLOT_CYCLE_DELAYS[slot] : '0ms'
               const transition = `transform 0.22s cubic-bezier(0.2, 0, 0, 1) ${delay}, opacity 0.18s ease ${delay}`
               return (
@@ -242,8 +244,22 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
                   >
                     <div
                       className={colorClass(pair.exhibit.type)}
-                      style={{ height: 90, width: '100%' }}
-                    />
+                      style={{ height: 90, width: '100%', overflow: 'hidden' }}
+                    >
+                      {thumb && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={thumb}
+                          src={thumb}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          // Offline and uncached: hide it so the colour block shows, not a broken icon.
+                          onError={(e) => {
+                            e.currentTarget.style.visibility = 'hidden'
+                          }}
+                        />
+                      )}
+                    </div>
                     <div style={{ padding: '10px 12px 13px', textAlign: 'left' }}>
                       <div
                         style={{
