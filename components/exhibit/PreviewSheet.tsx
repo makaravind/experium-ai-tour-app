@@ -8,6 +8,7 @@ import LanguageSelector from '@/components/common/LanguageSelector'
 import SheetSummary from '@/components/common/SheetSummary'
 import { CompassIcon, LeafOutlineIcon, PauseIcon, PlayIcon, StarIcon } from '@/components/icons'
 import { track } from '@vercel/analytics'
+import { galleryPhotos, thumbUrl } from '@/lib/exhibit-photos'
 import { AUDIO_CACHE_NAME } from '@/lib/precache'
 import { useStore } from '@/lib/store'
 import { tourHref } from '@/lib/tour'
@@ -275,7 +276,13 @@ export default function PreviewSheet({
   const typeLabel = exhibit?.type?.replace(/_/g, ' ')
   const progress = duration > 0 ? elapsed / duration : 0
   const tourNodeId = exhibit?.tour_node_id ?? null
-  const tourPreviewUrl = tourNodeId ? (exhibit?.tour_preview_url ?? null) : null
+  // The photo helpers key the 360° slide off tour_preview_url alone: drop it when there's no tour node.
+  const photoSource = {
+    tour_preview_url: tourNodeId ? (exhibit?.tour_preview_url ?? null) : null,
+    photos: exhibit?.photos,
+  }
+  const thumb = thumbUrl(photoSource)
+  const slides = galleryPhotos(photoSource)
   const enterTour = () => {
     const href = exhibit && tourHref(exhibit)
     if (href) router.push(href)
@@ -349,20 +356,32 @@ export default function PreviewSheet({
                 expanded={expanded}
                 displayId={exhibit?.displayId}
                 onExpand={expand}
-                count={tourPreviewUrl ? 0 : undefined}
-                tourPreviewUrl={tourPreviewUrl}
+                slides={slides}
                 onTourEnter={enterTour}
                 thumb={
                   <div className="relative w-14 h-14">
                     <div
                       className="w-14 h-14 rounded-xl"
                       style={{
-                        background: tourPreviewUrl
-                          ? `center / cover url("${tourPreviewUrl}")`
-                          : 'linear-gradient(135deg, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
+                        background:
+                          'linear-gradient(135deg, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
                         overflow: 'hidden',
                       }}
-                    />
+                    >
+                      {thumb && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={thumb}
+                          src={thumb}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          // Offline and uncached: hide it so the gradient shows, not a broken icon.
+                          onError={(e) => {
+                            e.currentTarget.style.visibility = 'hidden'
+                          }}
+                        />
+                      )}
+                    </div>
                     {tourNodeId && (
                       <span className="absolute top-1 left-1 px-1 rounded-full text-[9px] font-extrabold leading-4 bg-black/60 text-white">
                         360°

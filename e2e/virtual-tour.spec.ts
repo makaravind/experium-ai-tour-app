@@ -321,8 +321,9 @@ test.describe('Virtual tour entry points', () => {
 
     await expect(tourSlide(page)).toBeVisible()
     await expect(page.getByText('Tap to explore')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Go to 360° tour' })).toBeVisible()
-    await expect(page.getByText('1 / 5')).toBeAttached()
+    // tour is the only slide: no strip, no counter
+    await expect(page.getByRole('button', { name: 'Go to 360° tour' })).toHaveCount(0)
+    await expect(page.getByText(/^\d+ \/ \d+$/)).toHaveCount(0)
     // 360° slide is slide 0 (first in the track), gallery opens on it
     await expect(
       page.getByRole('group', { name: 'Exhibit photos' }).locator('button').first()
