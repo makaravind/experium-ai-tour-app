@@ -23,6 +23,7 @@ function makeExhibit(overrides: Partial<CachedExhibit> = {}): CachedExhibit {
     tour_heading: null,
     tour_pitch: null,
     tour_preview_url: null,
+    photos: [],
     ...overrides,
   }
 }

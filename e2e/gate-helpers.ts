@@ -247,6 +247,7 @@ export async function seedCachedExhibit(
                 tour_heading: tour?.heading ?? null,
                 tour_pitch: tour?.pitch ?? null,
                 tour_preview_url: tour?.previewUrl ?? null,
+                photos: [],
               },
             ],
           },

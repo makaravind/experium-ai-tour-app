@@ -100,6 +100,7 @@ export interface MapExhibit {
   tour_heading?: number | null
   tour_pitch?: number | null
   tour_preview_url?: string | null
+  photos?: ExhibitPhoto[]
 }
 
 /** Exhibit shape used by PreviewSheet — no GPS needed. */

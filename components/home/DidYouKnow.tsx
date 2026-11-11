@@ -36,6 +36,7 @@ function toPreview(ex: CachedExhibit): PreviewExhibit {
     tour_heading: ex.tour_heading,
     tour_pitch: ex.tour_pitch,
     tour_preview_url: ex.tour_preview_url,
+    photos: ex.photos,
   }
 }
 
