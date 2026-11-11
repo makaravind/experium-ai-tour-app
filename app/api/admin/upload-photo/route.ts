@@ -6,7 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 export const runtime = 'nodejs'
 
-/** multipart: file (image), code (exhibit code) → max 1600 px WebP in bucket `images` at exhibits/{code}/{uuid}.webp */
+/** multipart: file (image), code (exhibit code) → max 1000 px WebP (quality 75) in bucket `images` at exhibits/{code}/{uuid}.webp */
 export async function POST(req: NextRequest) {
   const denied = adminGuard()
   if (denied) return denied
@@ -21,8 +21,8 @@ export async function POST(req: NextRequest) {
   try {
     const webp = await sharp(Buffer.from(await file.arrayBuffer()))
       .rotate()
-      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .webp()
+      .resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 75 })
       .toBuffer()
 
     const path = `exhibits/${code}/${randomUUID()}.webp`
