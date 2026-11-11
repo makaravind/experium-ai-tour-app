@@ -83,6 +83,31 @@ describe('fetchCachedAmenities', () => {
 })
 
 describe('fetchCachedExhibits', () => {
+  it('maps exhibit_photos sorted by sort_order, dropping sort_order', async () => {
+    results.exhibits = {
+      data: [
+        {
+          ...exhibitRow,
+          exhibit_photos: [
+            { url: 'b.webp', caption: null, is_hero: false, sort_order: 2 },
+            { url: 'a.webp', caption: 'Hero', is_hero: true, sort_order: 1 },
+          ],
+        },
+      ],
+      error: null,
+    }
+    const [e] = await fetchCachedExhibits()
+    expect(e.photos).toEqual([
+      { url: 'a.webp', caption: 'Hero', is_hero: true },
+      { url: 'b.webp', caption: null, is_hero: false },
+    ])
+  })
+
+  it('defaults photos to [] when the relation is missing', async () => {
+    const [e] = await fetchCachedExhibits()
+    expect(e.photos).toEqual([])
+  })
+
   it('throws ConnectionTimeoutError after DATASET_TIMEOUT_MS', async () => {
     vi.useFakeTimers()
     hang = true
