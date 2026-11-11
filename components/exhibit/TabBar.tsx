@@ -1,15 +1,35 @@
 'use client'
 
+import { useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { HomeIcon, MapIcon, ScanIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
+
+const UNLOCK_TAPS = 8
+const UNLOCK_WINDOW_MS = 4000
 
 export default function TabBar() {
   const pathname = usePathname()
   const isHome = pathname === '/'
   const isMap = pathname === '/map'
   const moreOpen = useStore((s) => s.moreMenuOpen)
+  const taps = useRef({ count: 0, last: 0 })
+
+  const onMoreTap = () => {
+    const { setMoreMenuOpen, setInsightsKeyDialogOpen, insightsKey } = useStore.getState()
+    setMoreMenuOpen(true)
+
+    const now = Date.now()
+    taps.current.count = now - taps.current.last < UNLOCK_WINDOW_MS ? taps.current.count + 1 : 1
+    taps.current.last = now
+    if (taps.current.count < UNLOCK_TAPS) return
+
+    taps.current.count = 0
+    if (insightsKey) return
+    setMoreMenuOpen(false)
+    setInsightsKeyDialogOpen(true)
+  }
 
   return (
     <nav
@@ -66,7 +86,7 @@ export default function TabBar() {
 
       <button
         type="button"
-        onClick={() => useStore.getState().setMoreMenuOpen(true)}
+        onClick={onMoreTap}
         aria-label="More"
         aria-haspopup="menu"
         aria-expanded={moreOpen}

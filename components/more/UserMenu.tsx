@@ -4,6 +4,7 @@ import { useRef, useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, animate, motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
+import InsightsKeyDialog from './InsightsKeyDialog'
 
 function subscribeOnline(cb: () => void) {
   window.addEventListener('online', cb)
@@ -424,6 +425,7 @@ export default function UserMenu() {
           </div>
         </div>
       )}
+      <InsightsKeyDialog />
     </>
   )
 }
