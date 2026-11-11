@@ -103,9 +103,11 @@ export default function Gallery({
             </div>
           ))}
         </div>
-        <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold bg-black/50 text-white">
-          {active + 1} / {total}
-        </span>
+        {total > 1 && (
+          <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold bg-black/50 text-white">
+            {active + 1} / {total}
+          </span>
+        )}
       </div>
 
       {typeof document !== 'undefined' &&
@@ -126,53 +128,55 @@ export default function Gallery({
         )}
 
       {/* Thumbnail strip */}
-      <div className="flex gap-2 mt-3 justify-center">
-        {hasTour && (
-          <button
-            onClick={() => goTo(0)}
-            className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
-              active === 0 ? 'border-ex-forest' : 'border-transparent'
-            }`}
-            style={{
-              width: 60,
-              height: 48,
-              backgroundImage: `url("${tourPreviewUrl}")`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              padding: 0,
-            }}
-            aria-label="Go to 360° tour"
-            aria-current={active === 0}
-          >
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-white bg-black/35">
-              360°
-            </span>
-          </button>
-        )}
-        {Array.from({ length: count }, (_, i) => (
-          <button
-            key={i}
-            onClick={() => goTo(i + offset)}
-            className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
-              i + offset === active ? 'border-ex-forest' : 'border-transparent'
-            }`}
-            style={{
-              width: 60,
-              height: 48,
-              background: bgFor(i),
-              padding: 0,
-            }}
-            aria-label={`Go to photo ${i + 1}`}
-            aria-current={i + offset === active}
-          >
-            {i > 0 && (
-              <div className="w-full h-full flex items-center justify-center">
-                <LeafOutlineIcon size={16} color={palette.blankIcon} strokeWidth={1.6} />
-              </div>
-            )}
-          </button>
-        ))}
-      </div>
+      {total > 1 && (
+        <div className="flex gap-2 mt-3 justify-center">
+          {hasTour && (
+            <button
+              onClick={() => goTo(0)}
+              className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+                active === 0 ? 'border-ex-forest' : 'border-transparent'
+              }`}
+              style={{
+                width: 60,
+                height: 48,
+                backgroundImage: `url("${tourPreviewUrl}")`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                padding: 0,
+              }}
+              aria-label="Go to 360° tour"
+              aria-current={active === 0}
+            >
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-white bg-black/35">
+                360°
+              </span>
+            </button>
+          )}
+          {Array.from({ length: count }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => goTo(i + offset)}
+              className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+                i + offset === active ? 'border-ex-forest' : 'border-transparent'
+              }`}
+              style={{
+                width: 60,
+                height: 48,
+                background: bgFor(i),
+                padding: 0,
+              }}
+              aria-label={`Go to photo ${i + 1}`}
+              aria-current={i + offset === active}
+            >
+              {i > 0 && (
+                <div className="w-full h-full flex items-center justify-center">
+                  <LeafOutlineIcon size={16} color={palette.blankIcon} strokeWidth={1.6} />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

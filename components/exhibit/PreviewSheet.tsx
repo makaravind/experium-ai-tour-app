@@ -275,6 +275,7 @@ export default function PreviewSheet({
   const typeLabel = exhibit?.type?.replace(/_/g, ' ')
   const progress = duration > 0 ? elapsed / duration : 0
   const tourNodeId = exhibit?.tour_node_id ?? null
+  const tourPreviewUrl = tourNodeId ? (exhibit?.tour_preview_url ?? null) : null
   const enterTour = () => {
     const href = exhibit && tourHref(exhibit)
     if (href) router.push(href)
@@ -348,15 +349,17 @@ export default function PreviewSheet({
                 expanded={expanded}
                 displayId={exhibit?.displayId}
                 onExpand={expand}
-                tourPreviewUrl={tourNodeId ? exhibit?.tour_preview_url : null}
+                count={tourPreviewUrl ? 0 : undefined}
+                tourPreviewUrl={tourPreviewUrl}
                 onTourEnter={enterTour}
                 thumb={
                   <div className="relative w-14 h-14">
                     <div
                       className="w-14 h-14 rounded-xl"
                       style={{
-                        background:
-                          'linear-gradient(135deg, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
+                        background: tourPreviewUrl
+                          ? `center / cover url("${tourPreviewUrl}")`
+                          : 'linear-gradient(135deg, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
                         overflow: 'hidden',
                       }}
                     />
