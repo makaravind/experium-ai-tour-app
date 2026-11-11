@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { buildTourChangeset } from '@/lib/admin/tour-changeset'
-import type { TourAdminState } from '@/lib/admin/tour-types'
+import type { TourAdminState, TourWorkingState } from '@/lib/admin/tour-types'
 import {
   DEFAULT_EDGE_PITCH,
   addEdgePairs,
+  addMissingReverses,
   hasEdgePair,
+  missingReverseEdges,
   neighbourCount,
   removeEdgePair,
   setNodeLabel,
@@ -108,5 +110,51 @@ describe('tour edge-pair helpers', () => {
     expect(neighbourCount(w, 'a')).toBe(2)
     expect(neighbourCount(w, 'b')).toBe(1)
     expect(neighbourCount(w, 'z')).toBe(0)
+  })
+})
+
+describe('missing reverse edges', () => {
+  const edge = (from: string, to: string, bearing: number) => ({
+    from_node_id: from,
+    to_node_id: to,
+    bearing,
+    pitch: -5,
+  })
+  const withEdges = (edges: TourWorkingState['edges']) => ({ ...toTourWorking(state), edges })
+
+  it('is a no-op when every edge has its reverse', () => {
+    const w = withEdges([edge('a', 'b', 10), edge('b', 'a', 20)])
+    expect(missingReverseEdges(w)).toEqual([])
+    expect(addMissingReverses(w)).toBe(w)
+  })
+
+  it('adds an unaimed reverse with the default pitch for each one-way edge', () => {
+    const w = addMissingReverses(withEdges([edge('a', 'b', 10), edge('c', 'b', 30)]))
+    expect(w.edges).toEqual([
+      edge('a', 'b', 10),
+      edge('c', 'b', 30),
+      { from_node_id: 'b', to_node_id: 'a', bearing: null, pitch: DEFAULT_EDGE_PITCH },
+      { from_node_id: 'b', to_node_id: 'c', bearing: null, pitch: DEFAULT_EDGE_PITCH },
+    ])
+  })
+
+  it('leaves existing aimed edges untouched and adds no duplicates', () => {
+    const aimed = edge('b', 'a', 99)
+    const w = addMissingReverses(withEdges([edge('a', 'b', 10), aimed, edge('a', 'c', 5)]))
+    expect(w.edges).toHaveLength(4)
+    expect(w.edges[1]).toBe(aimed)
+    expect(w.edges.filter((e) => e.from_node_id === 'c' && e.to_node_id === 'a')).toHaveLength(1)
+  })
+
+  it('is idempotent', () => {
+    const once = addMissingReverses(withEdges([edge('a', 'b', 10)]))
+    expect(addMissingReverses(once)).toBe(once)
+    expect(missingReverseEdges(once)).toEqual([])
+  })
+
+  it('stages no changeset rows for the unaimed reverses', () => {
+    const original = { ...state, edges: [edge('a', 'b', 10)] }
+    const w = addMissingReverses({ ...toTourWorking(original) })
+    expect(buildTourChangeset(original, w).changeset.edges.upsert).toEqual([])
   })
 })

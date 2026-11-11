@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import type { EdgePair } from '@/lib/admin/tour-edges'
 import type { TourNode } from '@/lib/tour'
@@ -11,6 +12,8 @@ interface EdgesPanelProps {
   /** The edge picked on the map, and whether it is a proposal or an existing edge. */
   picked: { pair: EdgePair; kind: 'proposed' | 'existing' } | null
   connecting: boolean
+  /** One-way edges lacking a reverse. */
+  missingReverse: number
   neighbours: (id: string) => number
   onSelect: (id: string) => void
   onPropose: () => void
@@ -18,6 +21,7 @@ interface EdgesPanelProps {
   onReject: (pairs: EdgePair[]) => void
   onRemove: (pair: EdgePair) => void
   onToggleConnect: () => void
+  onAddMissingReverses: () => void
 }
 
 export default function EdgesPanel({
@@ -26,6 +30,7 @@ export default function EdgesPanel({
   proposed,
   picked,
   connecting,
+  missingReverse,
   neighbours,
   onSelect,
   onPropose,
@@ -33,9 +38,11 @@ export default function EdgesPanel({
   onReject,
   onRemove,
   onToggleConnect,
+  onAddMissingReverses,
 }: EdgesPanelProps) {
   const label = (id: string) => nodes.find((n) => n.id === id)?.pano_ref ?? id
   const placed = nodes.filter((n) => n.lat !== null)
+  const [added, setAdded] = useState<number | null>(null)
 
   return (
     <>
@@ -96,6 +103,25 @@ export default function EdgesPanel({
             {connecting ? 'Click target node…' : 'Add edge from selected'}
           </Button>
         </div>
+        {missingReverse > 0 && (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setAdded(missingReverse)
+                onAddMissingReverses()
+              }}
+            >
+              Add missing reverse edges ({missingReverse})
+            </Button>
+          </div>
+        )}
+        {added !== null && (
+          <p className="text-xs text-muted-foreground">
+            Added {added} reverse edge{added === 1 ? '' : 's'} — aim them in Aim mode
+          </p>
+        )}
       </div>
       <ul className="flex-1 overflow-y-auto">
         {nodes.map((n) => (
