@@ -55,11 +55,12 @@ async function seedVisitor(page: Page) {
                 gps_lng: 78.1916283,
                 exhibitStatus: 'live',
                 displayId: 'K1',
+                photos: [],
               },
             ],
             cachedAmenities: [washroom],
           },
-          version: 7,
+          version: 8,
         })
       )
     },

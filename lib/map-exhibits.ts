@@ -22,6 +22,7 @@ export function toMapExhibits(cached: CachedExhibit[]): MapExhibit[] {
             tour_heading: e.tour_heading,
             tour_pitch: e.tour_pitch,
             tour_preview_url: e.tour_preview_url,
+            photos: e.photos,
           },
         ]
   )
@@ -42,5 +43,6 @@ export function toPreviewExhibit(e: CachedExhibit): PreviewExhibit {
     tour_heading: e.tour_heading,
     tour_pitch: e.tour_pitch,
     tour_preview_url: e.tour_preview_url,
+    photos: e.photos,
   }
 }

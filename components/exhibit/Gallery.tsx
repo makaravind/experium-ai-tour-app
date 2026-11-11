@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, type ComponentProps, type SyntheticEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LeafOutlineIcon } from '@/components/icons'
+import type { GallerySlide } from '@/lib/exhibit-photos'
 
 export type Palette = { hero: string; blank: string; blankIcon: string }
 
@@ -13,20 +14,49 @@ export const PLACEHOLDER: Palette = {
   blankIcon: '#b9b4a8',
 }
 
-export default function Gallery({
+const EMPTY_IMAGE = '/exhibit-placeholder.webp'
+
+/** `blank` = gradient placeholder (count/palette path); `empty` = branded "no image" artwork. */
+type Slide = GallerySlide | { kind: 'blank'; i: number } | { kind: 'empty' }
+
+// Offline, an uncached photo fails to load: hide it so the blank background shows, not a broken icon.
+const hideBroken = (e: SyntheticEvent<HTMLImageElement>) => {
+  e.currentTarget.style.visibility = 'hidden'
+}
+
+/** Remounts when the slides change so `active`/`fullscreen`/scroll never point at a stale slide. */
+export default function Gallery(props: ComponentProps<typeof GalleryInner>) {
+  return <GalleryInner key={props.slides?.map((s) => s.url).join('|')} {...props} />
+}
+
+/** `slides` (from galleryPhotos) wins; without it, `count`/`tourPreviewUrl` build placeholder slides. */
+function GalleryInner({
+  slides,
+  name,
   count = 4,
   palette = PLACEHOLDER,
   tourPreviewUrl,
   onTourEnter,
 }: {
+  slides?: GallerySlide[]
+  name?: string
   count?: number
   palette?: Palette
   tourPreviewUrl?: string | null
   onTourEnter?: () => void
 }) {
-  const hasTour = !!tourPreviewUrl
-  const offset = hasTour ? 1 : 0 // tour slide, when present, is slide 0
-  const total = count + offset
+  const items: Slide[] = slides
+    ? slides.length
+      ? slides
+      : [{ kind: 'empty' }]
+    : [
+        ...(tourPreviewUrl ? [{ kind: 'tour' as const, url: tourPreviewUrl }] : []),
+        ...Array.from({ length: count }, (_, i) => ({ kind: 'blank' as const, i })),
+      ]
+  const total = items.length
+  // 1-based position among photo slides (the 360° slide doesn't count)
+  const photoNo = items.map((_, i) => items.slice(0, i + 1).filter((s) => s.kind !== 'tour').length)
+  const photoTotal = photoNo[total - 1]
   const trackRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<(HTMLButtonElement | null)[]>([])
   const [active, setActive] = useState(0)
@@ -45,7 +75,7 @@ export default function Gallery({
     el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
   }
 
-  const bgFor = (i: number) => (i === 0 ? palette.hero : palette.blank)
+  const bgFor = (s: Slide) => (s.kind === 'blank' && s.i === 0 ? palette.hero : palette.blank)
 
   return (
     <div className="w-full">
@@ -58,54 +88,78 @@ export default function Gallery({
           role="group"
           aria-label="Exhibit photos"
         >
-          {hasTour && (
-            <div className="w-full flex-shrink-0 snap-center">
-              <button
-                className="relative w-full overflow-hidden cursor-pointer"
-                style={{ aspectRatio: '1/1', border: 'none', padding: 0 }}
-                onClick={onTourEnter}
-                aria-label="360° virtual tour — tap to explore"
-              >
-                <div
-                  className="tour-pan absolute inset-0"
-                  style={{ backgroundImage: `url("${tourPreviewUrl}")` }}
+          {items.map((slide, i) =>
+            slide.kind === 'tour' ? (
+              <div key={i} className="w-full flex-shrink-0 snap-center">
+                <button
+                  className="relative w-full overflow-hidden cursor-pointer"
+                  style={{ aspectRatio: '1/1', border: 'none', padding: 0 }}
+                  onClick={onTourEnter}
+                  aria-label="360° virtual tour — tap to explore"
+                >
+                  <div
+                    className="tour-pan absolute inset-0"
+                    style={{ backgroundImage: `url("${slide.url}")` }}
+                  />
+                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-extrabold bg-black/55 text-white">
+                    360°
+                  </span>
+                  <span className="absolute bottom-8 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold bg-black/55 text-white whitespace-nowrap">
+                    Tap to explore
+                  </span>
+                </button>
+              </div>
+            ) : slide.kind === 'empty' ? (
+              <div key={i} className="w-full flex-shrink-0 snap-center">
+                <img
+                  src={EMPTY_IMAGE}
+                  alt="No image available"
+                  className="w-full object-cover"
+                  style={{ aspectRatio: '1/1' }}
                 />
-                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-extrabold bg-black/55 text-white">
-                  360°
-                </span>
-                <span className="absolute bottom-8 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold bg-black/55 text-white whitespace-nowrap">
-                  Tap to explore
-                </span>
-              </button>
-            </div>
+              </div>
+            ) : (
+              <div key={i} className="w-full flex-shrink-0 snap-center">
+                <button
+                  ref={(el) => {
+                    slideRefs.current[i] = el
+                  }}
+                  className="w-full flex items-center justify-center cursor-zoom-in"
+                  style={{
+                    aspectRatio: '1/1',
+                    background: bgFor(slide),
+                    border: 'none',
+                    padding: 0,
+                  }}
+                  onClick={() => {
+                    const el = slideRefs.current[i]
+                    if (el) setFullscreen({ index: i, rect: el.getBoundingClientRect() })
+                  }}
+                  aria-label={`Photo ${photoNo[i]} of ${photoTotal} — tap to enlarge`}
+                >
+                  {slide.kind === 'photo' ? (
+                    <img
+                      src={slide.url}
+                      alt={slide.caption ?? name ?? ''}
+                      loading={i === 0 ? undefined : 'lazy'}
+                      onError={hideBroken}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    slide.i > 0 && (
+                      <LeafOutlineIcon size={30} color={palette.blankIcon} strokeWidth={1.6} />
+                    )
+                  )}
+                </button>
+              </div>
+            )
           )}
-          {Array.from({ length: count }, (_, i) => (
-            <div key={i} className="w-full flex-shrink-0 snap-center">
-              <button
-                ref={(el) => {
-                  slideRefs.current[i] = el
-                }}
-                className="w-full flex items-center justify-center cursor-zoom-in"
-                style={{
-                  aspectRatio: '1/1',
-                  background: bgFor(i),
-                  border: 'none',
-                  padding: 0,
-                }}
-                onClick={() => {
-                  const el = slideRefs.current[i]
-                  if (el) setFullscreen({ index: i, rect: el.getBoundingClientRect() })
-                }}
-                aria-label={`Photo ${i + 1} of ${count} — tap to enlarge`}
-              >
-                {i > 0 && <LeafOutlineIcon size={30} color={palette.blankIcon} strokeWidth={1.6} />}
-              </button>
-            </div>
-          ))}
         </div>
-        <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold bg-black/50 text-white">
-          {active + 1} / {total}
-        </span>
+        {total > 1 && (
+          <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold bg-black/50 text-white">
+            {active + 1} / {total}
+          </span>
+        )}
       </div>
 
       {typeof document !== 'undefined' &&
@@ -114,9 +168,11 @@ export default function Gallery({
             {fullscreen !== null && (
               <FullscreenModal
                 key="fullscreen"
-                index={fullscreen.index}
+                label={photoNo[fullscreen.index]}
+                slide={items[fullscreen.index]}
+                alt={name}
                 rect={fullscreen.rect}
-                bg={bgFor(fullscreen.index)}
+                bg={bgFor(items[fullscreen.index])}
                 iconColor={palette.blankIcon}
                 onClose={() => setFullscreen(null)}
               />
@@ -126,53 +182,63 @@ export default function Gallery({
         )}
 
       {/* Thumbnail strip */}
-      <div className="flex gap-2 mt-3 justify-center">
-        {hasTour && (
-          <button
-            onClick={() => goTo(0)}
-            className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
-              active === 0 ? 'border-ex-forest' : 'border-transparent'
-            }`}
-            style={{
-              width: 60,
-              height: 48,
-              backgroundImage: `url("${tourPreviewUrl}")`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              padding: 0,
-            }}
-            aria-label="Go to 360° tour"
-            aria-current={active === 0}
-          >
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-white bg-black/35">
-              360°
-            </span>
-          </button>
-        )}
-        {Array.from({ length: count }, (_, i) => (
-          <button
-            key={i}
-            onClick={() => goTo(i + offset)}
-            className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
-              i + offset === active ? 'border-ex-forest' : 'border-transparent'
-            }`}
-            style={{
-              width: 60,
-              height: 48,
-              background: bgFor(i),
-              padding: 0,
-            }}
-            aria-label={`Go to photo ${i + 1}`}
-            aria-current={i + offset === active}
-          >
-            {i > 0 && (
-              <div className="w-full h-full flex items-center justify-center">
-                <LeafOutlineIcon size={16} color={palette.blankIcon} strokeWidth={1.6} />
-              </div>
-            )}
-          </button>
-        ))}
-      </div>
+      {total > 1 && (
+        <div className="flex gap-2 mt-3 justify-center">
+          {items.map((slide, i) =>
+            slide.kind === 'tour' ? (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+                  i === active ? 'border-ex-forest' : 'border-transparent'
+                }`}
+                style={{
+                  width: 60,
+                  height: 48,
+                  backgroundImage: `url("${slide.url}")`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  padding: 0,
+                }}
+                aria-label="Go to 360° tour"
+                aria-current={i === active}
+              >
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-white bg-black/35">
+                  360°
+                </span>
+              </button>
+            ) : (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+                  i === active ? 'border-ex-forest' : 'border-transparent'
+                }`}
+                style={{
+                  width: 60,
+                  height: 48,
+                  ...(slide.kind === 'photo'
+                    ? {
+                        backgroundImage: `url("${slide.url}")`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }
+                    : { background: bgFor(slide) }),
+                  padding: 0,
+                }}
+                aria-label={`Go to photo ${photoNo[i]}`}
+                aria-current={i === active}
+              >
+                {slide.kind === 'blank' && slide.i > 0 && (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <LeafOutlineIcon size={16} color={palette.blankIcon} strokeWidth={1.6} />
+                  </div>
+                )}
+              </button>
+            )
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -182,13 +248,17 @@ export default function Gallery({
  * at mount time — the FLIP exit animation references those same values.
  */
 function FullscreenModal({
-  index,
+  label,
+  slide,
+  alt,
   rect,
   bg,
   iconColor,
   onClose,
 }: {
-  index: number
+  label: number
+  slide: Slide
+  alt?: string
   rect: DOMRect
   bg: string
   iconColor: string
@@ -218,7 +288,7 @@ function FullscreenModal({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={`Photo ${index + 1} enlarged`}
+      aria-label={`Photo ${label} enlarged`}
     >
       {/* Close button fades in after the morph settles */}
       <motion.button
@@ -257,7 +327,17 @@ function FullscreenModal({
         exit={{ scale, x: dx, y: dy, borderRadius: 10 / scale }}
         transition={morphTransition}
       >
-        {index > 0 && <LeafOutlineIcon size={60} color={iconColor} strokeWidth={1.2} />}
+        {slide.kind === 'photo' ? (
+          <img
+            src={slide.url}
+            alt={slide.caption ?? alt ?? ''}
+            onError={hideBroken}
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          slide.kind === 'blank' &&
+          slide.i > 0 && <LeafOutlineIcon size={60} color={iconColor} strokeWidth={1.2} />
+        )}
       </motion.div>
     </motion.div>
   )

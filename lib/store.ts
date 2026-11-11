@@ -173,7 +173,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'experium-store',
-      version: 7,
+      version: 8,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<Store>
         if (version === 0) {
@@ -195,8 +195,13 @@ export const useStore = create<Store>()(
         if (version < 5) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
         // v5 cachedExhibits lack tour_* fields: clear to force re-fetch
         if (version < 6) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
-        // v6 -> v7 adds tourSpot; keeps the cached dataset
-        return { ...state, tourSpot: null } as Store
+        // v7 cachedExhibits lack photos: clear to force re-fetch (v6 also gets the v7 tourSpot default)
+        return {
+          ...state,
+          ...(version < 7 && { tourSpot: null }),
+          cachedExhibits: [],
+          cachedAmenities: [],
+        } as Store
       },
       partialize: (s) => ({
         language: s.language,

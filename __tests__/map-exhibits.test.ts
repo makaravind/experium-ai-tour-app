@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toMapExhibits } from '@/lib/map-exhibits'
+import { toMapExhibits, toPreviewExhibit } from '@/lib/map-exhibits'
 import type { CachedExhibit } from '@/lib/types'
 
 const cached = (over: Partial<CachedExhibit> = {}): CachedExhibit => ({
@@ -19,6 +19,7 @@ const cached = (over: Partial<CachedExhibit> = {}): CachedExhibit => ({
   tour_heading: null,
   tour_pitch: null,
   tour_preview_url: null,
+  photos: [],
   ...over,
 })
 
@@ -58,10 +59,23 @@ describe('toMapExhibits', () => {
     })
   })
 
+  it('passes photos through', () => {
+    const photos = [{ url: 'https://cdn.test/a.webp', caption: null, is_hero: true }]
+    const [out] = toMapExhibits([cached({ photos })])
+    expect(out.photos).toEqual(photos)
+  })
+
   it('takes languages from the audio keys and status from exhibitStatus', () => {
     const [out] = toMapExhibits([cached({ exhibitStatus: 'coming_soon' })])
     expect(out.languages).toEqual(['en', 'hi'])
     expect(out.status).toBe('coming_soon')
     expect(out).toMatchObject({ gps_lat: 17.937484, gps_lng: 78.460897, tier: 'free' })
+  })
+})
+
+describe('toPreviewExhibit', () => {
+  it('passes photos through', () => {
+    const photos = [{ url: 'https://cdn.test/a.webp', caption: 'Bark', is_hero: false }]
+    expect(toPreviewExhibit(cached({ photos })).photos).toEqual(photos)
   })
 })

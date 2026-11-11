@@ -23,6 +23,7 @@ function makeExhibit(overrides: Partial<CachedExhibit> = {}): CachedExhibit {
     tour_heading: null,
     tour_pitch: null,
     tour_preview_url: null,
+    photos: [],
     ...overrides,
   }
 }
@@ -89,5 +90,26 @@ describe('DidYouKnow', () => {
       { timeout: 600 }
     )
     expect(cards.length).toBe(2)
+  })
+
+  it('card header shows the hero photo; no photo or tour keeps the colour block', async () => {
+    useStore.setState({
+      cachedExhibits: [
+        makeExhibit({
+          photos: [{ url: 'https://x.test/hero.webp', caption: null, is_hero: true }],
+        }),
+      ],
+    })
+    render(createElement(DidYouKnow, { onSelect: vi.fn() }))
+    fireEvent.click(screen.getByRole('button', { name: /Reveal Did You Know cards/i }))
+    const card = await screen.findByRole('button', { name: /Did you know\?/i }, { timeout: 600 })
+    expect(card.querySelector('img')?.getAttribute('src')).toBe('https://x.test/hero.webp')
+
+    cleanup()
+    useStore.setState({ cachedExhibits: [makeExhibit()] })
+    render(createElement(DidYouKnow, { onSelect: vi.fn() }))
+    fireEvent.click(screen.getByRole('button', { name: /Reveal Did You Know cards/i }))
+    const bare = await screen.findByRole('button', { name: /Did you know\?/i }, { timeout: 600 })
+    expect(bare.querySelector('img')).toBeNull()
   })
 })

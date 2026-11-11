@@ -21,7 +21,11 @@ export const FAKE_HI_AUDIO_URL = `${BASE_URL}/audio/baobab-forest-hi.mp3`
  */
 export async function mockPrecacheDataset(
   page: Page,
-  { seedCache = true, tour }: { seedCache?: boolean; tour?: SeedTour } = {}
+  {
+    seedCache = true,
+    tour,
+    photos,
+  }: { seedCache?: boolean; tour?: SeedTour; photos?: SeedPhoto[] } = {}
 ) {
   if (seedCache) await seedAudioCache(page)
   if (tour) await seedTourPreviewCache(page, tour.previewUrl)
@@ -53,6 +57,8 @@ export async function mockPrecacheDataset(
           tour_heading: tour?.heading ?? null,
           tour_pitch: tour?.pitch ?? null,
           tour_nodes: tour ? { preview_url: tour.previewUrl } : null,
+          // PostgREST shape of the exhibits -> exhibit_photos embed
+          exhibit_photos: (photos ?? []).map((p, sort_order) => ({ ...p, sort_order })),
           exhibit_audio: [
             { language: 'en', audio_url: FAKE_AUDIO_URL, status: 'published' },
             { language: 'hi', audio_url: FAKE_HI_AUDIO_URL, status: 'published' },
@@ -198,6 +204,13 @@ export async function markPrecacheComplete(page: Page) {
   })
 }
 
+/** Hero photo for the seeded exhibit (same-origin so page.route can answer it). */
+export interface SeedPhoto {
+  url: string
+  caption: string | null
+  is_hero: boolean
+}
+
 /** Tour link for the seeded exhibit (CachedExhibit tour_* fields). */
 export interface SeedTour {
   nodeId: string
@@ -214,10 +227,10 @@ export interface SeedTour {
  */
 export async function seedCachedExhibit(
   page: Page,
-  { onboarded, tour }: { onboarded: boolean; tour?: SeedTour }
+  { onboarded, tour, photos }: { onboarded: boolean; tour?: SeedTour; photos?: SeedPhoto[] }
 ) {
   await page.addInitScript(
-    ({ url, code, onboarded, tour }) => {
+    ({ url, code, onboarded, tour, photos }) => {
       if (onboarded) localStorage.setItem('experium_onboarded', '1')
       else localStorage.removeItem('experium_onboarded')
       if (localStorage.getItem('experium-store')) return // keep state across reloads / markPrecacheComplete
@@ -247,13 +260,14 @@ export async function seedCachedExhibit(
                 tour_heading: tour?.heading ?? null,
                 tour_pitch: tour?.pitch ?? null,
                 tour_preview_url: tour?.previewUrl ?? null,
+                photos: photos ?? [],
               },
             ],
           },
-          version: 7,
+          version: 8,
         })
       )
     },
-    { url: FAKE_AUDIO_URL, code: QR_CODE, onboarded, tour }
+    { url: FAKE_AUDIO_URL, code: QR_CODE, onboarded, tour, photos }
   )
 }

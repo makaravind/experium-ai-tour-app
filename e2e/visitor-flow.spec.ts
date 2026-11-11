@@ -4,6 +4,7 @@ import {
   FAKE_HI_AUDIO_URL,
   mockPrecacheDataset,
   passLoadingGate,
+  PIXEL_PNG_B64,
   seedCachedExhibit,
   seedAudioCache,
   seedMapCache,
@@ -11,6 +12,8 @@ import {
 
 // "Baobab Forest" — the only active QR code seeded in Supabase
 const QR_CODE = 'baobab-forest'
+
+const HERO = { url: '/e2e-photo/hero.png', caption: 'Baobab hero', is_hero: true }
 
 test.describe('Visitor flow — golden path', () => {
   test.beforeEach(async ({ page }) => {
@@ -31,9 +34,16 @@ test.describe('Visitor flow — golden path', () => {
       localStorage.removeItem('experium-store')
     })
     // /s/* skips the precache, so the exhibit must already be in the store
-    await seedCachedExhibit(page, { onboarded: false })
+    await seedCachedExhibit(page, { onboarded: false, photos: [HERO] })
 
-    await mockPrecacheDataset(page)
+    await mockPrecacheDataset(page, { photos: [HERO] })
+    await page.route('**/e2e-photo/**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'image/png',
+        body: Buffer.from(PIXEL_PNG_B64, 'base64'),
+      })
+    )
     await page.goto(`/s/${QR_CODE}`)
   })
 
@@ -48,6 +58,15 @@ test.describe('Visitor flow — golden path', () => {
     // 3. Exhibit view: BottomSheet with exhibit name and Listen button
     await expect(page.getByText('Baobab Forest')).toBeVisible()
     await expect(page.getByRole('button', { name: /listen/i })).toBeVisible()
+  })
+
+  test('exhibit photo: hero renders in the sheet', async ({ page }) => {
+    await passLoadingGate(page)
+    await page.getByRole('button', { name: 'Skip for now' }).click()
+
+    const hero = page.getByAltText(HERO.caption)
+    await expect(hero).toBeVisible()
+    await expect.poll(() => hero.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1)
   })
 
   test('full golden path: listen → audio ends → scan recorded → sheet collapses', async ({
@@ -137,10 +156,11 @@ test.describe('Visitor flow — returning visitor', () => {
                   tour_heading: null,
                   tour_pitch: null,
                   tour_preview_url: null,
+                  photos: [],
                 },
               ],
             },
-            version: 7,
+            version: 8,
           })
         )
       },

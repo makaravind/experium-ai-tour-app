@@ -27,6 +27,13 @@ export interface TourSpot {
   flown?: boolean
 }
 
+/** One `exhibit_photos` row; array order is `sort_order`. */
+export interface ExhibitPhoto {
+  url: string
+  caption: string | null
+  is_hero: boolean
+}
+
 /** One exhibit row in the upfront-precached dataset (gh-64), with audio for every published language. */
 export interface CachedExhibit {
   id: string
@@ -45,6 +52,7 @@ export interface CachedExhibit {
   tour_heading: number | null // yaw in degrees when entering the node from this exhibit
   tour_pitch: number | null
   tour_preview_url: string | null // tour_nodes.preview_url, precached for the gallery slide
+  photos: ExhibitPhoto[] // exhibit_photos by sort_order
 }
 
 export type AmenityType = 'washroom' | 'ticketing' | 'food' | 'gate' | 'leisure'
@@ -92,6 +100,7 @@ export interface MapExhibit {
   tour_heading?: number | null
   tour_pitch?: number | null
   tour_preview_url?: string | null
+  photos?: ExhibitPhoto[]
 }
 
 /** Exhibit shape used by PreviewSheet — no GPS needed. */
@@ -108,4 +117,5 @@ export interface PreviewExhibit {
   tour_heading?: number | null
   tour_pitch?: number | null
   tour_preview_url?: string | null
+  photos?: ExhibitPhoto[]
 }
