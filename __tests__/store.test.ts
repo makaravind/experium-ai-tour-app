@@ -171,16 +171,34 @@ describe('persist migration v1 -> v2', () => {
     expect(out.cachedAmenities).toEqual([])
   })
 
-  it('v6->v7 adds tourSpot null and keeps the cached dataset', () => {
+  it('v6->v8 adds tourSpot null and clears the cached dataset', () => {
     const fn = useStore.persist.getOptions().migrate!
     const out = fn(
       { language: 'hi', cachedExhibits: [{ id: 'x' }], cachedAmenities: [{ id: 'a' }] },
       6
     ) as unknown as Record<string, unknown>
-    expect(out.cachedExhibits).toEqual([{ id: 'x' }])
-    expect(out.cachedAmenities).toEqual([{ id: 'a' }])
+    expect(out.cachedExhibits).toEqual([])
+    expect(out.cachedAmenities).toEqual([])
     expect(out.language).toBe('hi')
     expect(out.tourSpot).toBeNull()
+  })
+
+  it('clears datasets on v7->v8 migration (exhibit photos) and keeps tourSpot', () => {
+    const fn = useStore.persist.getOptions().migrate!
+    const spot = { nodeId: 'n', lat: 1, lng: 2, heading: 90, label: 'L', at: 5 }
+    const out = fn(
+      {
+        language: 'hi',
+        tourSpot: spot,
+        cachedExhibits: [{ id: 'x' }],
+        cachedAmenities: [{ id: 'a' }],
+      },
+      7
+    ) as unknown as Record<string, unknown>
+    expect(out.cachedExhibits).toEqual([])
+    expect(out.cachedAmenities).toEqual([])
+    expect(out.language).toBe('hi')
+    expect(out.tourSpot).toEqual(spot)
   })
 
   it('persists tourSpot and clears it', () => {
