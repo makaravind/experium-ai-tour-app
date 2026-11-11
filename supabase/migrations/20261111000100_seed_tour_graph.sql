@@ -16,7 +16,8 @@
 --               Caveat: code is only stable within one lineage of data (ROW_NUMBER backfill in
 --               20261020120000, then server-assigned). On a DB with different codes these UPDATEs
 --               match other or zero rows; only apply to the production lineage.
--- Only linked exhibits are listed; unlinked ones keep tour_node_id NULL.
+-- Only linked exhibits are listed; unlinked ones keep tour_node_id NULL. The IS DISTINCT FROM guard
+--   keeps a re-apply from touching rows (and bumping exhibits.updated_at via trg_exhibits_updated_at).
 -- Lobby: tour_nodes_one_lobby allows a single lobby. If a DB already has a different lobby node
 -- this fails loudly on the lobby upsert rather than silently moving it.
 
@@ -364,66 +365,129 @@ INSERT INTO tour_edges (from_node_id, to_node_id, bearing, pitch) VALUES ((SELEC
   ON CONFLICT (from_node_id, to_node_id) DO UPDATE SET bearing = EXCLUDED.bearing, pitch = EXCLUDED.pitch;
 
 -- 3. exhibit links
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '32'), tour_heading = 218, tour_pitch = 2 WHERE code = 1;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '29'), tour_heading = 207, tour_pitch = 15 WHERE code = 2;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '25'), tour_heading = 224, tour_pitch = 18 WHERE code = 3;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '28'), tour_heading = 245, tour_pitch = -1 WHERE code = 8;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '26'), tour_heading = 154, tour_pitch = 4 WHERE code = 20;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 86, tour_pitch = 9 WHERE code = 24;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '8'), tour_heading = 271, tour_pitch = 0 WHERE code = 26;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '34'), tour_heading = 167, tour_pitch = 0 WHERE code = 66;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '34'), tour_heading = 228, tour_pitch = -1 WHERE code = 67;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '26'), tour_heading = 258, tour_pitch = 1 WHERE code = 80;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '3'), tour_heading = 352, tour_pitch = 7 WHERE code = 81;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '4'), tour_heading = 305, tour_pitch = 8 WHERE code = 82;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '5'), tour_heading = 24, tour_pitch = 9 WHERE code = 83;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '10'), tour_heading = 4, tour_pitch = 5 WHERE code = 84;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '9'), tour_heading = 354, tour_pitch = 6 WHERE code = 85;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '9'), tour_heading = 116, tour_pitch = -2 WHERE code = 86;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '8'), tour_heading = 217, tour_pitch = 7 WHERE code = 87;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '11'), tour_heading = 133, tour_pitch = 1 WHERE code = 88;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '17'), tour_heading = 155, tour_pitch = 1 WHERE code = 89;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '6'), tour_heading = 257, tour_pitch = 8 WHERE code = 90;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '7'), tour_heading = 76, tour_pitch = -3 WHERE code = 91;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '7'), tour_heading = 248, tour_pitch = 0 WHERE code = 92;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '14'), tour_heading = 356, tour_pitch = -5 WHERE code = 93;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '13'), tour_heading = 297, tour_pitch = 6 WHERE code = 94;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '15'), tour_heading = 2, tour_pitch = 1 WHERE code = 95;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '25'), tour_heading = 342, tour_pitch = -1 WHERE code = 96;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 331, tour_pitch = -6 WHERE code = 97;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '24'), tour_heading = 10, tour_pitch = 7 WHERE code = 99;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '18'), tour_heading = 266, tour_pitch = -11 WHERE code = 100;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '18'), tour_heading = 202, tour_pitch = 0 WHERE code = 101;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '18'), tour_heading = 323, tour_pitch = 4 WHERE code = 102;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '21'), tour_heading = 76, tour_pitch = 10 WHERE code = 104;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '21'), tour_heading = 207, tour_pitch = -2 WHERE code = 105;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '21'), tour_heading = 271, tour_pitch = 5 WHERE code = 106;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 91, tour_pitch = 6 WHERE code = 107;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 140, tour_pitch = 0 WHERE code = 108;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '24'), tour_heading = 284, tour_pitch = 4 WHERE code = 109;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '24'), tour_heading = 76, tour_pitch = 4 WHERE code = 110;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '12'), tour_heading = 342, tour_pitch = -2 WHERE code = 111;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '17'), tour_heading = 251, tour_pitch = 8 WHERE code = 113;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '25'), tour_heading = 1, tour_pitch = -1 WHERE code = 114;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '26'), tour_heading = 345, tour_pitch = 1 WHERE code = 115;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '28'), tour_heading = 37, tour_pitch = -2 WHERE code = 116;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '23'), tour_heading = 244, tour_pitch = -2 WHERE code = 117;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '24'), tour_heading = 286, tour_pitch = 2 WHERE code = 118;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '26'), tour_heading = 155, tour_pitch = -1 WHERE code = 119;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 249, tour_pitch = -8 WHERE code = 121;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37'), tour_heading = 343, tour_pitch = -47 WHERE code = 122;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37'), tour_heading = 1, tour_pitch = -5 WHERE code = 123;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37'), tour_heading = 214, tour_pitch = -23 WHERE code = 124;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '36'), tour_heading = 358, tour_pitch = -9 WHERE code = 125;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37'), tour_heading = 179, tour_pitch = -16 WHERE code = 126;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37A'), tour_heading = 5, tour_pitch = -1 WHERE code = 127;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '35'), tour_heading = 83, tour_pitch = -2 WHERE code = 128;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '34'), tour_heading = 355, tour_pitch = 18 WHERE code = 129;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '35'), tour_heading = 347, tour_pitch = -3 WHERE code = 130;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '31'), tour_heading = 256, tour_pitch = 7 WHERE code = 131;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '39'), tour_heading = 198, tour_pitch = 0 WHERE code = 132;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '30'), tour_heading = 357, tour_pitch = 12 WHERE code = 133;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '31'), tour_heading = 137, tour_pitch = 12 WHERE code = 134;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '34'), tour_heading = 224, tour_pitch = -1 WHERE code = 135;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '40'), tour_heading = 358, tour_pitch = 15 WHERE code = 136;
-UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '16'), tour_heading = 354, tour_pitch = 1 WHERE code = 137;
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '32'), tour_heading = 218, tour_pitch = 2
+  WHERE code = 1 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '32'), 218, 2);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '29'), tour_heading = 207, tour_pitch = 15
+  WHERE code = 2 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '29'), 207, 15);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '25'), tour_heading = 224, tour_pitch = 18
+  WHERE code = 3 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '25'), 224, 18);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '28'), tour_heading = 245, tour_pitch = -1
+  WHERE code = 8 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '28'), 245, -1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '26'), tour_heading = 154, tour_pitch = 4
+  WHERE code = 20 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '26'), 154, 4);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 86, tour_pitch = 9
+  WHERE code = 24 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '22'), 86, 9);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '8'), tour_heading = 271, tour_pitch = 0
+  WHERE code = 26 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '8'), 271, 0);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '34'), tour_heading = 167, tour_pitch = 0
+  WHERE code = 66 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '34'), 167, 0);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '34'), tour_heading = 228, tour_pitch = -1
+  WHERE code = 67 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '34'), 228, -1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '26'), tour_heading = 258, tour_pitch = 1
+  WHERE code = 80 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '26'), 258, 1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '3'), tour_heading = 352, tour_pitch = 7
+  WHERE code = 81 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '3'), 352, 7);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '4'), tour_heading = 305, tour_pitch = 8
+  WHERE code = 82 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '4'), 305, 8);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '5'), tour_heading = 24, tour_pitch = 9
+  WHERE code = 83 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '5'), 24, 9);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '10'), tour_heading = 4, tour_pitch = 5
+  WHERE code = 84 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '10'), 4, 5);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '9'), tour_heading = 354, tour_pitch = 6
+  WHERE code = 85 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '9'), 354, 6);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '9'), tour_heading = 116, tour_pitch = -2
+  WHERE code = 86 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '9'), 116, -2);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '8'), tour_heading = 217, tour_pitch = 7
+  WHERE code = 87 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '8'), 217, 7);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '11'), tour_heading = 133, tour_pitch = 1
+  WHERE code = 88 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '11'), 133, 1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '17'), tour_heading = 155, tour_pitch = 1
+  WHERE code = 89 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '17'), 155, 1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '6'), tour_heading = 257, tour_pitch = 8
+  WHERE code = 90 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '6'), 257, 8);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '7'), tour_heading = 76, tour_pitch = -3
+  WHERE code = 91 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '7'), 76, -3);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '7'), tour_heading = 248, tour_pitch = 0
+  WHERE code = 92 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '7'), 248, 0);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '14'), tour_heading = 356, tour_pitch = -5
+  WHERE code = 93 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '14'), 356, -5);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '13'), tour_heading = 297, tour_pitch = 6
+  WHERE code = 94 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '13'), 297, 6);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '15'), tour_heading = 2, tour_pitch = 1
+  WHERE code = 95 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '15'), 2, 1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '25'), tour_heading = 342, tour_pitch = -1
+  WHERE code = 96 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '25'), 342, -1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 331, tour_pitch = -6
+  WHERE code = 97 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '22'), 331, -6);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '24'), tour_heading = 10, tour_pitch = 7
+  WHERE code = 99 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '24'), 10, 7);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '18'), tour_heading = 266, tour_pitch = -11
+  WHERE code = 100 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '18'), 266, -11);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '18'), tour_heading = 202, tour_pitch = 0
+  WHERE code = 101 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '18'), 202, 0);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '18'), tour_heading = 323, tour_pitch = 4
+  WHERE code = 102 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '18'), 323, 4);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '21'), tour_heading = 76, tour_pitch = 10
+  WHERE code = 104 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '21'), 76, 10);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '21'), tour_heading = 207, tour_pitch = -2
+  WHERE code = 105 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '21'), 207, -2);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '21'), tour_heading = 271, tour_pitch = 5
+  WHERE code = 106 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '21'), 271, 5);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 91, tour_pitch = 6
+  WHERE code = 107 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '22'), 91, 6);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 140, tour_pitch = 0
+  WHERE code = 108 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '22'), 140, 0);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '24'), tour_heading = 284, tour_pitch = 4
+  WHERE code = 109 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '24'), 284, 4);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '24'), tour_heading = 76, tour_pitch = 4
+  WHERE code = 110 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '24'), 76, 4);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '12'), tour_heading = 342, tour_pitch = -2
+  WHERE code = 111 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '12'), 342, -2);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '17'), tour_heading = 251, tour_pitch = 8
+  WHERE code = 113 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '17'), 251, 8);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '25'), tour_heading = 1, tour_pitch = -1
+  WHERE code = 114 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '25'), 1, -1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '26'), tour_heading = 345, tour_pitch = 1
+  WHERE code = 115 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '26'), 345, 1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '28'), tour_heading = 37, tour_pitch = -2
+  WHERE code = 116 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '28'), 37, -2);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '23'), tour_heading = 244, tour_pitch = -2
+  WHERE code = 117 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '23'), 244, -2);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '24'), tour_heading = 286, tour_pitch = 2
+  WHERE code = 118 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '24'), 286, 2);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '26'), tour_heading = 155, tour_pitch = -1
+  WHERE code = 119 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '26'), 155, -1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '22'), tour_heading = 249, tour_pitch = -8
+  WHERE code = 121 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '22'), 249, -8);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37'), tour_heading = 343, tour_pitch = -47
+  WHERE code = 122 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '37'), 343, -47);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37'), tour_heading = 1, tour_pitch = -5
+  WHERE code = 123 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '37'), 1, -5);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37'), tour_heading = 214, tour_pitch = -23
+  WHERE code = 124 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '37'), 214, -23);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '36'), tour_heading = 358, tour_pitch = -9
+  WHERE code = 125 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '36'), 358, -9);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37'), tour_heading = 179, tour_pitch = -16
+  WHERE code = 126 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '37'), 179, -16);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '37A'), tour_heading = 5, tour_pitch = -1
+  WHERE code = 127 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '37A'), 5, -1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '35'), tour_heading = 83, tour_pitch = -2
+  WHERE code = 128 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '35'), 83, -2);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '34'), tour_heading = 355, tour_pitch = 18
+  WHERE code = 129 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '34'), 355, 18);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '35'), tour_heading = 347, tour_pitch = -3
+  WHERE code = 130 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '35'), 347, -3);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '31'), tour_heading = 256, tour_pitch = 7
+  WHERE code = 131 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '31'), 256, 7);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '39'), tour_heading = 198, tour_pitch = 0
+  WHERE code = 132 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '39'), 198, 0);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '30'), tour_heading = 357, tour_pitch = 12
+  WHERE code = 133 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '30'), 357, 12);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '31'), tour_heading = 137, tour_pitch = 12
+  WHERE code = 134 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '31'), 137, 12);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '34'), tour_heading = 224, tour_pitch = -1
+  WHERE code = 135 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '34'), 224, -1);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '40'), tour_heading = 358, tour_pitch = 15
+  WHERE code = 136 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '40'), 358, 15);
+UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '16'), tour_heading = 354, tour_pitch = 1
+  WHERE code = 137 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM ((SELECT id FROM tour_nodes WHERE pano_ref = '16'), 354, 1);

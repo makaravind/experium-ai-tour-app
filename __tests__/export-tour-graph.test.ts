@@ -64,12 +64,19 @@ describe('buildSeedSql', () => {
     expect(sql).not.toMatch(/^DELETE/m)
   })
 
-  it('updates only linked exhibits, keyed by code and sorted', () => {
-    const ex = lines(sql, 'UPDATE exhibits')
-    expect(ex).toEqual([
-      "UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '2'), tour_heading = 0, tour_pitch = 5 WHERE code = 3;",
-      "UPDATE exhibits SET tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '10'), tour_heading = 359, tour_pitch = -90 WHERE code = 9;",
-    ])
+  it('updates only linked exhibits, keyed by code, sorted, guarded to skip unchanged rows', () => {
+    const ex = sql.match(/UPDATE exhibits[^;]*;/g)!
+    expect(ex).toHaveLength(2)
+    expect(ex[0]).toContain(
+      "tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '2'), tour_heading = 0, tour_pitch = 5"
+    )
+    expect(ex[0]).toContain(
+      'WHERE code = 3 AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM'
+    )
+    expect(ex[1]).toContain(
+      "tour_node_id = (SELECT id FROM tour_nodes WHERE pano_ref = '10'), tour_heading = 359, tour_pitch = -90"
+    )
+    expect(ex[1]).toContain('WHERE code = 9 AND')
   })
 
   it('is deterministic regardless of input row order', () => {
@@ -111,7 +118,7 @@ describe('buildSeedSql', () => {
       },
       'd'
     )
-    expect(out).toContain('tour_heading = NULL, tour_pitch = NULL WHERE code = 1;')
+    expect(out).toContain('tour_heading = NULL, tour_pitch = NULL\n  WHERE code = 1 AND')
   })
 
   it('throws on dangling node ids and non-finite numbers', () => {

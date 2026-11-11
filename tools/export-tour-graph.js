@@ -88,7 +88,8 @@ export function buildSeedSql({ nodes, edges, exhibits }, generatedOn) {
     `--               Caveat: code is only stable within one lineage of data (ROW_NUMBER backfill in`,
     `--               20261020120000, then server-assigned). On a DB with different codes these UPDATEs`,
     `--               match other or zero rows; only apply to the production lineage.`,
-    `-- Only linked exhibits are listed; unlinked ones keep tour_node_id NULL.`,
+    `-- Only linked exhibits are listed; unlinked ones keep tour_node_id NULL. The IS DISTINCT FROM guard
+--   keeps a re-apply from touching rows (and bumping exhibits.updated_at via trg_exhibits_updated_at).`,
     `-- Lobby: tour_nodes_one_lobby allows a single lobby. If a DB already has a different lobby node`,
     `-- this fails loudly on the lobby upsert rather than silently moving it.`,
     ``,
@@ -122,8 +123,10 @@ export function buildSeedSql({ nodes, edges, exhibits }, generatedOn) {
 
   out.push('', '-- 3. exhibit links')
   for (const x of exhibitRows) {
+    const target = `${nodeId(x.ref)}, ${num(x.heading)}, ${num(x.pitch)}`
     out.push(
-      `UPDATE exhibits SET tour_node_id = ${nodeId(x.ref)}, tour_heading = ${num(x.heading)}, tour_pitch = ${num(x.pitch)} WHERE code = ${num(x.code)};`
+      `UPDATE exhibits SET tour_node_id = ${nodeId(x.ref)}, tour_heading = ${num(x.heading)}, tour_pitch = ${num(x.pitch)}\n` +
+        `  WHERE code = ${num(x.code)} AND (tour_node_id, tour_heading, tour_pitch) IS DISTINCT FROM (${target});`
     )
   }
 
