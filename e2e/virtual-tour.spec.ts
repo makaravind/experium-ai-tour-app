@@ -323,6 +323,10 @@ test.describe('Virtual tour entry points', () => {
     await expect(page.getByText('Tap to explore')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Go to 360° tour' })).toBeVisible()
     await expect(page.getByText('1 / 5')).toBeAttached()
+    // 360° slide is slide 0 (first in the track), gallery opens on it
+    await expect(
+      page.getByRole('group', { name: 'Exhibit photos' }).locator('button').first()
+    ).toHaveAccessibleName(/360° virtual tour/)
 
     await tourSlide(page).click()
     await expect(page.getByRole('dialog')).toBeHidden()
