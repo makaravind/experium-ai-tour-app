@@ -35,6 +35,7 @@ function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
     tour_heading: exhibit.tour_heading,
     tour_pitch: exhibit.tour_pitch,
     tour_preview_url: exhibit.tour_preview_url,
+    photos: exhibit.photos,
   }
 }
 

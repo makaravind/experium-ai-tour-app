@@ -137,6 +137,7 @@ test.describe('Visitor flow — returning visitor', () => {
                   tour_heading: null,
                   tour_pitch: null,
                   tour_preview_url: null,
+                  photos: [],
                 },
               ],
             },

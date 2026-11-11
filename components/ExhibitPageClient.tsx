@@ -116,6 +116,7 @@ export default function ExhibitPageClient({
       tour_heading: cachedExhibit?.tour_heading,
       tour_pitch: cachedExhibit?.tour_pitch,
       tour_preview_url: cachedExhibit?.tour_preview_url,
+      photos: cachedExhibit?.photos,
     }
     setExhibitPageData({
       exhibit: previewExhibit,
