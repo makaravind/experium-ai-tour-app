@@ -50,8 +50,8 @@ export default withSerwist({
   swDest: 'public/sw.js',
   disable: process.env.NODE_ENV === 'development',
   additionalPrecacheEntries,
-  // Keep the plugin's default excludes; the dev-only admin tool's chunks must not reach visitors' SW cache.
-  exclude: [/\.map$/, /^manifest.*\.js$/, /(^|\/)admin\//],
+  // Keep the plugin's default excludes; the dev-only admin tool's and insights page's chunks must not reach visitors' SW cache.
+  exclude: [/\.map$/, /^manifest.*\.js$/, /(^|\/)(admin|insights)\//],
   // The plugin injects its own register script, which reloads the page on every `online` event by
   // default; SerwistProvider's reloadOnOnline={false} doesn't reach it
   reloadOnOnline: false,

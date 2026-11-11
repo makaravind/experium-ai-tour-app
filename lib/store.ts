@@ -80,6 +80,12 @@ interface Store {
 
   profileModalOpen: boolean
   setProfileModalOpen: (v: boolean) => void
+
+  insightsKey: string | null
+  setInsightsKey: (key: string | null) => void
+
+  insightsKeyDialogOpen: boolean
+  setInsightsKeyDialogOpen: (v: boolean) => void
 }
 
 export const useStore = create<Store>()(
@@ -158,6 +164,12 @@ export const useStore = create<Store>()(
 
       profileModalOpen: false,
       setProfileModalOpen: (profileModalOpen) => set({ profileModalOpen }),
+
+      insightsKey: null,
+      setInsightsKey: (insightsKey) => set({ insightsKey }),
+
+      insightsKeyDialogOpen: false,
+      setInsightsKeyDialogOpen: (insightsKeyDialogOpen) => set({ insightsKeyDialogOpen }),
     }),
     {
       name: 'experium-store',
@@ -202,6 +214,7 @@ export const useStore = create<Store>()(
         completionByGroup: s.completionByGroup,
         assetFailures: s.assetFailures,
         acknowledgedCapped: s.acknowledgedCapped,
+        insightsKey: s.insightsKey,
       }),
     }
   )

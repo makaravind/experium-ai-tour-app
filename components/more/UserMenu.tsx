@@ -4,6 +4,7 @@ import { useRef, useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, animate, motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
+import InsightsKeyDialog from './InsightsKeyDialog'
 
 function subscribeOnline(cb: () => void) {
   window.addEventListener('online', cb)
@@ -115,6 +116,26 @@ function InfoIcon() {
   )
 }
 
+function InsightsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={21}
+      height={21}
+      stroke="currentColor"
+      strokeWidth={2.1}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+      aria-hidden="true"
+    >
+      <line x1="6" y1="20" x2="6" y2="13" />
+      <line x1="12" y1="20" x2="12" y2="5" />
+      <line x1="18" y1="20" x2="18" y2="10" />
+    </svg>
+  )
+}
+
 const ROW =
   'flex items-center gap-3.5 w-[calc(100%-16px)] mx-2 px-3 py-2.5 min-h-[64px] rounded-2xl text-left border-none bg-transparent'
 
@@ -125,6 +146,7 @@ export default function UserMenu() {
   const open = useStore((s) => s.moreMenuOpen)
   const setOpen = useStore((s) => s.setMoreMenuOpen)
   const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
+  const insightsKey = useStore((s) => s.insightsKey)
   const online = useSyncExternalStore(subscribeOnline, getOnline, getServerOnline)
   const refreshRowRef = useRef<HTMLButtonElement>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -286,6 +308,31 @@ export default function UserMenu() {
                 App
               </div>
               <ul>
+                {insightsKey && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setOpen(false)
+                        router.push('/insights')
+                      }}
+                      className={`${ROW} cursor-pointer hover:bg-ex-bg active:bg-ex-bg`}
+                    >
+                      <span className={`${ICON_BASE} bg-ex-forest/10 text-ex-forest`}>
+                        <InsightsIcon />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block font-extrabold text-[15px] text-ex-ink leading-snug">
+                          Insights
+                        </span>
+                        <span className="block text-[12.5px] text-ex-muted mt-0.5 leading-snug">
+                          Usage stats for this tour
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                )}
                 <li>
                   <button
                     type="button"
@@ -378,6 +425,7 @@ export default function UserMenu() {
           </div>
         </div>
       )}
+      <InsightsKeyDialog />
     </>
   )
 }
