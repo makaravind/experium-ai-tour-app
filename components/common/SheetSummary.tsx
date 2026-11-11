@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Gallery, { type Palette } from '@/components/exhibit/Gallery'
+import type { GallerySlide } from '@/lib/exhibit-photos'
 import { CloseIcon } from '@/components/icons'
 
 export default function SheetSummary({
@@ -14,6 +15,7 @@ export default function SheetSummary({
   displayId,
   onCollapse,
   onExpand,
+  slides,
   count,
   palette,
   tourPreviewUrl,
@@ -27,6 +29,7 @@ export default function SheetSummary({
   displayId?: string | null
   onCollapse: () => void
   onExpand?: () => void
+  slides?: GallerySlide[]
   count?: number
   palette?: Palette
   tourPreviewUrl?: string | null
@@ -45,6 +48,8 @@ export default function SheetSummary({
               transition={{ duration: 0.2, ease: 'easeOut' }}
             >
               <Gallery
+                slides={slides}
+                name={name}
                 count={count}
                 palette={palette}
                 tourPreviewUrl={tourPreviewUrl}
