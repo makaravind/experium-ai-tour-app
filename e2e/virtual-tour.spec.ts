@@ -661,7 +661,7 @@ test.describe('Home 360° Virtual Tour button', () => {
     await navVisitor(page)
     await startOffline(page)
     await page.goto('/')
-    await expect(page.getByRole('link', { name: 'Explore the Park →' })).toBeVisible({
+    await expect(page.getByRole('link', { name: 'My Collection →' })).toBeVisible({
       timeout: 15000,
     })
     await expect(page.getByRole('link', { name: '360° Virtual Tour →' })).toBeHidden()

@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-import ExploreParkLink from '@/components/exhibit/ExploreParkLink'
 import ScanNowButton from '@/components/exhibit/ScanNowButton'
 import VirtualTourLink from '@/components/exhibit/VirtualTourLink'
 import TabBar from '@/components/exhibit/TabBar'
@@ -61,20 +60,7 @@ export default function Home() {
         <div className="flex-1" />
 
         <ScanNowButton />
-        <ExploreParkLink />
         <VirtualTourLink />
-
-        <div className="mt-auto pt-3.5 border-t border-ex-border flex items-center gap-3">
-          <div className="w-11 h-11 rounded-lg flex-none bg-ex-sage/40" />
-          <div className="flex-1 min-w-0">
-            <div className="text-[9.5px] font-extrabold uppercase tracking-wide text-ex-muted">
-              Sponsored
-            </div>
-            <div className="text-[13.5px] font-bold leading-tight mt-0.5">
-              Ad slot reserved for m6-ads
-            </div>
-          </div>
-        </div>
       </div>
 
       {selectedDykExhibit && (
