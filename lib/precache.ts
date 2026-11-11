@@ -83,7 +83,7 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
     const { data, error } = await supabase
       .from('exhibits')
       .select(
-        'id, code, section, number, name, type, tier, facts, status, gps_lat, gps_lng, tour_node_id, tour_heading, tour_pitch, tour_nodes(preview_url), exhibit_audio(language, audio_url, status)'
+        'id, code, section, number, name, type, tier, facts, status, gps_lat, gps_lng, tour_node_id, tour_heading, tour_pitch, tour_nodes(preview_url), exhibit_photos(url, caption, is_hero, sort_order), exhibit_audio(language, audio_url, status)'
       )
       .abortSignal(ctrl.signal)
     // postgrest-js returns { error } on abort instead of throwing
@@ -114,6 +114,13 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
         tour_pitch: row.tour_pitch,
         tour_preview_url:
           (row.tour_nodes as unknown as { preview_url: string } | null)?.preview_url ?? null,
+        photos: (
+          (row.exhibit_photos as
+            | { url: string; caption: string | null; is_hero: boolean; sort_order: number }[]
+            | null) ?? []
+        )
+          .toSorted((a, b) => a.sort_order - b.sort_order)
+          .map(({ url, caption, is_hero }) => ({ url, caption, is_hero })),
       }
     })
   } finally {
