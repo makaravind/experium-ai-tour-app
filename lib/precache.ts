@@ -1,6 +1,6 @@
 import { track } from '@vercel/analytics'
 import { supabase } from '@/lib/supabase'
-import { MAP_CACHE, MAP_URL, TOUR_PREVIEW_CACHE } from '@/lib/cache-names'
+import { EXHIBIT_PHOTO_CACHE, MAP_CACHE, MAP_URL, TOUR_PREVIEW_CACHE } from '@/lib/cache-names'
 import { useStore } from '@/lib/store'
 import { AUDIO_IDLE_TIMEOUT_MS, ConnectionTimeoutError, DATASET_TIMEOUT_MS } from '@/lib/timeouts'
 import type {
@@ -28,7 +28,12 @@ const isPermanent = (err: unknown): err is AssetFetchError =>
 export const AUDIO_CACHE_NAME = 'audio-cache'
 export const MAX_ATTEMPTS = 3
 export const CONCURRENCY = 6
-export const CONTENT_CACHE_NAMES = [AUDIO_CACHE_NAME, MAP_CACHE, TOUR_PREVIEW_CACHE] as const
+export const CONTENT_CACHE_NAMES = [
+  AUDIO_CACHE_NAME,
+  MAP_CACHE,
+  TOUR_PREVIEW_CACHE,
+  EXHIBIT_PHOTO_CACHE,
+] as const
 
 export interface AssetGroup {
   cacheName: string
@@ -156,7 +161,7 @@ export async function fetchCachedAmenities(): Promise<CachedAmenity[]> {
 }
 
 /**
- * Three groups: audio (one language), map tiles, then tour node previews (linked exhibits only). Add future asset types by appending entries here.
+ * Four groups: audio (one language), map tiles, tour node previews (linked exhibits only), then the hero photo per exhibit (no hero, no entry). Add future asset types by appending entries here.
  * Defaults to the precache language, falling back to the playback language.
  */
 export function getAssetGroups(
@@ -165,10 +170,15 @@ export function getAssetGroups(
 ): AssetGroup[] {
   const audio = exhibits.flatMap((e) => (e.audio[language] ? [e.audio[language]!] : []))
   const previews = exhibits.flatMap((e) => (e.tour_preview_url ? [e.tour_preview_url] : []))
+  const heroes = exhibits.flatMap((e) => {
+    const hero = e.photos.find((p) => p.is_hero)
+    return hero ? [hero.url] : []
+  })
   return [
     { cacheName: AUDIO_CACHE_NAME, urls: [...new Set(audio)] },
     { cacheName: MAP_CACHE, urls: [MAP_URL] },
     { cacheName: TOUR_PREVIEW_CACHE, urls: [...new Set(previews)] },
+    { cacheName: EXHIBIT_PHOTO_CACHE, urls: [...new Set(heroes)] },
   ]
 }
 

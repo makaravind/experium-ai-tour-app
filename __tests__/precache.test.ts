@@ -46,35 +46,55 @@ function harness(urls: string[], preCached: string[] = [], bad: string[] = []) {
 
 describe('getAssetGroups', () => {
   const ex = [
-    { audio: { en: u(1), hi: u(10) } },
-    { audio: { hi: u(11) } },
-    { audio: { en: u(1) } },
-    { audio: { en: u(2), hi: u(12) } },
-    { audio: {} },
-  ] as CachedExhibit[]
+    { audio: { en: u(1), hi: u(10) }, photos: [] },
+    { audio: { hi: u(11) }, photos: [] },
+    { audio: { en: u(1) }, photos: [] },
+    { audio: { en: u(2), hi: u(12) }, photos: [] },
+    { audio: {}, photos: [] },
+  ] as unknown as CachedExhibit[]
 
   it('picks one language, deduped, skipping exhibits with no audio in it', () => {
     expect(getAssetGroups(ex, 'en')).toEqual([
       { cacheName: 'audio-cache', urls: [u(1), u(2)] },
       { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
       { cacheName: 'tour-preview-cache', urls: [] },
+      { cacheName: 'exhibit-photo-cache', urls: [] },
     ])
     expect(getAssetGroups(ex, 'hi')).toEqual([
       { cacheName: 'audio-cache', urls: [u(10), u(11), u(12)] },
       { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
       { cacheName: 'tour-preview-cache', urls: [] },
+      { cacheName: 'exhibit-photo-cache', urls: [] },
     ])
   })
 
   it('adds deduped preview urls, only for exhibits with a linked tour node', () => {
     const withTour = [
-      { audio: {}, tour_preview_url: 'https://cdn.test/panoramas/1/preview.jpg' },
-      { audio: {}, tour_preview_url: 'https://cdn.test/panoramas/1/preview.jpg' },
-      { audio: {}, tour_preview_url: null },
-    ] as CachedExhibit[]
+      { audio: {}, tour_preview_url: 'https://cdn.test/panoramas/1/preview.jpg', photos: [] },
+      { audio: {}, tour_preview_url: 'https://cdn.test/panoramas/1/preview.jpg', photos: [] },
+      { audio: {}, tour_preview_url: null, photos: [] },
+    ] as unknown as CachedExhibit[]
     expect(getAssetGroups(withTour, 'en')[2]).toEqual({
       cacheName: 'tour-preview-cache',
       urls: ['https://cdn.test/panoramas/1/preview.jpg'],
+    })
+  })
+
+  it('adds only the hero photo per exhibit, deduped; no hero means no entry', () => {
+    const photo = (n: number, is_hero: boolean) => ({
+      url: `https://cdn.test/exhibits/${n}.webp`,
+      caption: null,
+      is_hero,
+    })
+    const withPhotos = [
+      { audio: {}, photos: [photo(1, false), photo(2, true), photo(3, false)] },
+      { audio: {}, photos: [photo(4, false)] },
+      { audio: {}, photos: [photo(2, true)] },
+      { audio: {}, photos: [] },
+    ] as unknown as CachedExhibit[]
+    expect(getAssetGroups(withPhotos, 'en')[3]).toEqual({
+      cacheName: 'exhibit-photo-cache',
+      urls: ['https://cdn.test/exhibits/2.webp'],
     })
   })
 
@@ -83,6 +103,7 @@ describe('getAssetGroups', () => {
       { cacheName: 'audio-cache', urls: [] },
       { cacheName: 'map-tiles-cache', urls: ['/park.pmtiles'] },
       { cacheName: 'tour-preview-cache', urls: [] },
+      { cacheName: 'exhibit-photo-cache', urls: [] },
     ])
   })
 })
