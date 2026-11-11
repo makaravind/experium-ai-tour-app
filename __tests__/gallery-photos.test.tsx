@@ -66,3 +66,15 @@ describe('Gallery slides', () => {
     expect(img.style.visibility).toBe('hidden')
   })
 })
+
+describe('Gallery slide changes', () => {
+  it('resets to slide 0 and closes fullscreen when slides change', () => {
+    const { rerender } = render(<Gallery slides={[photo(1), photo(2), photo(3)]} name="Banyan" />)
+    fireEvent.click(screen.getByLabelText('Photo 3 of 3 — tap to enlarge'))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    expect(() => rerender(<Gallery slides={[photo(4)]} name="Fig" />)).not.toThrow()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByAltText('Fig').getAttribute('src')).toBe('https://cdn.test/4.webp')
+  })
+})
