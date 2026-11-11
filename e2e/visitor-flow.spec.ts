@@ -133,10 +133,14 @@ test.describe('Visitor flow — returning visitor', () => {
                   gps_lng: 78.1916283,
                   exhibitStatus: 'live',
                   displayId: 'K1',
+                  tour_node_id: null,
+                  tour_heading: null,
+                  tour_pitch: null,
+                  tour_preview_url: null,
                 },
               ],
             },
-            version: 5,
+            version: 7,
           })
         )
       },

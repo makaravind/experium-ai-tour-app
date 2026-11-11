@@ -47,6 +47,10 @@ const exhibitRow = {
   status: 'live',
   gps_lat: 17.937484,
   gps_lng: 78.460897,
+  tour_node_id: 'n1',
+  tour_heading: 90,
+  tour_pitch: -10,
+  tour_nodes: { preview_url: 'https://cdn.test/panoramas/1/preview.jpg' },
   exhibit_audio: [],
 }
 
@@ -101,6 +105,10 @@ describe('runPrecache dataset', () => {
       displayId: 'K11',
       exhibitStatus: 'live',
       status: 'active',
+      tour_node_id: 'n1',
+      tour_heading: 90,
+      tour_pitch: -10,
+      tour_preview_url: 'https://cdn.test/panoramas/1/preview.jpg',
     })
   })
 

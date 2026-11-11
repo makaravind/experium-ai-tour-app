@@ -59,7 +59,7 @@ async function seedVisitor(page: Page) {
             ],
             cachedAmenities: [washroom],
           },
-          version: 5,
+          version: 7,
         })
       )
     },

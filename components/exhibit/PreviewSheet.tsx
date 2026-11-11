@@ -10,6 +10,7 @@ import { CompassIcon, LeafOutlineIcon, PauseIcon, PlayIcon, StarIcon } from '@/c
 import { track } from '@vercel/analytics'
 import { AUDIO_CACHE_NAME } from '@/lib/precache'
 import { useStore } from '@/lib/store'
+import { tourHref } from '@/lib/tour'
 import { LANGUAGES, formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
 import type { ExhibitAudio, Language, PreviewExhibit } from '@/lib/types'
 
@@ -41,6 +42,7 @@ export default function PreviewSheet({
   audio = [],
   onNavigate,
   onClose,
+  onSwipeClose,
   autoExpand,
   autoPlay,
   scanSrc,
@@ -55,6 +57,7 @@ export default function PreviewSheet({
   scanSrc?: string | null
   onNavigate?: () => void
   onClose?: () => void
+  onSwipeClose?: () => void
   onFirstPlay?: () => void
   onQuartile?: (sec: number, quartile: number) => void
   onAudioEnded?: () => void
@@ -271,6 +274,11 @@ export default function PreviewSheet({
   const durationLabel = duration > 0 ? ` · ${formatTime(duration)}` : ''
   const typeLabel = exhibit?.type?.replace(/_/g, ' ')
   const progress = duration > 0 ? elapsed / duration : 0
+  const tourNodeId = exhibit?.tour_node_id ?? null
+  const enterTour = () => {
+    const href = exhibit && tourHref(exhibit)
+    if (href) router.push(href)
+  }
 
   return (
     <>
@@ -278,6 +286,7 @@ export default function PreviewSheet({
         ref={sheetRef}
         itemId={exhibit?.id ?? null}
         onClose={onClose}
+        onSwipeClose={onSwipeClose}
         onCollapse={resetAudio}
         onReady={() => setReady(true)}
       >
@@ -339,6 +348,8 @@ export default function PreviewSheet({
                 expanded={expanded}
                 displayId={exhibit?.displayId}
                 onExpand={expand}
+                tourPreviewUrl={tourNodeId ? exhibit?.tour_preview_url : null}
+                onTourEnter={enterTour}
                 thumb={
                   <div className="relative w-14 h-14">
                     <div
@@ -349,6 +360,11 @@ export default function PreviewSheet({
                         overflow: 'hidden',
                       }}
                     />
+                    {tourNodeId && (
+                      <span className="absolute top-1 left-1 px-1 rounded-full text-[9px] font-extrabold leading-4 bg-black/60 text-white">
+                        360°
+                      </span>
+                    )}
                     {exhibit?.displayId != null && (
                       <div className="absolute" style={{ bottom: -4, right: -4 }}>
                         <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">

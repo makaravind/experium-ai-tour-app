@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { CachedAmenity, CachedExhibit, Language, User } from '@/lib/types'
+import type { CachedAmenity, CachedExhibit, Language, TourSpot, User } from '@/lib/types'
 
 export type QueuedScan = {
   id: string
@@ -27,6 +27,11 @@ interface Store {
 
   cachedAmenities: CachedAmenity[]
   setCachedAmenities: (a: CachedAmenity[]) => void
+
+  tourSpot: TourSpot | null
+  setTourSpot: (s: TourSpot) => void
+  clearTourSpot: () => void
+  markTourSpotFlown: () => void
 
   // QR codes already counted toward totalDiscovered
   discoveredCodes: string[]
@@ -100,6 +105,12 @@ export const useStore = create<Store>()(
       cachedAmenities: [],
       setCachedAmenities: (cachedAmenities) => set({ cachedAmenities }),
 
+      tourSpot: null,
+      setTourSpot: (tourSpot) => set({ tourSpot }),
+      clearTourSpot: () => set({ tourSpot: null }),
+      markTourSpotFlown: () =>
+        set((s) => (s.tourSpot ? { tourSpot: { ...s.tourSpot, flown: true } } : s)),
+
       discoveredCodes: [],
       discoverCode: (code) => {
         const s = get()
@@ -150,7 +161,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'experium-store',
-      version: 5,
+      version: 7,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<Store>
         if (version === 0) {
@@ -170,7 +181,10 @@ export const useStore = create<Store>()(
         if (version < 4) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
         // v4 cachedAmenities lack section: clear to force re-fetch
         if (version < 5) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
-        return state as Store
+        // v5 cachedExhibits lack tour_* fields: clear to force re-fetch
+        if (version < 6) return { ...state, cachedExhibits: [], cachedAmenities: [] } as Store
+        // v6 -> v7 adds tourSpot; keeps the cached dataset
+        return { ...state, tourSpot: null } as Store
       },
       partialize: (s) => ({
         language: s.language,
@@ -181,6 +195,7 @@ export const useStore = create<Store>()(
         mapViewport: s.mapViewport,
         cachedExhibits: s.cachedExhibits,
         cachedAmenities: s.cachedAmenities,
+        tourSpot: s.tourSpot,
         discoveredCodes: s.discoveredCodes,
         scanQueue: s.scanQueue,
         precacheLanguage: s.precacheLanguage,

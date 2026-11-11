@@ -15,6 +15,10 @@ const cached = (over: Partial<CachedExhibit> = {}): CachedExhibit => ({
   gps_lng: 78.460897,
   exhibitStatus: 'live',
   displayId: 'K7',
+  tour_node_id: null,
+  tour_heading: null,
+  tour_pitch: null,
+  tour_preview_url: null,
   ...over,
 })
 
@@ -40,6 +44,18 @@ describe('toMapExhibits', () => {
   it('passes displayId through', () => {
     const [out] = toMapExhibits([cached({ id: 'a', displayId: 'K11' })])
     expect(out.displayId).toBe('K11')
+  })
+
+  it('passes tour fields through', () => {
+    const [out] = toMapExhibits([
+      cached({ tour_node_id: 'n1', tour_heading: 90, tour_pitch: -5, tour_preview_url: 'u' }),
+    ])
+    expect(out).toMatchObject({
+      tour_node_id: 'n1',
+      tour_heading: 90,
+      tour_pitch: -5,
+      tour_preview_url: 'u',
+    })
   })
 
   it('takes languages from the audio keys and status from exhibitStatus', () => {

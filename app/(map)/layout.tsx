@@ -31,6 +31,10 @@ function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
     languages: exhibit.languages,
     displayId: exhibit.displayId,
     facts: exhibit.facts,
+    tour_node_id: exhibit.tour_node_id,
+    tour_heading: exhibit.tour_heading,
+    tour_pitch: exhibit.tour_pitch,
+    tour_preview_url: exhibit.tour_preview_url,
   }
 }
 
@@ -106,6 +110,31 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
       useMapStore.getState().setActiveAmenityId(null)
     }
   }, [isExhibitPage])
+
+  // Arriving from /tour's Navigate: open that exhibit's sheet and centre on it. Taken from the store
+  // once into a ref and kept until the exhibit is in `mapExhibits` (the dataset may land after mount).
+  // StrictMode's second effect pass re-runs the clear above, so it re-applies against the same
+  // `mapExhibits`; a later change of `mapExhibits` drops the ref so a refresh can't reopen the sheet.
+  const tourFocusRef = useRef<{ id: string; appliedWith: MapExhibit[] | null } | null>(null)
+  useEffect(() => {
+    const { tourFocusExhibitId, setTourFocusExhibitId } = useMapStore.getState()
+    if (tourFocusExhibitId) {
+      tourFocusRef.current = { id: tourFocusExhibitId, appliedWith: null }
+      setTourFocusExhibitId(null)
+    }
+    const pending = tourFocusRef.current
+    if (!pending) return
+    if (pending.appliedWith && pending.appliedWith !== mapExhibits) {
+      tourFocusRef.current = null
+      return
+    }
+    const exhibit = mapExhibits.find((e) => e.id === pending.id)
+    if (!exhibit) return
+    pending.appliedWith = mapExhibits
+    setMapSelectedExhibit(toPreviewExhibit(exhibit))
+    setFlyToTarget(exhibit.id)
+    setNavigateEnabled(true)
+  }, [mapExhibits])
 
   // Fly to exhibit when page data arrives or changes
 

@@ -16,6 +16,8 @@ export default function SheetSummary({
   onExpand,
   count,
   palette,
+  tourPreviewUrl,
+  onTourEnter,
 }: {
   expanded: boolean
   thumb: ReactNode
@@ -27,6 +29,8 @@ export default function SheetSummary({
   onExpand?: () => void
   count?: number
   palette?: Palette
+  tourPreviewUrl?: string | null
+  onTourEnter?: () => void
 }) {
   return (
     <div className={expanded ? 'flex flex-col gap-3' : 'flex flex-row gap-3 items-center pr-9'}>
@@ -40,7 +44,12 @@ export default function SheetSummary({
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
             >
-              <Gallery count={count} palette={palette} />
+              <Gallery
+                count={count}
+                palette={palette}
+                tourPreviewUrl={tourPreviewUrl}
+                onTourEnter={onTourEnter}
+              />
               <motion.button
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

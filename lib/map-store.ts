@@ -37,6 +37,11 @@ interface MapStoreState {
   setFlyToParkTrigger: (fn: (() => void) | null) => void
   recenterTrigger: (() => void) | null
   setRecenterTrigger: (fn: (() => void) | null) => void
+  flyToTourSpotTrigger: (() => void) | null
+  setFlyToTourSpotTrigger: (fn: (() => void) | null) => void
+  // Exhibit /tour's Navigate hands to the map: the layout opens its sheet and centres on it, once
+  tourFocusExhibitId: string | null
+  setTourFocusExhibitId: (id: string | null) => void
   retryGpsTrigger: (() => void) | null
   setRetryGpsTrigger: (fn: (() => void) | null) => void
   // Set at page land by ExhibitPageClient (local-first discovery), read synchronously
@@ -80,6 +85,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   setFlyToParkTrigger: (fn) => set({ flyToParkTrigger: fn }),
   recenterTrigger: null,
   setRecenterTrigger: (fn) => set({ recenterTrigger: fn }),
+  flyToTourSpotTrigger: null,
+  setFlyToTourSpotTrigger: (fn) => set({ flyToTourSpotTrigger: fn }),
+  tourFocusExhibitId: null,
+  setTourFocusExhibitId: (id) => set({ tourFocusExhibitId: id }),
   retryGpsTrigger: null,
   setRetryGpsTrigger: (fn) => set({ retryGpsTrigger: fn }),
   pendingDiscovery: null,

@@ -161,14 +161,49 @@ describe('persist migration v1 -> v2', () => {
     expect(out.cachedAmenities).toEqual([])
   })
 
-  it('leaves v5 state untouched', () => {
+  it('clears datasets on v5->v6 migration (tour fields)', () => {
     const fn = useStore.persist.getOptions().migrate!
     const out = fn(
       { cachedExhibits: [{ id: 'x' }], cachedAmenities: [{ id: 'a' }] },
       5
     ) as unknown as Record<string, unknown>
+    expect(out.cachedExhibits).toEqual([])
+    expect(out.cachedAmenities).toEqual([])
+  })
+
+  it('v6->v7 adds tourSpot null and keeps the cached dataset', () => {
+    const fn = useStore.persist.getOptions().migrate!
+    const out = fn(
+      { language: 'hi', cachedExhibits: [{ id: 'x' }], cachedAmenities: [{ id: 'a' }] },
+      6
+    ) as unknown as Record<string, unknown>
     expect(out.cachedExhibits).toEqual([{ id: 'x' }])
     expect(out.cachedAmenities).toEqual([{ id: 'a' }])
+    expect(out.language).toBe('hi')
+    expect(out.tourSpot).toBeNull()
+  })
+
+  it('persists tourSpot and clears it', () => {
+    const spot = { nodeId: 'n', lat: 1, lng: 2, heading: 90, label: 'L', at: 5 }
+    useStore.getState().setTourSpot(spot)
+    const persisted = () =>
+      useStore.persist.getOptions().partialize!(useStore.getState()) as Record<string, unknown>
+    expect(persisted().tourSpot).toEqual(spot)
+    useStore.getState().clearTourSpot()
+    expect(persisted().tourSpot).toBeNull()
+  })
+
+  it('marks the tourSpot flown and persists the mark', () => {
+    const spot = { nodeId: 'n', lat: 1, lng: 2, heading: 90, label: 'L', at: 5 }
+    useStore.getState().setTourSpot(spot)
+    useStore.getState().markTourSpotFlown()
+    const persisted = useStore.persist.getOptions().partialize!(useStore.getState()) as {
+      tourSpot: unknown
+    }
+    expect(persisted.tourSpot).toEqual({ ...spot, flown: true })
+    useStore.getState().clearTourSpot()
+    useStore.getState().markTourSpotFlown() // no spot: stays null
+    expect(useStore.getState().tourSpot).toBeNull()
   })
 
   it('persists cachedAmenities', () => {

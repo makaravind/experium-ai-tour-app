@@ -32,6 +32,10 @@ function toPreview(ex: CachedExhibit): PreviewExhibit {
     qr_code: ex.code,
     facts: ex.facts,
     displayId: ex.displayId,
+    tour_node_id: ex.tour_node_id,
+    tour_heading: ex.tour_heading,
+    tour_pitch: ex.tour_pitch,
+    tour_preview_url: ex.tour_preview_url,
   }
 }
 

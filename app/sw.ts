@@ -5,7 +5,7 @@ import { ExpirationPlugin } from 'serwist'
 import { CacheableResponsePlugin } from 'serwist'
 import { RangeRequestsPlugin } from 'serwist'
 import { createPartialResponse } from 'serwist'
-import { MAP_CACHE } from '@/lib/cache-names'
+import { MAP_CACHE, TOUR_PREVIEW_CACHE } from '@/lib/cache-names'
 
 declare global {
   interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -18,7 +18,7 @@ declare const self: ServiceWorkerGlobalScope
 // Every page document, fetched at install so any route opens offline. Not precached: Serwist's
 // precache route answers cache-first, so online visitors would get the previous deploy's pages.
 const PAGES_CACHE = 'pages-cache'
-const PAGES = ['/', '/map', '/scan', '/collection', '/s/_shell']
+const PAGES = ['/', '/map', '/scan', '/collection', '/tour', '/s/_shell']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -65,6 +65,13 @@ const serwist = new Serwist({
           new RangeRequestsPlugin(),
           new CacheableResponsePlugin({ statuses: [0, 200, 206] }),
         ],
+      }),
+    },
+    {
+      matcher: ({ url }) => /\/panoramas\/[^/]+\/preview\.jpg$/.test(url.pathname),
+      handler: new CacheFirst({
+        cacheName: TOUR_PREVIEW_CACHE,
+        plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })],
       }),
     },
     {

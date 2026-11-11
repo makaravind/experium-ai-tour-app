@@ -23,6 +23,7 @@ export type BottomSheetHandle = {
 export default function BottomSheet({
   itemId,
   onClose,
+  onSwipeClose,
   onCollapse,
   onReady,
   ref,
@@ -30,6 +31,8 @@ export default function BottomSheet({
 }: {
   itemId: string | null
   onClose?: () => void
+  /** Swipe-down close from the peek position, with no tap-outside backdrop (unlike `onClose`). */
+  onSwipeClose?: () => void
   onCollapse?: () => void
   onReady?: () => void
   ref?: Ref<BottomSheetHandle>
@@ -92,11 +95,12 @@ export default function BottomSheet({
 
   useImperativeHandle(ref, () => ({ expand, collapse }))
 
-  const handleClose = () => {
+  const close = (done?: () => void) => {
     onCollapse?.()
     setExpanded(false)
-    animate(y, fullH, { ...SHEET_SPRING, onComplete: () => onClose?.() })
+    animate(y, fullH, { ...SHEET_SPRING, onComplete: () => done?.() })
   }
+  const handleClose = () => close(onClose)
 
   return (
     <>
@@ -123,6 +127,11 @@ export default function BottomSheet({
         }}
         onDragEnd={(_, info) => {
           const flick = info.velocity.y
+          // Pulled down from the peek position (past the elastic edge), not just collapsed from full.
+          if (onSwipeClose && (flick > 400 || y.get() > yOffset + 24) && y.get() >= yOffset) {
+            close(onSwipeClose)
+            return
+          }
           const pastHalfway = y.get() < yOffset / 2
           if (flick < -400 || (pastHalfway && flick <= 400)) expand(flick)
           else collapse(flick)
