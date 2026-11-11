@@ -83,6 +83,9 @@ interface Store {
 
   insightsKey: string | null
   setInsightsKey: (key: string | null) => void
+
+  insightsKeyDialogOpen: boolean
+  setInsightsKeyDialogOpen: (v: boolean) => void
 }
 
 export const useStore = create<Store>()(
@@ -164,6 +167,9 @@ export const useStore = create<Store>()(
 
       insightsKey: null,
       setInsightsKey: (insightsKey) => set({ insightsKey }),
+
+      insightsKeyDialogOpen: false,
+      setInsightsKeyDialogOpen: (insightsKeyDialogOpen) => set({ insightsKeyDialogOpen }),
     }),
     {
       name: 'experium-store',
