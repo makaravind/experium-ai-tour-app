@@ -25,7 +25,8 @@ export default function Gallery({
   onTourEnter?: () => void
 }) {
   const hasTour = !!tourPreviewUrl
-  const total = count + (hasTour ? 1 : 0)
+  const offset = hasTour ? 1 : 0 // tour slide, when present, is slide 0
+  const total = count + offset
   const trackRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<(HTMLButtonElement | null)[]>([])
   const [active, setActive] = useState(0)
@@ -57,6 +58,27 @@ export default function Gallery({
           role="group"
           aria-label="Exhibit photos"
         >
+          {hasTour && (
+            <div className="w-full flex-shrink-0 snap-center">
+              <button
+                className="relative w-full overflow-hidden cursor-pointer"
+                style={{ aspectRatio: '1/1', border: 'none', padding: 0 }}
+                onClick={onTourEnter}
+                aria-label="360° virtual tour — tap to explore"
+              >
+                <div
+                  className="tour-pan absolute inset-0"
+                  style={{ backgroundImage: `url("${tourPreviewUrl}")` }}
+                />
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-extrabold bg-black/55 text-white">
+                  360°
+                </span>
+                <span className="absolute bottom-8 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold bg-black/55 text-white whitespace-nowrap">
+                  Tap to explore
+                </span>
+              </button>
+            </div>
+          )}
           {Array.from({ length: count }, (_, i) => (
             <div key={i} className="w-full flex-shrink-0 snap-center">
               <button
@@ -80,27 +102,6 @@ export default function Gallery({
               </button>
             </div>
           ))}
-          {hasTour && (
-            <div className="w-full flex-shrink-0 snap-center">
-              <button
-                className="relative w-full overflow-hidden cursor-pointer"
-                style={{ aspectRatio: '1/1', border: 'none', padding: 0 }}
-                onClick={onTourEnter}
-                aria-label="360° virtual tour — tap to explore"
-              >
-                <div
-                  className="tour-pan absolute inset-0"
-                  style={{ backgroundImage: `url("${tourPreviewUrl}")` }}
-                />
-                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-extrabold bg-black/55 text-white">
-                  360°
-                </span>
-                <span className="absolute bottom-8 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold bg-black/55 text-white whitespace-nowrap">
-                  Tap to explore
-                </span>
-              </button>
-            </div>
-          )}
         </div>
         <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold bg-black/50 text-white">
           {active + 1} / {total}
@@ -126,34 +127,11 @@ export default function Gallery({
 
       {/* Thumbnail strip */}
       <div className="flex gap-2 mt-3 justify-center">
-        {Array.from({ length: count }, (_, i) => (
-          <button
-            key={i}
-            onClick={() => goTo(i)}
-            className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
-              i === active ? 'border-ex-forest' : 'border-transparent'
-            }`}
-            style={{
-              width: 60,
-              height: 48,
-              background: bgFor(i),
-              padding: 0,
-            }}
-            aria-label={`Go to photo ${i + 1}`}
-            aria-current={i === active}
-          >
-            {i > 0 && (
-              <div className="w-full h-full flex items-center justify-center">
-                <LeafOutlineIcon size={16} color={palette.blankIcon} strokeWidth={1.6} />
-              </div>
-            )}
-          </button>
-        ))}
         {hasTour && (
           <button
-            onClick={() => goTo(count)}
+            onClick={() => goTo(0)}
             className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
-              active === count ? 'border-ex-forest' : 'border-transparent'
+              active === 0 ? 'border-ex-forest' : 'border-transparent'
             }`}
             style={{
               width: 60,
@@ -164,13 +142,36 @@ export default function Gallery({
               padding: 0,
             }}
             aria-label="Go to 360° tour"
-            aria-current={active === count}
+            aria-current={active === 0}
           >
             <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-white bg-black/35">
               360°
             </span>
           </button>
         )}
+        {Array.from({ length: count }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => goTo(i + offset)}
+            className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+              i + offset === active ? 'border-ex-forest' : 'border-transparent'
+            }`}
+            style={{
+              width: 60,
+              height: 48,
+              background: bgFor(i),
+              padding: 0,
+            }}
+            aria-label={`Go to photo ${i + 1}`}
+            aria-current={i + offset === active}
+          >
+            {i > 0 && (
+              <div className="w-full h-full flex items-center justify-center">
+                <LeafOutlineIcon size={16} color={palette.blankIcon} strokeWidth={1.6} />
+              </div>
+            )}
+          </button>
+        ))}
       </div>
     </div>
   )
