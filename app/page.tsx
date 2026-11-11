@@ -26,7 +26,7 @@ export default function Home() {
 
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ fontFamily: 'var(--font-body)' }}>
-      <div className="flex flex-col h-full px-5 pt-8 pb-[110px]">
+      <div className="flex flex-col h-full px-5 pt-8 pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))]">
         <div className="font-display font-extrabold text-2xl flex items-center gap-1.5">
           {isFresh ? (
             <>
