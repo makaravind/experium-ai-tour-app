@@ -94,6 +94,8 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
 
   if (picks.length === 0) return null
 
+  const peekThumb = thumbUrl(picks[0].exhibit)
+
   const handleReveal = () => {
     if (stkRef.current) stkRef.current.style.transform = 'translateX(5px)'
     setTimeout(() => setExpanded(true), 420)
@@ -139,7 +141,21 @@ export default function DidYouKnow({ onSelect }: { onSelect: (exhibit: PreviewEx
               className={`dyk-stk-c ${colorClass(picks[0].exhibit.type)}`}
               style={{ position: 'relative', transform: 'rotate(-2deg)', zIndex: 3 }}
             >
-              <div style={{ height: 80, width: '100%' }} />
+              <div style={{ height: 80, width: '100%', overflow: 'hidden' }}>
+                {peekThumb && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={peekThumb}
+                    src={peekThumb}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    // Offline and uncached: hide it so the colour block shows, not a broken icon.
+                    onError={(e) => {
+                      e.currentTarget.style.visibility = 'hidden'
+                    }}
+                  />
+                )}
+              </div>
               <div style={{ background: '#fff', padding: '8px 10px 10px' }}>
                 <div
                   style={{
