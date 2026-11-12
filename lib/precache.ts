@@ -90,6 +90,7 @@ export async function fetchCachedExhibits(): Promise<CachedExhibit[]> {
       .select(
         'id, code, section, number, name, type, tier, facts, status, gps_lat, gps_lng, tour_node_id, tour_heading, tour_pitch, tour_nodes(preview_url), exhibit_photos(url, caption, is_hero, sort_order), exhibit_audio(language, audio_url, status)'
       )
+      .neq('status', 'disabled')
       .abortSignal(ctrl.signal)
     // postgrest-js returns { error } on abort instead of throwing
     if (ctrl.signal.aborted) throw new ConnectionTimeoutError()

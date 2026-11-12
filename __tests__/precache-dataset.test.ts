@@ -6,11 +6,16 @@ import { ConnectionTimeoutError, DATASET_TIMEOUT_MS } from '@/lib/timeouts'
 const results: Record<string, { data: unknown; error: { message: string } | null }> = {}
 
 let hang = false
+const neq = vi.fn()
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: (table: string) => ({
-      select: () => ({
+    from: (table: string) => {
+      const q = {
+        neq: (...args: unknown[]) => {
+          neq(table, ...args)
+          return q
+        },
         abortSignal: (signal: AbortSignal) =>
           hang
             ? new Promise((resolve) =>
@@ -19,8 +24,9 @@ vi.mock('@/lib/supabase', () => ({
                 )
               )
             : Promise.resolve(results[table]),
-      }),
-    }),
+      }
+      return { select: () => q }
+    },
   },
 }))
 
@@ -57,6 +63,7 @@ const exhibitRow = {
 beforeEach(() => {
   vi.useRealTimers()
   hang = false
+  neq.mockClear()
   vi.stubGlobal('caches', { open: async () => ({ keys: async () => [] }) })
   useStore.setState({ cachedExhibits: [], cachedAmenities: [], assetFailures: {} })
   results.exhibits = { data: [exhibitRow], error: null }
@@ -83,6 +90,11 @@ describe('fetchCachedAmenities', () => {
 })
 
 describe('fetchCachedExhibits', () => {
+  it('excludes disabled exhibits at the query', async () => {
+    await fetchCachedExhibits()
+    expect(neq).toHaveBeenCalledWith('exhibits', 'status', 'disabled')
+  })
+
   it('maps exhibit_photos sorted by sort_order, dropping sort_order', async () => {
     results.exhibits = {
       data: [

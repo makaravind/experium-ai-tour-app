@@ -6,9 +6,10 @@ import { parseFacts, validateNumber } from '@/lib/admin/validation'
 
 const TYPES = ['flora', 'structure', 'water_body', 'landmark']
 const TIERS = ['gold', 'silver', 'bronze']
-const STATUSES = ['live', 'coming_soon']
+const STATUSES = ['live', 'coming_soon', 'disabled']
 
-const inputCls = 'w-full rounded-md border border-border bg-background px-2 py-1 text-sm disabled:opacity-60'
+const inputCls =
+  'w-full rounded-md border border-border bg-background px-2 py-1 text-sm disabled:opacity-60'
 
 interface Props {
   exhibit: AdminExhibit
@@ -19,7 +20,15 @@ interface Props {
   onValidityChange?: (error: string | null) => void
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string
+  error?: string
+  children: React.ReactNode
+}) {
   return (
     <label className="block space-y-1">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
@@ -38,8 +47,10 @@ export default function DetailsPanel({ exhibit, exhibits, onChange, onValidityCh
   const [factsText, setFactsText] = useState(formatFacts(exhibit.facts))
   const [seen, setSeen] = useState({ id: exhibit.id, number: exhibit.number, facts: exhibit.facts })
   if (seen.id !== exhibit.id || seen.number !== exhibit.number || seen.facts !== exhibit.facts) {
-    if (seen.id !== exhibit.id || seen.number !== exhibit.number) setNumberText(String(exhibit.number ?? ''))
-    if (seen.id !== exhibit.id || seen.facts !== exhibit.facts) setFactsText(formatFacts(exhibit.facts))
+    if (seen.id !== exhibit.id || seen.number !== exhibit.number)
+      setNumberText(String(exhibit.number ?? ''))
+    if (seen.id !== exhibit.id || seen.facts !== exhibit.facts)
+      setFactsText(formatFacts(exhibit.facts))
     setSeen({ id: exhibit.id, number: exhibit.number, facts: exhibit.facts })
   }
 
@@ -47,7 +58,8 @@ export default function DetailsPanel({ exhibit, exhibits, onChange, onValidityCh
   const factsResult = parseFacts(factsText)
 
   const placed = exhibit.section !== null
-  const error = placed && !numberResult.ok ? numberResult.error : factsResult.ok ? null : factsResult.error
+  const error =
+    placed && !numberResult.ok ? numberResult.error : factsResult.ok ? null : factsResult.error
   useEffect(() => {
     onValidityChange?.(error)
   }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -77,7 +89,12 @@ export default function DetailsPanel({ exhibit, exhibits, onChange, onValidityCh
     <div className="space-y-3 p-3">
       <div className="grid grid-cols-3 gap-3">
         <Field label="Code">
-          <input className={inputCls} value={exhibit.code ?? 'assigned on save'} disabled readOnly />
+          <input
+            className={inputCls}
+            value={exhibit.code ?? 'assigned on save'}
+            disabled
+            readOnly
+          />
         </Field>
         <Field label="Section">
           <input className={inputCls} value={exhibit.section ?? 'unplaced'} disabled readOnly />
@@ -95,7 +112,11 @@ export default function DetailsPanel({ exhibit, exhibits, onChange, onValidityCh
       </div>
 
       <Field label="Name">
-        <input className={inputCls} value={exhibit.name} onChange={(e) => update({ name: e.target.value })} />
+        <input
+          className={inputCls}
+          value={exhibit.name}
+          onChange={(e) => update({ name: e.target.value })}
+        />
       </Field>
 
       <div className="grid grid-cols-3 gap-3">
@@ -114,7 +135,11 @@ export default function DetailsPanel({ exhibit, exhibits, onChange, onValidityCh
           </select>
         </Field>
         <Field label="Tier">
-          <select className={inputCls} value={exhibit.tier} onChange={(e) => update({ tier: e.target.value })}>
+          <select
+            className={inputCls}
+            value={exhibit.tier}
+            onChange={(e) => update({ tier: e.target.value })}
+          >
             {TIERS.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -123,7 +148,11 @@ export default function DetailsPanel({ exhibit, exhibits, onChange, onValidityCh
           </select>
         </Field>
         <Field label="Status">
-          <select className={inputCls} value={exhibit.status} onChange={(e) => update({ status: e.target.value })}>
+          <select
+            className={inputCls}
+            value={exhibit.status}
+            onChange={(e) => update({ status: e.target.value })}
+          >
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -142,7 +171,10 @@ export default function DetailsPanel({ exhibit, exhibits, onChange, onValidityCh
         />
       </Field>
 
-      <Field label='Facts (JSON: [{"fact": "..."}])' error={factsResult.ok ? undefined : factsResult.error}>
+      <Field
+        label='Facts (JSON: [{"fact": "..."}])'
+        error={factsResult.ok ? undefined : factsResult.error}
+      >
         <textarea
           className={`${inputCls} font-mono`}
           rows={8}

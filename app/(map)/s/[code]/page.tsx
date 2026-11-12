@@ -12,7 +12,7 @@ interface Exhibit {
   name: string
   type: string | null
   tier: string
-  status: 'live' | 'coming_soon'
+  status: 'live' | 'coming_soon' | 'disabled'
   facts: Fact[] | null
   exhibit_audio: ExhibitAudio[]
 }
@@ -22,6 +22,7 @@ type Live =
   | { state: 'offline' }
   | { state: 'missing' }
   | { state: 'coming_soon' }
+  | { state: 'unavailable' }
   | { state: 'found'; exhibit: Exhibit }
 
 function Message({ children }: { children: React.ReactNode }) {
@@ -70,6 +71,8 @@ export default function ExhibitPage() {
         if (error || !data) {
           // A network failure is a cache gap, not a missing exhibit.
           setLive({ state: navigator.onLine ? 'missing' : 'offline' })
+        } else if (data.status === 'disabled') {
+          setLive({ state: 'unavailable' })
         } else if (data.status !== 'live') {
           setLive({ state: 'coming_soon' })
         } else {
@@ -113,6 +116,8 @@ export default function ExhibitPage() {
       return <Message>Exhibit not found.</Message>
     case 'coming_soon':
       return <Message>Content coming soon.</Message>
+    case 'unavailable':
+      return <Message>This exhibit is temporarily unavailable.</Message>
     case 'found': {
       const { exhibit } = live
       return (

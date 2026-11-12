@@ -21,7 +21,7 @@ export interface AdminExhibit {
   name: string
   type: string | null
   tier: string
-  status: string // 'live' | 'coming_soon'
+  status: string // 'live' | 'coming_soon' | 'disabled'
   description: string | null
   facts: Fact[]
   gps_lat: number | null
@@ -87,7 +87,9 @@ export interface AudioChange {
 }
 
 /** `id` + changed keys of an existing photo. */
-export type PhotoUpdate = { id: string } & Partial<Pick<AdminPhoto, 'url' | 'caption' | 'is_hero' | 'sort_order'>>
+export type PhotoUpdate = { id: string } & Partial<
+  Pick<AdminPhoto, 'url' | 'caption' | 'is_hero' | 'sort_order'>
+>
 
 /** Amenity entry in the save payload: full row for a new amenity, `id` + changed keys for an existing one. */
 export type AmenityChange = { id: string } & Partial<Omit<AdminAmenity, 'id'>>
