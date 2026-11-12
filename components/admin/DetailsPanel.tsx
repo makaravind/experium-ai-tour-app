@@ -111,6 +111,15 @@ export default function DetailsPanel({ exhibit, exhibits, onChange, onValidityCh
         </Field>
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Latitude">
+          <input className={inputCls} value={exhibit.gps_lat ?? '—'} disabled readOnly />
+        </Field>
+        <Field label="Longitude">
+          <input className={inputCls} value={exhibit.gps_lng ?? '—'} disabled readOnly />
+        </Field>
+      </div>
+
       <Field label="Name">
         <input
           className={inputCls}

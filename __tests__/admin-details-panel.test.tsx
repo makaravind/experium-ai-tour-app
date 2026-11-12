@@ -32,6 +32,20 @@ describe('DetailsPanel', () => {
     expect(onChange).toHaveBeenCalledWith({ ...e, name: 'Banyan' })
   })
 
+  it('shows read-only coordinates, dash when unplaced', () => {
+    const placed = make({ gps_lat: 17.385044, gps_lng: 78.486671 })
+    const { unmount } = render(
+      <DetailsPanel exhibit={placed} exhibits={[placed]} onChange={vi.fn()} />
+    )
+    expect((screen.getByLabelText('Latitude') as HTMLInputElement).value).toBe('17.385044')
+    expect((screen.getByLabelText('Longitude') as HTMLInputElement).value).toBe('78.486671')
+    expect((screen.getByLabelText('Latitude') as HTMLInputElement).readOnly).toBe(true)
+    unmount()
+    const e = make()
+    render(<DetailsPanel exhibit={e} exhibits={[e]} onChange={vi.fn()} />)
+    expect((screen.getByLabelText('Latitude') as HTMLInputElement).value).toBe('—')
+  })
+
   it('blocks a duplicate number: shows error, does not emit', () => {
     const onChange = vi.fn()
     const e = make()
@@ -70,10 +84,14 @@ describe('DetailsPanel', () => {
 
   it('resets editor text when the exhibit changes', () => {
     const e = make()
-    const { rerender } = render(<DetailsPanel exhibit={e} exhibits={[e, other]} onChange={vi.fn()} />)
+    const { rerender } = render(
+      <DetailsPanel exhibit={e} exhibits={[e, other]} onChange={vi.fn()} />
+    )
     fireEvent.change(screen.getByLabelText(/Facts/), { target: { value: 'garbage' } })
     rerender(<DetailsPanel exhibit={other} exhibits={[e, other]} onChange={vi.fn()} />)
-    expect((screen.getByLabelText(/Facts/) as HTMLTextAreaElement).value).toBe(JSON.stringify(other.facts, null, 2))
+    expect((screen.getByLabelText(/Facts/) as HTMLTextAreaElement).value).toBe(
+      JSON.stringify(other.facts, null, 2)
+    )
     expect(screen.getByDisplayValue('2')).toBeTruthy()
   })
 
@@ -81,11 +99,18 @@ describe('DetailsPanel', () => {
     const onValidityChange = vi.fn()
     const e = make()
     const { unmount } = render(
-      <DetailsPanel exhibit={e} exhibits={[e, other]} onChange={vi.fn()} onValidityChange={onValidityChange} />,
+      <DetailsPanel
+        exhibit={e}
+        exhibits={[e, other]}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+      />
     )
     expect(onValidityChange).toHaveBeenLastCalledWith(null)
     fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '2' } })
-    expect(onValidityChange).toHaveBeenLastCalledWith(expect.stringMatching(/already used in section A/))
+    expect(onValidityChange).toHaveBeenLastCalledWith(
+      expect.stringMatching(/already used in section A/)
+    )
     fireEvent.change(screen.getByDisplayValue('2'), { target: { value: '3' } })
     expect(onValidityChange).toHaveBeenLastCalledWith(null)
     fireEvent.change(screen.getByLabelText(/Facts/), { target: { value: '[{"fact":' } })
@@ -98,11 +123,23 @@ describe('DetailsPanel', () => {
     const onValidityChange = vi.fn()
     const e = make()
     const { rerender } = render(
-      <DetailsPanel exhibit={e} exhibits={[e, other]} onChange={vi.fn()} onValidityChange={onValidityChange} />,
+      <DetailsPanel
+        exhibit={e}
+        exhibits={[e, other]}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+      />
     )
     fireEvent.change(screen.getByLabelText(/Facts/), { target: { value: 'garbage' } })
     expect(onValidityChange).toHaveBeenLastCalledWith(expect.any(String))
-    rerender(<DetailsPanel exhibit={other} exhibits={[e, other]} onChange={vi.fn()} onValidityChange={onValidityChange} />)
+    rerender(
+      <DetailsPanel
+        exhibit={other}
+        exhibits={[e, other]}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+      />
+    )
     expect(onValidityChange).toHaveBeenLastCalledWith(null)
   })
 })
