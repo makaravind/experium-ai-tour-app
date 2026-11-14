@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckIcon, CloseIcon, InfoIcon } from '@/components/icons'
-import { useStore } from '@/lib/store'
+import { useStore, selectTotalDiscovered } from '@/lib/store'
 import { TRAIL_MILESTONES, getCurrentSegment } from '@/lib/trail'
 
 const NODE_BASE = 'w-[26px] h-[26px] rounded-full flex-none grid place-items-center'
@@ -129,7 +129,7 @@ function TrailInfoModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function TrailCard() {
-  const totalDiscovered = useStore((s) => s.totalDiscovered)
+  const totalDiscovered = useStore(selectTotalDiscovered)
   const segment = getCurrentSegment(totalDiscovered)
   const router = useRouter()
   const [infoOpen, setInfoOpen] = useState(false)

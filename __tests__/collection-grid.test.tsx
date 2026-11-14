@@ -20,8 +20,8 @@ vi.mock('framer-motion', () => {
   return { motion: { button: strip('button'), div: strip('div') } }
 })
 
-function setTotal(totalDiscovered: number) {
-  useStore.setState({ totalDiscovered })
+function setTotal(total: number) {
+  useStore.setState({ discoveredByCampaign: { default: { codes: [], total } } })
 }
 
 function badge(m: number) {
@@ -40,8 +40,7 @@ describe('Collection badge grid', () => {
       assetFailures: {},
       acknowledgedCapped: [],
       visitorId: null,
-      totalDiscovered: 0,
-      discoveredCodes: [],
+      discoveredByCampaign: {},
       scanQueue: [],
     })
   })

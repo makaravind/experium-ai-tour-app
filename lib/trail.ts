@@ -1,4 +1,8 @@
-export const TRAIL_MILESTONES = [1, 3, 5, 10, 15, 20, 30, 40, 50] as const
+import { CAMPAIGNS } from '@/lib/campaigns'
+
+export const TRAIL_MILESTONES: readonly number[] = CAMPAIGNS.find(
+  (c) => c.id === 'default'
+)!.milestones
 
 export interface TrailSegment {
   achieved: number[]

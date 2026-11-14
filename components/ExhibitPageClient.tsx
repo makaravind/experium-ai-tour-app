@@ -45,7 +45,12 @@ export default function ExhibitPageClient({
     if (!visitorId || pageLandSentRef.current) return
     pageLandSentRef.current = true
     if (scanSrc === 'onsite') {
-      const result = useStore.getState().discoverCode(qrCode)
+      const result = useStore.getState().discoverCode(qrCode, {
+        scanSrc,
+        quartile: null,
+        position: null,
+        exhibit: { lat: null, lng: null },
+      })
       if (result) {
         useMapStore.getState().setPendingDiscovery({ exhibitId, ...result })
       }

@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { getCurrentSegment, getCrossedMilestone } from '@/lib/trail'
+import { getCurrentSegment, getCrossedMilestone, TRAIL_MILESTONES } from '@/lib/trail'
+import { CAMPAIGNS } from '@/lib/campaigns'
+
+describe('TRAIL_MILESTONES', () => {
+  it("is the default campaign's milestones", () => {
+    expect(TRAIL_MILESTONES).toEqual(CAMPAIGNS.find((c) => c.id === 'default')!.milestones)
+    expect(TRAIL_MILESTONES).toEqual([1, 3, 5, 10, 15, 20, 30, 40, 50])
+  })
+})
 
 describe('getCurrentSegment', () => {
   it('is not complete and has no achieved milestones at 0', () => {

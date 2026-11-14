@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { NO_PRECACHE_KEY } from '@/components/onboarding/AppGate'
-import { useStore } from '@/lib/store'
+import { useStore, selectTotalDiscovered } from '@/lib/store'
 import { useDebugStore } from '@/lib/debug-store'
 import {
   CONTENT_CACHE_NAMES,
@@ -30,7 +30,8 @@ export default function DebugPanel() {
   const cacheDebug = useDebugStore((s) => s.cacheDebug)
   const scanQueueDebug = useDebugStore((s) => s.scanQueueDebug)
   const scanQueueLength = useStore((s) => s.scanQueue.length)
-  const { language, visitedExhibits, totalDiscovered } = useStore()
+  const { language, visitedExhibits } = useStore()
+  const totalDiscovered = useStore(selectTotalDiscovered)
   const cachedExhibits = useStore((s) => s.cachedExhibits)
   const completionByGroup = useStore((s) => s.completionByGroup)
   const assetFailures = useStore((s) => s.assetFailures)
@@ -83,8 +84,7 @@ export default function DebugPanel() {
       visitorId: null,
       userInfo: null,
       visitedExhibits: [],
-      totalDiscovered: 0,
-      discoveredCodes: [],
+      discoveredByCampaign: {},
       scanQueue: [],
     })
     location.reload()

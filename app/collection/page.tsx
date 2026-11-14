@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { useStore } from '@/lib/store'
+import { useStore, selectTotalDiscovered } from '@/lib/store'
 import { getCurrentSegment, TRAIL_MILESTONES } from '@/lib/trail'
 import { CARD_GRADIENT_CSS, getBadgeColor } from '@/lib/badge-placeholder'
 import CardReveal from '@/components/collection/CardReveal'
@@ -14,7 +14,7 @@ type LiftPhase = { m: number; phase: 'raise' | 'flip' }
 function CollectionView() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const totalDiscovered = useStore((s) => s.totalDiscovered)
+  const totalDiscovered = useStore(selectTotalDiscovered)
   const [selected, setSelected] = useState<number | null>(null)
   const [lifting, setLifting] = useState<LiftPhase | null>(null)
 

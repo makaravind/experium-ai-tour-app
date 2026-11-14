@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useStore } from '@/lib/store'
+import { useStore, selectTotalDiscovered } from '@/lib/store'
 
 beforeEach(() => {
   useStore.setState({
@@ -12,8 +12,7 @@ beforeEach(() => {
     assetFailures: {},
     acknowledgedCapped: [],
     visitorId: null,
-    totalDiscovered: 0,
-    discoveredCodes: [],
+    discoveredByCampaign: {},
     scanQueue: [],
   })
 })
@@ -67,12 +66,12 @@ describe('precache slice', () => {
 
 describe('totalDiscovered', () => {
   it('defaults to 0', () => {
-    expect(useStore.getState().totalDiscovered).toBe(0)
+    expect(selectTotalDiscovered(useStore.getState())).toBe(0)
   })
 
   it('updates', () => {
     useStore.getState().setTotalDiscovered(5)
-    expect(useStore.getState().totalDiscovered).toBe(5)
+    expect(selectTotalDiscovered(useStore.getState())).toBe(5)
   })
 })
 
@@ -254,37 +253,62 @@ describe('acknowledgedCapped', () => {
   })
 })
 
+const ONSITE = {
+  scanSrc: 'onsite',
+  quartile: null,
+  position: null,
+  exhibit: { lat: null, lng: null },
+}
+const NO_MATCH = { ...ONSITE, scanSrc: null }
+
 describe('discoverCode', () => {
-  it('defaults discoveredCodes and scanQueue to []', () => {
-    expect(useStore.getState().discoveredCodes).toEqual([])
+  it('defaults discoveredByCampaign to {} and scanQueue to []', () => {
+    expect(useStore.getState().discoveredByCampaign).toEqual({})
     expect(useStore.getState().scanQueue).toEqual([])
   })
 
+  it('selector reads the default campaign total', () => {
+    useStore.setState({
+      discoveredByCampaign: { default: { codes: ['a'], total: 7 }, other: { codes: [], total: 2 } },
+    })
+    expect(selectTotalDiscovered(useStore.getState())).toBe(7)
+  })
+
   it('increments once per code and returns prev/new totals', () => {
-    useStore.setState({ totalDiscovered: 2 })
-    expect(useStore.getState().discoverCode('a')).toEqual({ prevTotal: 2, newTotal: 3 })
-    expect(useStore.getState().totalDiscovered).toBe(3)
-    expect(useStore.getState().discoveredCodes).toEqual(['a'])
+    useStore.setState({ discoveredByCampaign: { default: { codes: [], total: 2 } } })
+    expect(useStore.getState().discoverCode('a', ONSITE)).toEqual({ prevTotal: 2, newTotal: 3 })
+    expect(useStore.getState().discoveredByCampaign.default).toEqual({ codes: ['a'], total: 3 })
   })
 
   it('returns null and changes nothing on rescan', () => {
-    useStore.getState().discoverCode('a')
-    expect(useStore.getState().discoverCode('a')).toBeNull()
-    expect(useStore.getState().totalDiscovered).toBe(1)
-    expect(useStore.getState().discoveredCodes).toEqual(['a'])
+    useStore.getState().discoverCode('a', ONSITE)
+    expect(useStore.getState().discoverCode('a', ONSITE)).toBeNull()
+    expect(useStore.getState().discoveredByCampaign.default).toEqual({ codes: ['a'], total: 1 })
+  })
+
+  it('returns null and changes nothing when no rule matches', () => {
+    expect(useStore.getState().discoverCode('a', NO_MATCH)).toBeNull()
+    expect(useStore.getState().discoveredByCampaign).toEqual({})
+  })
+
+  it('setTotalDiscovered keeps the default campaign codes', () => {
+    useStore.getState().discoverCode('a', ONSITE)
+    useStore.getState().setTotalDiscovered(9)
+    expect(useStore.getState().discoveredByCampaign.default).toEqual({ codes: ['a'], total: 9 })
   })
 })
 
 describe('scanQueue persistence', () => {
   const entry = { id: 'q1', code: 'a', scanned_at: '2026-10-17T10:00:00.000Z', fields: {} }
 
-  it('partialize includes discoveredCodes and scanQueue', () => {
-    useStore.setState({ discoveredCodes: ['a'], scanQueue: [entry] })
+  it('partialize includes discoveredByCampaign and scanQueue', () => {
+    const byCampaign = { default: { codes: ['a'], total: 1 } }
+    useStore.setState({ discoveredByCampaign: byCampaign, scanQueue: [entry] })
     const out = useStore.persist.getOptions().partialize!(useStore.getState()) as Record<
       string,
       unknown
     >
-    expect(out.discoveredCodes).toEqual(['a'])
+    expect(out.discoveredByCampaign).toEqual(byCampaign)
     expect(out.scanQueue).toEqual([entry])
   })
 
@@ -295,24 +319,37 @@ describe('scanQueue persistence', () => {
     )
     await useStore.persist.rehydrate()
     expect(useStore.getState().language).toBe('hi')
-    expect(useStore.getState().totalDiscovered).toBe(4)
-    expect(useStore.getState().discoveredCodes).toEqual([])
+    expect(selectTotalDiscovered(useStore.getState())).toBe(4)
+    expect(useStore.getState().discoveredByCampaign.default.codes).toEqual([])
     expect(useStore.getState().scanQueue).toEqual([])
+  })
+
+  it('migrates the pre-v9 discoveredCodes/totalDiscovered into the default campaign', async () => {
+    localStorage.setItem(
+      'experium-store',
+      JSON.stringify({ state: { discoveredCodes: ['a', 'b'], totalDiscovered: 5 }, version: 8 })
+    )
+    await useStore.persist.rehydrate()
+    expect(useStore.getState().discoveredByCampaign).toEqual({
+      default: { codes: ['a', 'b'], total: 5 },
+    })
   })
 
   it("a storage event + rehydrate picks up another tab's queue", async () => {
     localStorage.setItem(
       'experium-store',
       JSON.stringify({
-        state: { discoveredCodes: ['a'], scanQueue: [entry], totalDiscovered: 1 },
-        version: 1,
+        state: {
+          discoveredByCampaign: { default: { codes: ['a'], total: 1 } },
+          scanQueue: [entry],
+        },
+        version: 9,
       })
     )
     window.dispatchEvent(new StorageEvent('storage', { key: 'experium-store' }))
     // ScanQueueSync's storage handler is `rehydrate()`; the event itself carries no state
     await useStore.persist.rehydrate()
     expect(useStore.getState().scanQueue).toEqual([entry])
-    expect(useStore.getState().discoveredCodes).toEqual(['a'])
-    expect(useStore.getState().totalDiscovered).toBe(1)
+    expect(useStore.getState().discoveredByCampaign.default).toEqual({ codes: ['a'], total: 1 })
   })
 })
