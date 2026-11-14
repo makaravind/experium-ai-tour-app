@@ -16,6 +16,7 @@ import InfoModal from '@/components/onboarding/InfoModal'
 import { CompassIcon, HomeIcon, SearchIcon } from '@/components/icons'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
+import { reportPlayback } from '@/lib/playback-report'
 import { getCrossedMilestone } from '@/lib/trail'
 import { loadParkPaths, findRoute, type ParkPaths } from '@/lib/park-paths'
 import { toMapExhibits } from '@/lib/map-exhibits'
@@ -156,8 +157,22 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
   const isShowingCurrentExhibit =
     isExhibitPage && exhibitPageData != null && sheetExhibit?.id === exhibitPageData.exhibit.id
   const sheetAudio = isShowingCurrentExhibit ? exhibitPageData!.audio : []
-  const sheetOnFirstPlay = isShowingCurrentExhibit ? exhibitPageData!.onFirstPlay : undefined
-  const sheetOnQuartile = isShowingCurrentExhibit ? exhibitPageData!.onQuartile : undefined
+  // The current page reports through its own callbacks (they carry its scan_src); any other
+  // exhibit played from the sheet reports here, with no scan_src.
+  const sheetReportTarget = sheetExhibit?.qr_code
+    ? { id: sheetExhibit.id, qrCode: sheetExhibit.qr_code }
+    : null
+  const sheetOnFirstPlay = isShowingCurrentExhibit
+    ? exhibitPageData!.onFirstPlay
+    : sheetReportTarget
+      ? () => reportPlayback(sheetReportTarget, null)
+      : undefined
+  const sheetOnQuartile = isShowingCurrentExhibit
+    ? exhibitPageData!.onQuartile
+    : sheetReportTarget
+      ? (sec: number, quartile: number) =>
+          reportPlayback(sheetReportTarget, null, { sec, quartile })
+      : undefined
 
   const handleAudioEnded = () => {
     const currentExhibit = exhibitPageData?.exhibit
