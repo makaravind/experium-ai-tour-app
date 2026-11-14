@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { CAMPAIGNS } from '@/lib/campaigns'
+import { discoverVia } from '@/lib/discovery'
 
 export async function POST(req: NextRequest) {
   const supabaseAdmin = getSupabaseAdmin()
@@ -13,6 +15,9 @@ export async function POST(req: NextRequest) {
     is_qr_scan,
     scan_src,
     scanned_at,
+    lat,
+    lng,
+    accuracyM,
   } = body
   // Client sends language only inside device_info until step 7 adds a top-level field.
   const language = body.language ?? body.device_info?.language ?? null
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const { data: exhibit, error: exhibitErr } = await supabaseAdmin
     .from('exhibits')
-    .select('id')
+    .select('id, gps_lat, gps_lng')
     .eq('code', code)
     .single()
 
@@ -84,8 +89,34 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const position = [lat, lng, accuracyM].every(Number.isFinite) ? { lat, lng, accuracyM } : null
+
+  for (const campaign of CAMPAIGNS) {
+    const via = discoverVia({
+      scanSrc: isQrScan ? (scan_src ?? null) : null,
+      quartile: listen_quartile ?? null,
+      position,
+      exhibit: { lat: exhibit.gps_lat, lng: exhibit.gps_lng },
+    })
+    if (!via) continue
+
+    const { error: discoveryErr } = await supabaseAdmin.rpc('record_discovery', {
+      p_user_id: visitorId,
+      p_exhibit_id: exhibit.id,
+      p_campaign_id: campaign.id,
+      p_via: via,
+      p_at: playedAt,
+    })
+
+    if (discoveryErr) {
+      console.error('record_discovery failed', discoveryErr)
+      return NextResponse.json({ error: 'Scan failed' }, { status: 500 })
+    }
+  }
+
   const { data: totalDiscovered, error: countErr } = await supabaseAdmin.rpc('total_discovered', {
     p_user_id: visitorId,
+    p_campaign_id: 'default',
   })
 
   if (countErr) {
