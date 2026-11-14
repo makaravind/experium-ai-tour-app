@@ -12,11 +12,11 @@ import InfoModal from '@/components/onboarding/InfoModal'
 import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import DidYouKnow from '@/components/home/DidYouKnow'
 import { LeafIcon } from '@/components/icons'
-import { useStore } from '@/lib/store'
+import { useStore, selectTotalDiscovered } from '@/lib/store'
 import type { PreviewExhibit } from '@/lib/types'
 
 export default function Home() {
-  const totalDiscovered = useStore((s) => s.totalDiscovered)
+  const totalDiscovered = useStore(selectTotalDiscovered)
   const userInfo = useStore((s) => s.userInfo)
   const profileModalOpen = useStore((s) => s.profileModalOpen)
   const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)

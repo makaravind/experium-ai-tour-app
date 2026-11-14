@@ -517,7 +517,7 @@ describe('AppGate Refresh content', () => {
     render(createElement(AppGate, null, 'app'))
     await waitFor(() => expect(useDebugStore.getState().cacheDebug).toBe('clear'))
     // run() re-resolves visitorId via the mocked getOrCreateVisitorId, so seed its value (stable id)
-    useStore.setState({ visitorId: 'visitor-1', discoveredCodes: ['A01'], language: 'hi' })
+    useStore.setState({ visitorId: 'visitor-1', discoveredByCampaign: { default: { codes: ['A01'], total: 1 } }, language: 'hi' })
 
     useStore.getState().setRefreshRequested(true)
     await waitFor(() => expect(runPrecache).toHaveBeenCalled())
@@ -529,7 +529,7 @@ describe('AppGate Refresh content', () => {
     expect(useStore.getState().completionByGroup).toEqual({})
     // kept fields unchanged
     expect(useStore.getState().visitorId).toBe('visitor-1')
-    expect(useStore.getState().discoveredCodes).toEqual(['A01'])
+    expect(useStore.getState().discoveredByCampaign.default.codes).toEqual(['A01'])
     expect(useStore.getState().language).toBe('hi')
     expect(del.mock.calls.map((c) => c[0]).sort()).toEqual([...CONTENT_CACHE_NAMES].sort())
     // caches deleted before run

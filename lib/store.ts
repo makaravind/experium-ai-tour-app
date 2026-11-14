@@ -3,6 +3,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { CachedAmenity, CachedExhibit, Language, TourSpot, User } from '@/lib/types'
+import { CAMPAIGNS } from '@/lib/campaigns'
+import { discoverVia, type Ctx } from '@/lib/discovery'
+
+const DEFAULT_CAMPAIGN_ID = 'default'
+
+export type CampaignProgress = { codes: string[]; total: number }
 
 export type QueuedScan = {
   id: string
@@ -33,10 +39,11 @@ interface Store {
   clearTourSpot: () => void
   markTourSpotFlown: () => void
 
-  // QR codes already counted toward totalDiscovered
-  discoveredCodes: string[]
-  // null if already discovered, else appends + increments totalDiscovered
-  discoverCode: (code: string) => { prevTotal: number; newTotal: number } | null
+  // per campaign: exhibit codes already discovered + the count (the server total replaces it on queue drain)
+  discoveredByCampaign: Record<string, CampaignProgress>
+  // runs discoverVia per campaign; returns the default campaign's totals, or null if it didn't
+  // newly discover this code (no rule matched or duplicate)
+  discoverCode: (code: string, ctx: Ctx) => { prevTotal: number; newTotal: number } | null
 
   // scans awaiting upload
   scanQueue: QueuedScan[]
@@ -66,7 +73,7 @@ interface Store {
   userInfo: User | null
   setUserInfo: (info: User) => void
 
-  totalDiscovered: number
+  // writes the default campaign's total, keeping its codes
   setTotalDiscovered: (n: number) => void
 
   listenedCurrentExhibit: boolean
@@ -117,14 +124,22 @@ export const useStore = create<Store>()(
       markTourSpotFlown: () =>
         set((s) => (s.tourSpot ? { tourSpot: { ...s.tourSpot, flown: true } } : s)),
 
-      discoveredCodes: [],
-      discoverCode: (code) => {
-        const s = get()
-        if (s.discoveredCodes.includes(code)) return null
-        const prevTotal = s.totalDiscovered
-        const newTotal = prevTotal + 1
-        set({ discoveredCodes: [...s.discoveredCodes, code], totalDiscovered: newTotal })
-        return { prevTotal, newTotal }
+      discoveredByCampaign: {},
+      discoverCode: (code, ctx) => {
+        const byCampaign = get().discoveredByCampaign
+        const next = { ...byCampaign }
+        let result: { prevTotal: number; newTotal: number } | null = null
+        let changed = false
+        for (const { id } of CAMPAIGNS) {
+          if (!discoverVia(ctx)) continue
+          const cur = byCampaign[id] ?? { codes: [], total: 0 }
+          if (cur.codes.includes(code)) continue
+          changed = true
+          next[id] = { codes: [...cur.codes, code], total: cur.total + 1 }
+          if (id === DEFAULT_CAMPAIGN_ID) result = { prevTotal: cur.total, newTotal: cur.total + 1 }
+        }
+        if (changed) set({ discoveredByCampaign: next })
+        return result
       },
 
       scanQueue: [],
@@ -150,8 +165,16 @@ export const useStore = create<Store>()(
       userInfo: null,
       setUserInfo: (userInfo) => set({ userInfo }),
 
-      totalDiscovered: 0,
-      setTotalDiscovered: (totalDiscovered) => set({ totalDiscovered }),
+      setTotalDiscovered: (total) =>
+        set((s) => ({
+          discoveredByCampaign: {
+            ...s.discoveredByCampaign,
+            [DEFAULT_CAMPAIGN_ID]: {
+              codes: s.discoveredByCampaign[DEFAULT_CAMPAIGN_ID]?.codes ?? [],
+              total,
+            },
+          },
+        })),
 
       listenedCurrentExhibit: false,
       setListenedCurrentExhibit: (listenedCurrentExhibit) => set({ listenedCurrentExhibit }),
@@ -173,9 +196,19 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'experium-store',
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<Store>
+        // v9 keys discoveries by campaign: fold the old scalar shape into `default`
+        if (version < 9) {
+          const old = state as { discoveredCodes?: string[]; totalDiscovered?: number }
+          state.discoveredByCampaign = {
+            [DEFAULT_CAMPAIGN_ID]: {
+              codes: old.discoveredCodes ?? [],
+              total: old.totalDiscovered ?? 0,
+            },
+          }
+        }
         if (version === 0) {
           return {
             ...state,
@@ -206,14 +239,13 @@ export const useStore = create<Store>()(
       partialize: (s) => ({
         language: s.language,
         visitedExhibits: s.visitedExhibits,
-        totalDiscovered: s.totalDiscovered,
         visitorId: s.visitorId,
         userInfo: s.userInfo,
         mapViewport: s.mapViewport,
         cachedExhibits: s.cachedExhibits,
         cachedAmenities: s.cachedAmenities,
         tourSpot: s.tourSpot,
-        discoveredCodes: s.discoveredCodes,
+        discoveredByCampaign: s.discoveredByCampaign,
         scanQueue: s.scanQueue,
         precacheLanguage: s.precacheLanguage,
         completionByGroup: s.completionByGroup,
@@ -224,3 +256,6 @@ export const useStore = create<Store>()(
     }
   )
 )
+
+export const selectTotalDiscovered = (s: Store) =>
+  s.discoveredByCampaign[DEFAULT_CAMPAIGN_ID]?.total ?? 0

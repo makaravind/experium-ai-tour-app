@@ -14,8 +14,7 @@ const ONSITE_URL = `/s/${QR_CODE}?scansrc=onsite`
 type QueuedScan = { id: string; code: string; scanned_at: string; fields: Record<string, unknown> }
 type PersistedStore = {
   language: string
-  totalDiscovered: number
-  discoveredCodes: string[]
+  discoveredByCampaign: Record<string, { codes: string[]; total: number }>
   scanQueue: QueuedScan[]
 }
 
@@ -42,8 +41,7 @@ async function seedVisitor(
             language: 'en',
             visitorId: 'e2e-visitor',
             visitedExhibits: [],
-            totalDiscovered,
-            discoveredCodes,
+            discoveredByCampaign: { default: { codes: discoveredCodes, total: totalDiscovered } },
             precacheLanguage: 'en',
             completionByGroup: { 'audio-cache': { language: 'en', complete: true } },
             cachedExhibits: [
@@ -64,7 +62,7 @@ async function seedVisitor(
               },
             ],
           },
-          version: 8,
+          version: 9,
         })
       )
     },
@@ -106,8 +104,8 @@ test.describe('Offline scan queue', () => {
 
     await expect(page.getByText('+1 🌿 · 4/50 discovered · saved offline')).toBeVisible()
     const s = await readStore(page)
-    expect(s.totalDiscovered).toBe(4)
-    expect(s.discoveredCodes).toEqual([QR_CODE])
+    expect(s.discoveredByCampaign.default.total).toBe(4)
+    expect(s.discoveredByCampaign.default.codes).toEqual([QR_CODE])
     // page land + first play, both persisted with a device time
     expect(s.scanQueue.map((e) => e.fields.listened)).toEqual([false, true])
     for (const e of s.scanQueue) expect(new Date(e.scanned_at).toISOString()).toBe(e.scanned_at)
@@ -149,7 +147,9 @@ test.describe('Offline scan queue', () => {
     await page.evaluate(() => window.dispatchEvent(new Event('online')))
 
     // the server total lands right after the last entry is removed
-    await expect.poll(async () => (await readStore(page)).totalDiscovered).toBe(7)
+    await expect
+      .poll(async () => (await readStore(page)).discoveredByCampaign.default.total)
+      .toBe(7)
     expect(await queue(page)).toEqual([])
     expect(received.map((b) => b.scanned_at)).toEqual(queued.map((e) => e.scanned_at))
     expect(received.map((b) => b.listened)).toEqual([false, true])
@@ -176,7 +176,7 @@ test.describe('Offline scan queue', () => {
     await page.waitForTimeout(1500)
     await expect(page.getByText(/discovered/)).toBeHidden()
     await expect(page).not.toHaveURL(/collection/)
-    expect((await readStore(page)).totalDiscovered).toBe(1)
+    expect((await readStore(page)).discoveredByCampaign.default.total).toBe(1)
   })
 })
 
@@ -213,5 +213,5 @@ test("a stale second tab cannot overwrite another tab's queued scan", async ({ c
   const s = await readStore(scanner)
   expect(s.language).toBe('hi')
   expect(s.scanQueue.filter((e) => e.fields.scan_src === 'onsite')).toHaveLength(1)
-  expect(s.discoveredCodes).toEqual([QR_CODE])
+  expect(s.discoveredByCampaign.default.codes).toEqual([QR_CODE])
 })

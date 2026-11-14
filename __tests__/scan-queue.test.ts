@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useStore, type QueuedScan } from '@/lib/store'
+import { useStore, selectTotalDiscovered, type QueuedScan } from '@/lib/store'
 import { enqueueScan, flushScanQueue } from '@/lib/scan-queue'
 
 const fetchMock = vi.fn()
 
+const total = (n: number) => ({ default: { codes: [], total: n } })
 const entry = (id: string, code = 'baobab'): QueuedScan => ({
   id,
   code,
@@ -30,8 +31,7 @@ beforeEach(() => {
   setOnline(true)
   useStore.setState({
     visitorId: 'v-1',
-    totalDiscovered: 0,
-    discoveredCodes: [],
+    discoveredByCampaign: {},
     scanQueue: [entry('1'), entry('2'), entry('3')],
   })
 })
@@ -184,40 +184,40 @@ describe('flushScanQueue — no-op guards', () => {
 
 describe('flushScanQueue — totalDiscovered correction', () => {
   it('is set from the server once the queue is empty after a 2xx', async () => {
-    useStore.setState({ scanQueue: [entry('1')], totalDiscovered: 3 })
+    useStore.setState({ scanQueue: [entry('1')], discoveredByCampaign: total(3) })
     fetchMock.mockResolvedValueOnce(respond(200, { total_discovered: 5 }))
     await flushScanQueue()
-    expect(useStore.getState().totalDiscovered).toBe(5)
+    expect(selectTotalDiscovered(useStore.getState())).toBe(5)
   })
 
   it('is left alone while entries remain, applied only by the last response', async () => {
-    useStore.setState({ totalDiscovered: 3 })
+    useStore.setState({ discoveredByCampaign: total(3) })
     const seenAtSend: number[] = []
     let n = 0
     fetchMock.mockImplementation(async () => {
-      seenAtSend.push(useStore.getState().totalDiscovered)
+      seenAtSend.push(selectTotalDiscovered(useStore.getState()))
       return respond(200, { total_discovered: 10 + n++ })
     })
     await flushScanQueue()
     expect(seenAtSend).toEqual([3, 3, 3])
-    expect(useStore.getState().totalDiscovered).toBe(12)
+    expect(selectTotalDiscovered(useStore.getState())).toBe(12)
   })
 
   it('is not corrected when the flush stops with entries remaining', async () => {
-    useStore.setState({ totalDiscovered: 3 })
+    useStore.setState({ discoveredByCampaign: total(3) })
     fetchMock
       .mockResolvedValueOnce(respond(200, { total_discovered: 10 }))
       .mockResolvedValueOnce(respond(500))
     await flushScanQueue()
     expect(queueIds()).toEqual(['2', '3'])
-    expect(useStore.getState().totalDiscovered).toBe(3)
+    expect(selectTotalDiscovered(useStore.getState())).toBe(3)
   })
 
   it('is not corrected after a dropped 4xx', async () => {
-    useStore.setState({ scanQueue: [entry('1')], totalDiscovered: 3 })
+    useStore.setState({ scanQueue: [entry('1')], discoveredByCampaign: total(3) })
     fetchMock.mockResolvedValueOnce(respond(400, { total_discovered: 99 }))
     await flushScanQueue()
-    expect(useStore.getState().totalDiscovered).toBe(3)
+    expect(selectTotalDiscovered(useStore.getState())).toBe(3)
   })
 })
 
