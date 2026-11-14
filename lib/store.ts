@@ -6,7 +6,7 @@ import type { CachedAmenity, CachedExhibit, Language, TourSpot, User } from '@/l
 import { CAMPAIGNS } from '@/lib/campaigns'
 import { discoverVia, type Ctx } from '@/lib/discovery'
 
-const DEFAULT_CAMPAIGN_ID = 'default'
+export const DEFAULT_CAMPAIGN_ID = 'default'
 
 export type CampaignProgress = { codes: string[]; total: number }
 

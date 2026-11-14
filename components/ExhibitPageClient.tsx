@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { useMapStore } from '@/lib/map-store'
 import { enqueueScan } from '@/lib/scan-queue'
+import { reportPlayback } from '@/lib/playback-report'
 import { tourHref } from '@/lib/tour'
 import type { ExhibitAudio, ExhibitData, PreviewExhibit } from '@/lib/types'
-import { track } from '@vercel/analytics'
 
 export default function ExhibitPageClient({
   exhibitId,
@@ -28,8 +28,6 @@ export default function ExhibitPageClient({
   const displayId = cachedExhibit?.displayId ?? null
   const router = useRouter()
   const virtualTourMode = useSearchParams().get('mode') === 'virtual-tour'
-  const setListenedCurrentExhibit = useStore((s) => s.setListenedCurrentExhibit)
-  const markVisited = useStore((s) => s.markVisited)
   const { setExhibitPageData, clearExhibitPageData } = useMapStore()
 
   // Page land — fires once visitorId has resolved (cached or via handshake); the queue
@@ -75,29 +73,15 @@ export default function ExhibitPageClient({
     router.replace(href)
   }, [virtualTourMode, cachedExhibit, router])
 
-  const handleFirstPlay = useCallback(() => {
-    setListenedCurrentExhibit(true)
-    track('playback_start', { exhibit: qrCode })
-    enqueueScan(qrCode, {
-      listened: true,
-      ...(scanSrc ? { scan_src: scanSrc } : {}),
-      language,
-    })
-    markVisited(exhibitId)
-  }, [language, qrCode, exhibitId, scanSrc, setListenedCurrentExhibit, markVisited])
+  const handleFirstPlay = useCallback(
+    () => reportPlayback({ id: exhibitId, qrCode }, scanSrc),
+    [qrCode, exhibitId, scanSrc]
+  )
 
   const handleQuartile = useCallback(
-    (sec: number, quartile: number) => {
-      track('playback_progress', { exhibit: qrCode, quartile })
-      enqueueScan(qrCode, {
-        listened: true,
-        listen_duration_sec: sec,
-        listen_quartile: quartile,
-        ...(scanSrc ? { scan_src: scanSrc } : {}),
-        language,
-      })
-    },
-    [language, qrCode, scanSrc]
+    (sec: number, quartile: number) =>
+      reportPlayback({ id: exhibitId, qrCode }, scanSrc, { sec, quartile }),
+    [qrCode, exhibitId, scanSrc]
   )
 
   // Refs so the store always calls the latest callback
