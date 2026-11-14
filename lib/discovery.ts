@@ -16,11 +16,11 @@ const NEAR_RADIUS_M = 50
 /** First matching rule wins. Position only gates audio_half_near. */
 export function discoverVia(ctx: Ctx): DiscoveryVia | null {
   if (ctx.scanSrc === 'onsite') return 'onsite_scan'
-  if (ctx.quartile !== null && ctx.quartile >= 100) return 'audio_complete'
+  if (typeof ctx.quartile === 'number' && ctx.quartile >= 100) return 'audio_complete'
 
   const { quartile, position, exhibit } = ctx
   if (
-    quartile !== null &&
+    typeof quartile === 'number' &&
     quartile >= 50 &&
     position &&
     position.accuracyM <= MAX_ACCURACY_M &&

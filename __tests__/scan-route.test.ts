@@ -98,6 +98,23 @@ describe('POST /api/scan', () => {
     expect(calls('record_discovery')).toHaveLength(0)
   })
 
+  it('lat 0 / lng 0 is a valid position near an exhibit at 0,0', async () => {
+    state.exhibit = { id: 'ex-1', gps_lat: 0, gps_lng: 0 }
+    await post({ listen_quartile: 50, lat: 0, lng: 0, accuracyM: 20 })
+    expect(calls('record_discovery').map((c) => c.args.p_via)).toEqual(['audio_half_near'])
+  })
+
+  it('missing accuracyM drops the position, no discovery at quartile 50', async () => {
+    await post({ listen_quartile: 50, lat: NEAR.lat, lng: NEAR.lng })
+    expect(calls('record_discovery')).toHaveLength(0)
+  })
+
+  it('string listen_quartile does not record a discovery', async () => {
+    const res = await post({ listen_quartile: '100' })
+    expect(res.status).toBe(200)
+    expect(calls('record_discovery')).toHaveLength(0)
+  })
+
   it('non-QR play does not call upsert_scan', async () => {
     await post({ listen_quartile: 100 })
     expect(calls('upsert_playback')).toHaveLength(1)

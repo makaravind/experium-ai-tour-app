@@ -91,14 +91,15 @@ export async function POST(req: NextRequest) {
 
   const position = [lat, lng, accuracyM].every(Number.isFinite) ? { lat, lng, accuracyM } : null
 
+  const via = discoverVia({
+    scanSrc: isQrScan ? (scan_src ?? null) : null,
+    quartile: listen_quartile ?? null,
+    position,
+    exhibit: { lat: exhibit.gps_lat, lng: exhibit.gps_lng },
+  })
+
   for (const campaign of CAMPAIGNS) {
-    const via = discoverVia({
-      scanSrc: isQrScan ? (scan_src ?? null) : null,
-      quartile: listen_quartile ?? null,
-      position,
-      exhibit: { lat: exhibit.gps_lat, lng: exhibit.gps_lng },
-    })
-    if (!via) continue
+    if (!via) break
 
     const { error: discoveryErr } = await supabaseAdmin.rpc('record_discovery', {
       p_user_id: visitorId,
