@@ -64,6 +64,13 @@ describe('discoverVia', () => {
       ).toBe('audio_complete')
     })
 
+    it('string quartile does not coerce', () => {
+      expect(discoverVia(ctx({ quartile: '100' as unknown as number }))).toBeNull()
+      expect(
+        discoverVia(ctx({ quartile: '100' as unknown as number, position: northOf(10) }))
+      ).toBeNull()
+    })
+
     it('wins over audio_half_near', () => {
       expect(discoverVia(ctx({ quartile: 100, position: northOf(10) }))).toBe(
         'audio_complete'
@@ -118,6 +125,11 @@ describe('discoverVia', () => {
       expect(
         discoverVia(ctx({ quartile: 50, position, exhibit: { lat: null, lng: -74 } }))
       ).toBeNull()
+    })
+
+    it('string quartile does not coerce', () => {
+      const position = northOf(10)
+      expect(discoverVia(ctx({ quartile: '50' as unknown as number, position }))).toBeNull()
     })
 
     it('forged far position does not discover', () => {
