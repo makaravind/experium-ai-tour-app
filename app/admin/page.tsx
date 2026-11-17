@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
 import AdminMap from '@/components/admin/AdminMap'
+import AdminTable from '@/components/admin/AdminTable'
 import AmenityPanel from '@/components/admin/AmenityPanel'
 import AudioPanel from '@/components/admin/AudioPanel'
 import DetailsPanel from '@/components/admin/DetailsPanel'
@@ -10,6 +12,7 @@ import PhotosPanel from '@/components/admin/PhotosPanel'
 import { Button } from '@/components/ui/button'
 import { buildChangeset } from '@/lib/admin/changeset'
 import { confirmAdminPassword } from '@/lib/admin/password'
+import { parseParams } from '@/lib/admin/table'
 import type { AdminState, WorkingState } from '@/lib/admin/types'
 import { unplacedAmenityMessage, unplacedMessage } from '@/lib/admin/validation'
 import {
@@ -32,6 +35,15 @@ async function fetchState(): Promise<AdminState> {
 }
 
 export default function AdminPage() {
+  // useSearchParams needs a Suspense boundary
+  return (
+    <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
+      <AdminPageInner />
+    </Suspense>
+  )
+}
+
+function AdminPageInner() {
   const [original, setOriginal] = useState<AdminState | null>(null)
   const [working, setWorking] = useState<WorkingState | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -43,14 +55,52 @@ export default function AdminPage() {
   const [saved, setSaved] = useState<string | null>(null)
   const [panelError, setPanelError] = useState<string | null>(null)
 
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const view = searchParams.get('view') === 'table' ? 'table' : 'map'
+  const tableParams = useMemo(() => parseParams(searchParams), [searchParams])
+
+  /** Patch the URL query (string sets, ''/null removes); reads the live URL so back-to-back patches don't clobber. */
+  const setParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      const next = new URLSearchParams(window.location.search)
+      for (const [k, v] of Object.entries(patch)) {
+        if (v) next.set(k, v)
+        else next.delete(k)
+      }
+      const qs = next.toString()
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+    },
+    [router, pathname]
+  )
+
   const apply = (state: AdminState) => {
     setOriginal(state)
     setWorking(toWorking(state))
   }
 
   useEffect(() => {
-    fetchState().then(apply, (e) => setLoadError(e instanceof Error ? e.message : String(e)))
+    fetchState().then(
+      (state) => {
+        apply(state)
+        // `sel` in the URL is an exhibit or amenity id
+        const sel = new URLSearchParams(window.location.search).get('sel')
+        if (state.exhibits.some((e) => e.id === sel)) setSelectedId(sel)
+        else if (state.amenities.some((a) => a.id === sel)) setSelectedAmenityId(sel)
+      },
+      (e) => setLoadError(e instanceof Error ? e.message : String(e))
+    )
   }, [])
+
+  // mirror the selection into `sel` (only after load, so a linked `sel` isn't wiped before it is restored)
+  const loaded = working !== null
+  const sel = selectedId ?? selectedAmenityId
+  useEffect(() => {
+    if (!loaded) return
+    if (new URLSearchParams(window.location.search).get('sel') === sel) return
+    setParams({ sel })
+  }, [loaded, sel, setParams])
 
   const diff = useMemo(
     () => (original && working ? buildChangeset(original, working) : null),
@@ -129,28 +179,91 @@ export default function AdminPage() {
     setSaved(null)
   }
 
+  const viewToggle = (
+    <div className="flex gap-1">
+      {(['map', 'table'] as const).map((v) => (
+        <Button
+          key={v}
+          size="sm"
+          variant={v === view ? 'default' : 'outline'}
+          onClick={() => setParams({ view: v === 'map' ? null : v })}
+        >
+          {v === 'map' ? 'Map' : 'Table'}
+        </Button>
+      ))}
+    </div>
+  )
+
+  // table view only: the map is gone, so the panel gets its own way back to the map / out of the selection
+  const panelActions = view === 'table' && (
+    <div className="mt-2 flex gap-1">
+      <Button size="sm" variant="outline" onClick={() => setParams({ view: null })}>
+        Show on map
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => {
+          setSelectedId(null)
+          setSelectedAmenityId(null)
+          setPanelError(null)
+        }}
+      >
+        Close
+      </Button>
+    </div>
+  )
+
+  function selectFromTable(id: string) {
+    const isExhibit = working!.exhibits.some((e) => e.id === id)
+    setSelectedId(isExhibit ? id : null)
+    setSelectedAmenityId(isExhibit ? null : id)
+    setPanelError(null)
+  }
+
   return (
     <div className="fixed inset-0">
-      <AdminMap
-        sections={working.sections}
-        exhibits={working.exhibits}
-        deletedSectionIds={deletedSectionIds}
-        onSectionsChange={(sections) => setWorking((w) => w && { ...w, sections })}
-        onExhibitsChange={(exhibits) => setWorking((w) => w && { ...w, exhibits })}
-        amenities={working.amenities}
-        onAmenitiesChange={(amenities) => setWorking((w) => w && { ...w, amenities })}
-        deletedAmenities={deletedAmenities}
-        selectedId={selectedId}
-        onSelect={(id) => {
-          setSelectedId(id)
-          setPanelError(null)
-        }}
-        selectedAmenityId={selectedAmenityId}
-        onSelectAmenity={(id) => {
-          setSelectedAmenityId(id)
-          setPanelError(null)
-        }}
-      />
+      {view === 'table' ? (
+        <div
+          className={`absolute inset-y-0 left-0 bg-background ${selected || selectedAmenity ? 'right-96' : 'right-0'}`}
+        >
+          <AdminTable
+            original={original}
+            working={working}
+            params={tableParams}
+            onParams={setParams}
+            selectedId={sel}
+            onSelect={selectFromTable}
+            toolbarLeft={viewToggle}
+          />
+        </div>
+      ) : (
+        <>
+          <AdminMap
+            sections={working.sections}
+            exhibits={working.exhibits}
+            deletedSectionIds={deletedSectionIds}
+            onSectionsChange={(sections) => setWorking((w) => w && { ...w, sections })}
+            onExhibitsChange={(exhibits) => setWorking((w) => w && { ...w, exhibits })}
+            amenities={working.amenities}
+            onAmenitiesChange={(amenities) => setWorking((w) => w && { ...w, amenities })}
+            deletedAmenities={deletedAmenities}
+            selectedId={selectedId}
+            onSelect={(id) => {
+              setSelectedId(id)
+              setPanelError(null)
+            }}
+            selectedAmenityId={selectedAmenityId}
+            onSelectAmenity={(id) => {
+              setSelectedAmenityId(id)
+              setPanelError(null)
+            }}
+          />
+          <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-lg bg-background p-1 shadow-lg">
+            {viewToggle}
+          </div>
+        </>
+      )}
 
       {selectedAmenity && (
         <aside className="absolute bottom-0 right-0 top-0 z-10 flex w-96 flex-col border-l border-border bg-background shadow-lg">
@@ -161,6 +274,7 @@ export default function AdminPage() {
             <h2 className="truncate text-base font-semibold">
               {selectedAmenity.name || 'Untitled amenity'}
             </h2>
+            {panelActions}
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <AmenityPanel
@@ -191,6 +305,7 @@ export default function AdminPage() {
             <h2 className="truncate text-base font-semibold">
               {selected.name || 'Untitled exhibit'}
             </h2>
+            {panelActions}
             <div className="mt-2 flex gap-1">
               {TABS.map((t) => (
                 <Button
