@@ -83,7 +83,16 @@ export default function SheetSummary({
         </AnimatePresence>
       </div>
 
-      <div>
+      <div className="relative flex-1 min-w-0 pr-16">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/mascot.webp"
+          alt=""
+          aria-hidden="true"
+          width={62}
+          height={72}
+          className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none select-none"
+        />
         <div className="flex items-center gap-2 flex-wrap">
           <span
             className="text-lg font-bold leading-tight text-ex-ink"
