@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import ScanNowButton from '@/components/exhibit/ScanNowButton'
 import VirtualTourLink from '@/components/exhibit/VirtualTourLink'
@@ -13,14 +14,22 @@ import PreviewSheet from '@/components/exhibit/PreviewSheet'
 import DidYouKnow from '@/components/home/DidYouKnow'
 import { LeafIcon } from '@/components/icons'
 import { useStore, selectTotalDiscovered } from '@/lib/store'
+import { parseSearchDeepLink } from '@/lib/search-deeplink'
 import type { PreviewExhibit } from '@/lib/types'
 
 export default function Home() {
+  const router = useRouter()
   const totalDiscovered = useStore(selectTotalDiscovered)
   const userInfo = useStore((s) => s.userInfo)
   const profileModalOpen = useStore((s) => s.profileModalOpen)
   const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
   const [selectedDykExhibit, setSelectedDykExhibit] = useState<PreviewExhibit | null>(null)
+
+  // /?search=<v> deep link: the search overlay lives on /map
+  useEffect(() => {
+    const target = parseSearchDeepLink(window.location.search)
+    if (target) router.replace(`/map?search=${target}`)
+  }, [router])
 
   const isFresh = totalDiscovered === 0
 
