@@ -88,11 +88,8 @@ interface Store {
   profileModalOpen: boolean
   setProfileModalOpen: (v: boolean) => void
 
-  insightsKey: string | null
-  setInsightsKey: (key: string | null) => void
-
-  insightsKeyDialogOpen: boolean
-  setInsightsKeyDialogOpen: (v: boolean) => void
+  insightsUnlocked: boolean
+  setInsightsUnlocked: (v: boolean) => void
 }
 
 export const useStore = create<Store>()(
@@ -188,15 +185,12 @@ export const useStore = create<Store>()(
       profileModalOpen: false,
       setProfileModalOpen: (profileModalOpen) => set({ profileModalOpen }),
 
-      insightsKey: null,
-      setInsightsKey: (insightsKey) => set({ insightsKey }),
-
-      insightsKeyDialogOpen: false,
-      setInsightsKeyDialogOpen: (insightsKeyDialogOpen) => set({ insightsKeyDialogOpen }),
+      insightsUnlocked: false,
+      setInsightsUnlocked: (insightsUnlocked) => set({ insightsUnlocked }),
     }),
     {
       name: 'experium-store',
-      version: 9,
+      version: 10,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<Store>
         // v9 keys discoveries by campaign: fold the old scalar shape into `default`
@@ -209,6 +203,14 @@ export const useStore = create<Store>()(
             },
           }
         }
+        // v10 replaces the persisted insightsKey string with an insightsUnlocked flag
+        if (version < 10) {
+          const old = state as { insightsKey?: string | null }
+          state.insightsUnlocked = !!old.insightsKey
+          delete old.insightsKey
+        }
+        // v9 caches are still valid
+        if (version === 9) return state as Store
         if (version === 0) {
           return {
             ...state,
@@ -251,7 +253,7 @@ export const useStore = create<Store>()(
         completionByGroup: s.completionByGroup,
         assetFailures: s.assetFailures,
         acknowledgedCapped: s.acknowledgedCapped,
-        insightsKey: s.insightsKey,
+        insightsUnlocked: s.insightsUnlocked,
       }),
     }
   )
