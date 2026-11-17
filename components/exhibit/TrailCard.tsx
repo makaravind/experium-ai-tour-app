@@ -201,7 +201,18 @@ export default function TrailCard() {
         >
           <InfoIcon size={17} strokeWidth={2} />
         </button>
-        <div className="font-display font-bold text-base leading-tight pr-8">{lead}</div>
+        <div className="flex items-center gap-2 pr-8">
+          <div className="font-display font-bold text-base leading-tight flex-1">{lead}</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/mascot.webp"
+            alt=""
+            aria-hidden="true"
+            width={48}
+            height={56}
+            className="flex-none pointer-events-none select-none"
+          />
+        </div>
         <div className="flex items-center mt-5 mb-2" role="group" aria-label={ariaLabel}>
           {nodes.map((node, i) => (
             <div className="flex items-center flex-1 last:flex-none" key={i}>
