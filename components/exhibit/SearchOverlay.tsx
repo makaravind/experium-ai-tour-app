@@ -14,6 +14,7 @@ import {
 } from '@/components/icons'
 import { PLACEHOLDER } from '@/components/exhibit/Gallery'
 import TrailCard from '@/components/exhibit/TrailCard'
+import { thumbUrl } from '@/lib/exhibit-photos'
 import { haversineMetres } from '@/lib/nearby'
 import { filterExhibits, matchRange, sortAmenities } from '@/lib/search'
 import { useStore } from '@/lib/store'
@@ -222,6 +223,7 @@ export default function SearchOverlay({
                   const soon = exhibit.status === 'coming_soon'
                   const disabled = mapFailed && !exhibit.qr_code
                   const nearby = !!userPosition && nearbyExhibitIds.includes(exhibit.id)
+                  const thumb = thumbUrl(exhibit)
 
                   return (
                     <motion.li key={exhibit.id} {...rowEnter(i)}>
@@ -237,13 +239,27 @@ export default function SearchOverlay({
                         }}
                       >
                         <div
-                          className="flex-none rounded-xl"
+                          className="flex-none rounded-xl overflow-hidden"
                           style={{
                             width: 46,
                             height: 46,
                             background: soon ? PLACEHOLDER.blank : PLACEHOLDER.hero,
                           }}
-                        />
+                        >
+                          {thumb && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={thumb}
+                              alt=""
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                              // Offline and uncached: hide it so the gradient shows, not a broken icon.
+                              onError={(e) => {
+                                e.currentTarget.style.visibility = 'hidden'
+                              }}
+                            />
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-[15px] font-bold text-ex-ink truncate">
                             <HighlightedName name={exhibit.name} query={query} />
