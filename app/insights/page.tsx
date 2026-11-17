@@ -83,8 +83,7 @@ function SectionTitle({ children }: { children: string }) {
 
 export default function InsightsPage() {
   const router = useRouter()
-  const insightsKey = useStore((s) => s.insightsKey)
-  const setInsightsKey = useStore((s) => s.setInsightsKey)
+  const insightsUnlocked = useStore((s) => s.insightsUnlocked)
   const online = useSyncExternalStore(subscribeOnline, getOnline, getServerOnline)
   const [range, setRange] = useState<InsightsRange>('today')
   const [reloads, setReloads] = useState(0)
@@ -92,33 +91,27 @@ export default function InsightsPage() {
   const [result, setResult] = useState<{ req: string; data: Summary | null } | null>(null)
   const req = `${range}:${reloads}`
 
-  // Wait for the persisted store to hydrate, else a saved key reads as null and bounces to /map.
+  // Wait for the persisted store to hydrate, else the saved flag reads as false and bounces to /map.
   useEffect(() => {
     const check = () => {
-      if (!useStore.getState().insightsKey) router.replace('/map')
+      if (!useStore.getState().insightsUnlocked) router.replace('/map')
     }
     if (useStore.persist.hasHydrated()) {
       check()
       return
     }
     return useStore.persist.onFinishHydration(check)
-  }, [insightsKey, router])
+  }, [insightsUnlocked, router])
 
   useEffect(() => {
-    if (!insightsKey || !online) return
+    if (!insightsUnlocked || !online) return
     const controller = new AbortController()
     fetch(`/api/insights?range=${range}`, {
-      headers: { 'x-insights-key': insightsKey },
       cache: 'no-store',
       signal: controller.signal,
     })
       .then(async (res) => {
         if (controller.signal.aborted) return
-        if (res.status === 401) {
-          // Rotated or wrong key: clearing it triggers the redirect effect above.
-          setInsightsKey(null)
-          return
-        }
         if (!res.ok) throw new Error(`insights ${res.status}`)
         const data = (await res.json()) as Summary
         if (controller.signal.aborted) return
@@ -131,9 +124,9 @@ export default function InsightsPage() {
         }
       })
     return () => controller.abort()
-  }, [insightsKey, online, range, reloads, req, setInsightsKey])
+  }, [insightsUnlocked, online, range, reloads, req])
 
-  if (!insightsKey) return null
+  if (!insightsUnlocked) return null
 
   const current = result?.req === req ? result : null
   const data = current?.data ?? null

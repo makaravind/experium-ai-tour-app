@@ -4,7 +4,6 @@ import { useRef, useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, animate, motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
-import InsightsKeyDialog from './InsightsKeyDialog'
 
 function subscribeOnline(cb: () => void) {
   window.addEventListener('online', cb)
@@ -146,7 +145,7 @@ export default function UserMenu() {
   const open = useStore((s) => s.moreMenuOpen)
   const setOpen = useStore((s) => s.setMoreMenuOpen)
   const setProfileModalOpen = useStore((s) => s.setProfileModalOpen)
-  const insightsKey = useStore((s) => s.insightsKey)
+  const insightsUnlocked = useStore((s) => s.insightsUnlocked)
   const online = useSyncExternalStore(subscribeOnline, getOnline, getServerOnline)
   const refreshRowRef = useRef<HTMLButtonElement>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -308,7 +307,7 @@ export default function UserMenu() {
                 App
               </div>
               <ul>
-                {insightsKey && (
+                {insightsUnlocked && (
                   <li>
                     <button
                       type="button"
@@ -425,7 +424,6 @@ export default function UserMenu() {
           </div>
         </div>
       )}
-      <InsightsKeyDialog />
     </>
   )
 }

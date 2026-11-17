@@ -17,7 +17,7 @@ export default function TabBar() {
   const taps = useRef({ count: 0, last: 0 })
 
   const onMoreTap = () => {
-    const { setMoreMenuOpen, setInsightsKeyDialogOpen, insightsKey } = useStore.getState()
+    const { setMoreMenuOpen, setInsightsUnlocked } = useStore.getState()
     setMoreMenuOpen(true)
 
     const now = Date.now()
@@ -26,9 +26,7 @@ export default function TabBar() {
     if (taps.current.count < UNLOCK_TAPS) return
 
     taps.current.count = 0
-    if (insightsKey) return
-    setMoreMenuOpen(false)
-    setInsightsKeyDialogOpen(true)
+    setInsightsUnlocked(true)
   }
 
   return (
