@@ -25,7 +25,8 @@ export async function mockPrecacheDataset(
     seedCache = true,
     tour,
     photos,
-  }: { seedCache?: boolean; tour?: SeedTour; photos?: SeedPhoto[] } = {}
+    facts = [{ fact: 'The Baobab can store thousands of litres of water in its trunk.' }],
+  }: { seedCache?: boolean; tour?: SeedTour; photos?: SeedPhoto[]; facts?: { fact: string }[] } = {}
 ) {
   if (seedCache) await seedAudioCache(page)
   if (tour) await seedTourPreviewCache(page, tour.previewUrl)
@@ -48,7 +49,7 @@ export async function mockPrecacheDataset(
           name: 'Baobab Forest',
           type: null,
           tier: 'free',
-          facts: [{ fact: 'The Baobab can store thousands of litres of water in its trunk.' }],
+          facts,
           status: 'live',
           gps_lat: 17.3816,
           gps_lng: 78.1916283,

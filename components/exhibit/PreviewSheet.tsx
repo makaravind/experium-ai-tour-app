@@ -297,6 +297,34 @@ export default function PreviewSheet({
         onSwipeClose={onSwipeClose}
         onCollapse={resetAudio}
         onReady={() => setReady(true)}
+        peekFooter={
+          facts.length > 0 && (
+            <div className="relative h-full px-4 pt-3" data-testid="about-teaser">
+              <h3
+                className="text-xs font-extrabold uppercase tracking-wider text-ex-muted"
+                style={{ letterSpacing: '0.05em' }}
+              >
+                About
+              </h3>
+              <ol
+                className="mt-1.5 space-y-1.5 list-decimal list-outside text-sm font-semibold text-ex-ink"
+                style={{ paddingLeft: 20 }}
+              >
+                {facts.map((fact, i) => (
+                  <li key={i} className="leading-snug">
+                    {fact}
+                  </li>
+                ))}
+              </ol>
+              <div
+                className="absolute inset-x-0 bottom-0 h-10 pointer-events-none"
+                style={{
+                  background: 'linear-gradient(to bottom, transparent, var(--color-ex-paper))',
+                }}
+              />
+            </div>
+          )
+        }
       >
         {({ expanded, collapse, expand }) => (
           <>

@@ -26,6 +26,7 @@ export default function BottomSheet({
   onSwipeClose,
   onCollapse,
   onReady,
+  peekFooter,
   ref,
   children,
 }: {
@@ -35,6 +36,8 @@ export default function BottomSheet({
   onSwipeClose?: () => void
   onCollapse?: () => void
   onReady?: () => void
+  /** Teaser rendered in the bottom clearance while peeking; tapping it expands. */
+  peekFooter?: ReactNode
   ref?: Ref<BottomSheetHandle>
   children: (sheet: { expanded: boolean; collapse: () => void; expand: () => void }) => ReactNode
 }) {
@@ -46,6 +49,7 @@ export default function BottomSheet({
   const sheetRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const prevItemId = useRef<string | null>(null)
+  const expandedRef = useRef(false)
   const dragControls = useDragControls()
 
   useEffect(() => {
@@ -60,6 +64,22 @@ export default function BottomSheet({
     setPeekH(h)
     y.set(itemId ? fullH - h : fullH)
   }, [fullH, y]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useLayoutEffect(() => {
+    expandedRef.current = expanded
+  })
+
+  // Content that arrives after mount (language chips, async audio) grows the peek instead of
+  // pushing the teaser footer off-screen. Skipped while expanded: that layout is the full view.
+  useLayoutEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      if (!expandedRef.current) setPeekH(el.offsetHeight)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   // Animate in/out when the item changes.
   useEffect(() => {
@@ -152,7 +172,13 @@ export default function BottomSheet({
           {/* eslint-disable-next-line react-hooks/refs -- collapse only touches refs when called from handlers */}
           {children({ expanded, collapse: () => collapse(), expand: () => expand() })}
 
-          <div style={{ height: TAB_BAR_CLEARANCE }} />
+          <div style={{ height: TAB_BAR_CLEARANCE }} className="relative overflow-hidden">
+            {!expanded && peekFooter && (
+              <div className="h-full cursor-pointer" onClick={() => expand()}>
+                {peekFooter}
+              </div>
+            )}
+          </div>
         </div>
       </motion.div>
     </>
