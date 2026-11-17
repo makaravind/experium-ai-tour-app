@@ -14,6 +14,7 @@ import { animate, motion, useDragControls, useMotionValue } from 'framer-motion'
 const SHEET_SPRING = { type: 'spring', stiffness: 400, damping: 40, restDelta: 0.5 } as const
 const REVEAL_AT = 0.18
 const TAB_BAR_CLEARANCE = 108
+const MEASURE_DEBOUNCE = 400
 
 export type BottomSheetHandle = {
   expand: (velocity?: number) => void
@@ -71,14 +72,22 @@ export default function BottomSheet({
 
   // Content that arrives after mount (language chips, async audio) grows the peek instead of
   // pushing the teaser footer off-screen. Skipped while expanded: that layout is the full view.
+  // Debounced past the exit animations (e.g. the About list) so a collapse never measures them.
   useLayoutEffect(() => {
     const el = contentRef.current
     if (!el) return
+    let timer: ReturnType<typeof setTimeout> | undefined
     const ro = new ResizeObserver(() => {
-      if (!expandedRef.current) setPeekH(el.offsetHeight)
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        if (!expandedRef.current) setPeekH(el.offsetHeight)
+      }, MEASURE_DEBOUNCE)
     })
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => {
+      clearTimeout(timer)
+      ro.disconnect()
+    }
   }, [])
 
   // Animate in/out when the item changes.

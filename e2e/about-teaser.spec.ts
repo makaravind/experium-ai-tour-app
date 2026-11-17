@@ -107,10 +107,36 @@ test.describe('About teaser in the exhibit peek', () => {
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await expect(handle(page)).toHaveAttribute('aria-expanded', 'false')
     await expect(teaser(page)).toBeVisible()
-    await page.waitForTimeout(600)
+    await expect
+      .poll(async () => Math.abs((await handle(page).boundingBox())!.y - before))
+      .toBeLessThan(6)
+  })
 
-    const after = (await handle(page).boundingBox())!.y
-    expect(Math.abs(after - before)).toBeLessThan(2)
+  test('Close glides straight down to the peek, even with a long About', async ({ page }) => {
+    const longFacts = Array.from({ length: 8 }, (_, i) => ({
+      fact: `Fact number ${i + 1}: ${'a long sentence about the garden '.repeat(4)}`,
+    }))
+    await seedVisitor(page, longFacts)
+    await openPeek(page)
+    await expect(teaser(page)).toBeVisible()
+    await page.waitForTimeout(600)
+    const peekY = (await handle(page).boundingBox())!.y
+
+    await teaser(page).click()
+    await expect(handle(page)).toHaveAttribute('aria-expanded', 'true')
+    await page.waitForTimeout(600)
+    await page.getByRole('button', { name: 'Close', exact: true }).click()
+
+    // The exiting About list stays in flow for a moment; the sheet must not chase its height.
+    const ys: number[] = []
+    for (let i = 0; i < 30; i++) {
+      ys.push((await handle(page).boundingBox())!.y)
+      await page.waitForTimeout(50)
+    }
+    for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeGreaterThanOrEqual(ys[i - 1] - 2)
+    await expect
+      .poll(async () => Math.abs((await handle(page).boundingBox())!.y - peekY))
+      .toBeLessThan(6)
   })
 
   test('no facts: no teaser', async ({ page }) => {
