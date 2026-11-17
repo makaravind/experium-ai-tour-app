@@ -20,6 +20,7 @@ import { reportPlayback } from '@/lib/playback-report'
 import { getCrossedMilestone } from '@/lib/trail'
 import { loadParkPaths, findRoute, type ParkPaths } from '@/lib/park-paths'
 import { toMapExhibits } from '@/lib/map-exhibits'
+import { parseSearchDeepLink } from '@/lib/search-deeplink'
 import type { MapExhibit, PreviewExhibit } from '@/lib/types'
 
 function toPreviewExhibit(exhibit: MapExhibit): PreviewExhibit {
@@ -296,9 +297,30 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
     setSearchOpen(true)
   }
 
+  // Drop a deep-link `?search=` once the overlay closes so refresh/back doesn't reopen it
+  const clearSearchParam = () => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has('search')) return
+    params.delete('search')
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname)
+  }
+
+  // Deep link: /map?search=must-visit|amenities|exhibits. Read once on mount (the overlay takes
+  // its initial mode/filter as props and reads cached exhibits/amenities live, so late hydration is fine).
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const target = parseSearchDeepLink(window.location.search)
+    if (target === 'must-visit') handleOpenMustTry()
+    else if (target === 'amenities') handleOpenAmenitySearch()
+    else if (target === 'exhibits') handleOpenSearch()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const handleSearchSelect = (exhibit: MapExhibit) => {
     useMapStore.getState().setActiveAmenityId(null)
     setSearchOpen(false)
+    clearSearchParam()
     if (mapFailed) {
       if (exhibit.qr_code) router.push(`/s/${exhibit.qr_code}`)
       return
@@ -490,10 +512,12 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
             onClose={() => {
               setSearchOpen(false)
               setOpenedViaMustTry(false)
+              clearSearchParam()
             }}
             onSelect={handleSearchSelect}
             onSelectAmenity={(amenity) => {
               setSearchOpen(false)
+              clearSearchParam()
               handleAmenityTap(amenity.id)
             }}
           />
