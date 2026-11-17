@@ -9,10 +9,16 @@ import DetailsPanel from '@/components/admin/DetailsPanel'
 import PhotosPanel from '@/components/admin/PhotosPanel'
 import { Button } from '@/components/ui/button'
 import { buildChangeset } from '@/lib/admin/changeset'
+import { confirmAdminPassword } from '@/lib/admin/password'
 import type { AdminState, WorkingState } from '@/lib/admin/types'
 import { unplacedAmenityMessage, unplacedMessage } from '@/lib/admin/validation'
 import {
-  deleteAmenity, replaceAmenity, replaceExhibit, replaceExhibitPhotos, toWorking, upsertAudio,
+  deleteAmenity,
+  replaceAmenity,
+  replaceExhibit,
+  replaceExhibitPhotos,
+  toWorking,
+  upsertAudio,
 } from '@/lib/admin/working'
 
 const TABS = ['Details', 'Audio', 'Photos'] as const
@@ -46,7 +52,10 @@ export default function AdminPage() {
     fetchState().then(apply, (e) => setLoadError(e instanceof Error ? e.message : String(e)))
   }, [])
 
-  const diff = useMemo(() => (original && working ? buildChangeset(original, working) : null), [original, working])
+  const diff = useMemo(
+    () => (original && working ? buildChangeset(original, working) : null),
+    [original, working]
+  )
 
   // saved letters of sections deleted this session (in the original, no longer in working)
   const deletedSectionIds = useMemo(() => {
@@ -63,16 +72,21 @@ export default function AdminPage() {
   }, [original, working])
 
   const unplaced = useMemo(() => (working ? unplacedMessage(working.exhibits) : null), [working])
-  const unplacedAmenity = useMemo(() => (working ? unplacedAmenityMessage(working.amenities) : null), [working])
+  const unplacedAmenity = useMemo(
+    () => (working ? unplacedAmenityMessage(working.amenities) : null),
+    [working]
+  )
 
   if (loadError) return <p className="p-6 text-sm text-destructive">{loadError}</p>
-  if (!original || !working || !diff) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>
+  if (!original || !working || !diff)
+    return <p className="p-6 text-sm text-muted-foreground">Loading…</p>
 
   const selected = working.exhibits.find((e) => e.id === selectedId) ?? null
   const selectedAmenity = working.amenities.find((a) => a.id === selectedAmenityId) ?? null
 
   async function save() {
     if (!working || !diff) return
+    if (!confirmAdminPassword()) return
     setSaving(true)
     setSaveError(null)
     setSaved(null)
@@ -92,7 +106,7 @@ export default function AdminPage() {
       setSaved(
         created.length
           ? `Saved. New codes: ${created.map((c) => `${names.get(c.id) ?? c.id} → ${c.code}`).join(', ')}`
-          : 'Saved.',
+          : 'Saved.'
       )
       setSelectedId(null)
       setSelectedAmenityId(null)
@@ -144,14 +158,20 @@ export default function AdminPage() {
             <p className="text-xs text-muted-foreground">
               {`${selectedAmenity.type[0].toUpperCase()}${selectedAmenity.type.slice(1)} · ${selectedAmenity.section ?? 'unplaced'}`}
             </p>
-            <h2 className="truncate text-base font-semibold">{selectedAmenity.name || 'Untitled amenity'}</h2>
+            <h2 className="truncate text-base font-semibold">
+              {selectedAmenity.name || 'Untitled amenity'}
+            </h2>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <AmenityPanel
               amenity={selectedAmenity}
-              onChange={(next) => setWorking((w) => w && { ...w, amenities: replaceAmenity(w.amenities, next) })}
+              onChange={(next) =>
+                setWorking((w) => w && { ...w, amenities: replaceAmenity(w.amenities, next) })
+              }
               onDelete={() => {
-                setWorking((w) => w && { ...w, amenities: deleteAmenity(w.amenities, selectedAmenity.id) })
+                setWorking(
+                  (w) => w && { ...w, amenities: deleteAmenity(w.amenities, selectedAmenity.id) }
+                )
                 setSelectedAmenityId(null)
               }}
               onValidityChange={setPanelError}
@@ -164,12 +184,21 @@ export default function AdminPage() {
         <aside className="absolute bottom-0 right-0 top-0 z-10 flex w-96 flex-col border-l border-border bg-background shadow-lg">
           <div className="border-b border-border px-4 py-3">
             <p className="text-xs text-muted-foreground">
-              {selected.section && selected.number !== null ? `${selected.section}${selected.number}` : 'Unplaced'}
+              {selected.section && selected.number !== null
+                ? `${selected.section}${selected.number}`
+                : 'Unplaced'}
             </p>
-            <h2 className="truncate text-base font-semibold">{selected.name || 'Untitled exhibit'}</h2>
+            <h2 className="truncate text-base font-semibold">
+              {selected.name || 'Untitled exhibit'}
+            </h2>
             <div className="mt-2 flex gap-1">
               {TABS.map((t) => (
-                <Button key={t} size="sm" variant={t === tab ? 'default' : 'ghost'} onClick={() => setTab(t)}>
+                <Button
+                  key={t}
+                  size="sm"
+                  variant={t === tab ? 'default' : 'ghost'}
+                  onClick={() => setTab(t)}
+                >
                   {t}
                 </Button>
               ))}
@@ -180,7 +209,9 @@ export default function AdminPage() {
               <DetailsPanel
                 exhibit={selected}
                 exhibits={working.exhibits}
-                onChange={(next) => setWorking((w) => w && { ...w, exhibits: replaceExhibit(w.exhibits, next) })}
+                onChange={(next) =>
+                  setWorking((w) => w && { ...w, exhibits: replaceExhibit(w.exhibits, next) })
+                }
                 onValidityChange={setPanelError}
               />
             )}
@@ -188,7 +219,9 @@ export default function AdminPage() {
               <AudioPanel
                 exhibit={selected}
                 audio={working.audio}
-                onChange={(next) => setWorking((w) => w && { ...w, audio: upsertAudio(w.audio, next) })}
+                onChange={(next) =>
+                  setWorking((w) => w && { ...w, audio: upsertAudio(w.audio, next) })
+                }
               />
             )}
             {tab === 'Photos' && (
@@ -196,7 +229,9 @@ export default function AdminPage() {
                 exhibit={selected}
                 photos={working.photos}
                 onChange={(next) =>
-                  setWorking((w) => w && { ...w, photos: replaceExhibitPhotos(w.photos, selected.id, next) })
+                  setWorking(
+                    (w) => w && { ...w, photos: replaceExhibitPhotos(w.photos, selected.id, next) }
+                  )
                 }
               />
             )}
@@ -210,14 +245,28 @@ export default function AdminPage() {
           <Button size="sm" variant="outline" disabled={diff.isEmpty || saving} onClick={discard}>
             Discard
           </Button>
-          <Button size="sm" disabled={diff.isEmpty || saving || unplaced !== null || unplacedAmenity !== null || panelError !== null} onClick={() => void save()}>
+          <Button
+            size="sm"
+            disabled={
+              diff.isEmpty ||
+              saving ||
+              unplaced !== null ||
+              unplacedAmenity !== null ||
+              panelError !== null
+            }
+            onClick={() => void save()}
+          >
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
         {diff.changeset.sections.rename.length > 0 && (
-          <p className="text-xs text-muted-foreground">Renaming a section letter changes what visitors see.</p>
+          <p className="text-xs text-muted-foreground">
+            Renaming a section letter changes what visitors see.
+          </p>
         )}
-        {panelError && <p className="text-xs text-destructive">Fix invalid fields before saving: {panelError}</p>}
+        {panelError && (
+          <p className="text-xs text-destructive">Fix invalid fields before saving: {panelError}</p>
+        )}
         {unplaced && <p className="text-xs text-destructive">{unplaced}</p>}
         {unplacedAmenity && <p className="text-xs text-destructive">{unplacedAmenity}</p>}
         {saveError && <p className="text-xs text-destructive">{saveError}</p>}

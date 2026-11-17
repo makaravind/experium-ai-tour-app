@@ -19,6 +19,7 @@ import {
   setExhibitAim,
   type AimTarget,
 } from '@/lib/admin/tour-aim'
+import { confirmAdminPassword } from '@/lib/admin/password'
 import { buildTourChangeset } from '@/lib/admin/tour-changeset'
 import { pairKey, proposeEdges, toPair, type EdgePair } from '@/lib/admin/tour-edges'
 import { LINK_RADIUS_M, proposeLinks, setExhibitNode } from '@/lib/admin/tour-links'
@@ -186,6 +187,7 @@ export default function TourShell() {
 
   async function save() {
     if (!diff) return
+    if (!confirmAdminPassword()) return
     setSaving(true)
     setSaveError(null)
     setSaved(false)
