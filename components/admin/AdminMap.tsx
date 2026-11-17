@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
 
 import { sectionAt } from '@/lib/admin/geometry'
 import { moveAmenityPin, movePin, newAmenity, newExhibit } from '@/lib/admin/pins'
+import { insertVertex, planRegroup, removeVertex } from '@/lib/admin/regroup'
 import {
   assignUnplaced,
   centroid,
@@ -105,6 +106,8 @@ const sectionsGeoJson = (sections: WorkingSection[]): GeoJSON.FeatureCollection 
 const setData = (map: maplibregl.Map, source: string, data: GeoJSON.FeatureCollection) =>
   (map.getSource(source) as maplibregl.GeoJSONSource | undefined)?.setData(data)
 
+const midpoint = (a: LngLat, b: LngLat): LngLat => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+
 const NO_AMENITIES: AdminAmenity[] = []
 const noop = () => {}
 
@@ -127,13 +130,21 @@ export default function AdminMap({
   const labelsRef = useRef(new Map<string, maplibregl.Marker>())
   const pinsRef = useRef(new Map<string, maplibregl.Marker>())
   const amenityPinsRef = useRef(new Map<string, maplibregl.Marker>())
-  const handlesRef = useRef<{ id: string; markers: maplibregl.Marker[] } | null>(null)
+  const handlesRef = useRef<{
+    id: string
+    markers: maplibregl.Marker[]
+    mids: maplibregl.Marker[]
+  } | null>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [ready, setReady] = useState(false)
   const [drawing, setDrawing] = useState<LngLat[] | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState<'reshape' | 'regroup'>('reshape')
+  // Regroup edit awaiting Apply/Cancel: the polygon is shown on the map but not yet committed
+  const [pending, setPending] = useState<{ id: string; polygon: LngLat[] } | null>(null)
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null)
   const [hint, setHint] = useState('')
+  const [pinsLocked, setPinsLocked] = useState(false)
   const [newForm, setNewForm] = useState<NewPinDraft | null>(null)
   const [localSelected, setLocalSelected] = useState<string | null>(null)
   const selected = selectedId !== undefined ? selectedId : localSelected
@@ -157,8 +168,29 @@ export default function AdminMap({
     }
   }
 
+  const editingPolygon =
+    pending && pending.id === editingId
+      ? pending.polygon
+      : sections.find((s) => s.id === editingId)?.polygon
+  // sections as drawn: the pending regroup polygon replaces the committed one
+  const shown = useMemo(
+    () =>
+      pending
+        ? sections.map((s) => (s.id === pending.id ? { ...s, polygon: pending.polygon } : s))
+        : sections,
+    [sections, pending]
+  )
+  // recomputed from live pins/sections so the preview never drifts from what Apply commits
+  const pendingPlan = useMemo(
+    () =>
+      pending ? planRegroup(pending.id, pending.polygon, sections, exhibits, amenities) : null,
+    [pending, sections, exhibits, amenities]
+  )
+
   // handlers registered on the map/markers once read the latest props through this
   const latest = useRef({
+    shown,
+    displayPolygon: editingPolygon,
     sections,
     exhibits,
     amenities,
@@ -170,6 +202,8 @@ export default function AdminMap({
   })
   useEffect(() => {
     latest.current = {
+      shown,
+      displayPolygon: editingPolygon,
       sections,
       exhibits,
       amenities,
@@ -182,7 +216,6 @@ export default function AdminMap({
   })
 
   const isDrawing = drawing !== null
-  const editingPolygon = sections.find((s) => s.id === editingId)?.polygon
 
   const flash = useCallback((msg: string) => {
     setHint(msg)
@@ -262,6 +295,7 @@ export default function AdminMap({
     return () => {
       if (hintTimer.current) clearTimeout(hintTimer.current)
       handlesRef.current?.markers.forEach((m) => m.remove())
+      handlesRef.current?.mids.forEach((m) => m.remove())
       handlesRef.current = null
       labels.forEach((m) => m.remove())
       labels.clear()
@@ -279,16 +313,16 @@ export default function AdminMap({
   useEffect(() => {
     const map = mapRef.current
     if (!ready || !map) return
-    setData(map, 'sections', sectionsGeoJson(sections))
+    setData(map, 'sections', sectionsGeoJson(shown))
     const labels = labelsRef.current
-    const ids = new Set(sections.map((s) => s.id))
+    const ids = new Set(shown.map((s) => s.id))
     for (const [id, marker] of labels) {
       if (!ids.has(id)) {
         marker.remove()
         labels.delete(id)
       }
     }
-    for (const s of sections) {
+    for (const s of shown) {
       let marker = labels.get(s.id)
       if (!marker) {
         const el = document.createElement('div')
@@ -302,7 +336,7 @@ export default function AdminMap({
       }
       marker.setLngLat(centroid(s.polygon))
     }
-  }, [sections, ready])
+  }, [shown, ready])
 
   // exhibit pins: draggable markers labelled with the display ID (code when unplaced)
   useEffect(() => {
@@ -345,10 +379,30 @@ export default function AdminMap({
         pins.set(e.id, marker)
       }
       marker.setLngLat([e.gps_lng!, e.gps_lat!])
-      marker.setDraggable(!isDrawing)
+      marker.setDraggable(!isDrawing && !pinsLocked)
       const el = marker.getElement()
       const isSel = e.id === selected
       el.textContent = e.section ? `${e.section}${e.number}` : String(e.code ?? '?')
+      if (e.status === 'live') {
+        // green check badge, top-right corner (textContent above cleared any previous one)
+        const badge = document.createElement('span')
+        badge.textContent = '✓'
+        badge.setAttribute('data-testid', 'live-badge')
+        Object.assign(badge.style, {
+          position: 'absolute',
+          top: '-6px',
+          right: '-6px',
+          width: '14px',
+          height: '14px',
+          borderRadius: '7px',
+          background: '#22c55e',
+          border: '1.5px solid #fff',
+          fontSize: '9px',
+          lineHeight: '11px',
+          textAlign: 'center',
+        })
+        el.appendChild(badge)
+      }
       // per-property (not cssText): MapLibre positions the marker through el.style.transform
       Object.assign(el.style, {
         display: 'flex',
@@ -361,7 +415,7 @@ export default function AdminMap({
         fontSize: '11px',
         fontWeight: '700',
         color: '#fff',
-        cursor: isDrawing ? 'crosshair' : 'grab',
+        cursor: isDrawing ? 'crosshair' : pinsLocked ? 'pointer' : 'grab',
         pointerEvents: isDrawing ? 'none' : 'auto',
         filter: e.status === 'disabled' ? 'grayscale(1) opacity(.5)' : 'none',
         textDecoration: e.status === 'disabled' ? 'line-through' : 'none',
@@ -371,7 +425,7 @@ export default function AdminMap({
         zIndex: isSel ? '2' : '1',
       })
     }
-  }, [exhibits, selected, isDrawing, ready, flash])
+  }, [exhibits, selected, isDrawing, pinsLocked, ready, flash])
 
   // amenity pins: square, amenity colour, labelled `WC · G` (type tag + section); staged deletes are faded and inert
   useEffect(() => {
@@ -417,7 +471,7 @@ export default function AdminMap({
         pins.set(a.id, marker)
       }
       marker.setLngLat([a.gps_lng, a.gps_lat])
-      marker.setDraggable(!isDrawing && !deleted)
+      marker.setDraggable(!isDrawing && !pinsLocked && !deleted)
       const el = marker.getElement()
       const isSel = !deleted && a.id === selectedAmenity
       el.textContent = `${AMENITY_TAGS[a.type]} · ${a.section ?? '?'}`
@@ -434,7 +488,7 @@ export default function AdminMap({
         fontWeight: '700',
         whiteSpace: 'nowrap',
         color: '#fff',
-        cursor: isDrawing ? 'crosshair' : 'grab',
+        cursor: isDrawing ? 'crosshair' : pinsLocked ? 'pointer' : 'grab',
         pointerEvents: isDrawing || deleted ? 'none' : 'auto',
         filter: deleted ? 'grayscale(1) opacity(.4)' : 'none', // not `opacity`: MapLibre owns the marker's
         textDecoration: deleted ? 'line-through' : 'none',
@@ -444,7 +498,7 @@ export default function AdminMap({
         zIndex: isSel ? '2' : '1',
       })
     }
-  }, [amenities, deletedAmenities, selectedAmenity, isDrawing, ready, flash])
+  }, [amenities, deletedAmenities, selectedAmenity, isDrawing, pinsLocked, ready, flash])
 
   // click on empty map inside a section → "new exhibit" form (not while drawing / reshaping)
   useEffect(() => {
@@ -505,75 +559,154 @@ export default function AdminMap({
     }
   }, [isDrawing, ready])
 
-  // reshape mode: draggable vertex handles for the section being edited
+  // Commits (or, in regroup mode, stages) a new polygon for section `id`; callers revert their handle on 'rejected'.
+  const propose = (id: string, polygon: LngLat[]): 'applied' | 'pending' | 'rejected' => {
+    const { sections: secs, exhibits: exs, amenities: ams } = latest.current
+    if (editMode === 'regroup') {
+      const plan = planRegroup(id, polygon, secs, exs, ams)
+      if (!plan.ok) {
+        flash(`Rejected: would leave ${plan.stranded.join(', ')} outside every section`)
+        return 'rejected'
+      }
+      if (plan.moves.length) {
+        setPending({ id, polygon })
+        return 'pending'
+      }
+    } else {
+      const stranded = [
+        ...strandedExhibits(exs, id, polygon),
+        ...strandedExhibits(ams, id, polygon),
+      ]
+      if (stranded.length) {
+        flash(`Rejected: would leave ${stranded.map((e) => e.name).join(', ')} outside ${id}`)
+        return 'rejected'
+      }
+    }
+    setPending(null)
+    latest.current.onSectionsChange(secs.map((s) => (s.id === id ? { ...s, polygon } : s)))
+    return 'applied'
+  }
+  const proposeRef = useRef(propose)
+  useEffect(() => {
+    proposeRef.current = propose
+  })
+
+  // reshape/regroup mode: draggable corner handles (double-click removes one) and edge-midpoint handles (drag adds one)
   useEffect(() => {
     const map = mapRef.current
     if (!ready || !map) return
-    const current = handlesRef.current
-    if (!editingId || !editingPolygon) {
-      current?.markers.forEach((m) => m.remove())
+    const clear = () => {
+      handlesRef.current?.markers.forEach((m) => m.remove())
+      handlesRef.current?.mids.forEach((m) => m.remove())
       handlesRef.current = null
+    }
+    if (!editingId || !editingPolygon) return clear()
+    const poly = editingPolygon
+    const current = handlesRef.current
+    if (current && current.id === editingId && current.markers.length === poly.length) {
+      current.markers.forEach((m, i) => m.setLngLat(poly[i]))
+      current.mids.forEach((m, k) => m.setLngLat(midpoint(poly[k], poly[(k + 1) % poly.length])))
       return
     }
-    if (current && current.id === editingId && current.markers.length === editingPolygon.length) {
-      current.markers.forEach((m, i) => m.setLngLat(editingPolygon[i]))
-      return
-    }
-    current?.markers.forEach((m) => m.remove())
+    clear()
     const id = editingId
-    const markers = editingPolygon.map((coord, i) => {
+    const live = (polygon: LngLat[]) => {
+      setData(
+        map,
+        'sections',
+        sectionsGeoJson(latest.current.sections.map((s) => (s.id === id ? { ...s, polygon } : s)))
+      )
+      labelsRef.current.get(id)?.setLngLat(centroid(polygon))
+    }
+    const restore = () => {
+      const base = latest.current.displayPolygon
+      if (!base) return
+      setData(map, 'sections', sectionsGeoJson(latest.current.shown))
+      labelsRef.current.get(id)?.setLngLat(centroid(base))
+      mids.forEach((m, k) => m.setLngLat(midpoint(base[k], base[(k + 1) % base.length])))
+    }
+    const mids: maplibregl.Marker[] = []
+
+    const markers = poly.map((coord, i) => {
       const el = document.createElement('div')
       el.style.cssText =
         'width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #0ea5e9;box-shadow:0 1px 4px rgba(0,0,0,.6);cursor:grab'
       el.addEventListener('click', (e) => e.stopPropagation())
+      el.addEventListener('dblclick', (e) => {
+        e.stopPropagation()
+        const base = latest.current.displayPolygon
+        const next = base && removeVertex(base, i)
+        if (!next) return flash('A section needs at least 3 corners')
+        proposeRef.current(id, next)
+      })
       const handle = new maplibregl.Marker({ element: el, draggable: true })
         .setLngLat(coord)
         .addTo(map)
-      const moved = () => {
+      const dragged = () => {
         const { lng, lat } = handle.getLngLat()
-        const sec = latest.current.sections.find((s) => s.id === id)
-        return sec
-          ? { sec, polygon: sec.polygon.map((p, j): LngLat => (j === i ? [lng, lat] : p)) }
-          : null
+        return (
+          latest.current.displayPolygon?.map((p, j): LngLat => (j === i ? [lng, lat] : p)) ?? null
+        )
       }
       handle.on('drag', () => {
-        const m = moved()
-        if (!m) return
-        setData(
-          map,
-          'sections',
-          sectionsGeoJson(
-            latest.current.sections.map((s) => (s.id === id ? { ...s, polygon: m.polygon } : s))
-          )
-        )
-        labelsRef.current.get(id)?.setLngLat(centroid(m.polygon))
+        const next = dragged()
+        if (!next) return
+        live(next)
+        mids.forEach((m, k) => m.setLngLat(midpoint(next[k], next[(k + 1) % next.length])))
       })
       handle.on('dragend', () => {
-        const m = moved()
-        if (!m) return
-        const stranded = [
-          ...strandedExhibits(latest.current.exhibits, id, m.polygon),
-          ...strandedExhibits(latest.current.amenities, id, m.polygon),
-        ]
-        if (stranded.length) {
-          handle.setLngLat(m.sec.polygon[i])
-          setData(map, 'sections', sectionsGeoJson(latest.current.sections))
-          labelsRef.current.get(id)?.setLngLat(centroid(m.sec.polygon))
-          flash(`Rejected: would leave ${stranded.map((e) => e.name).join(', ')} outside ${id}`)
-          return
+        const next = dragged()
+        if (!next) return
+        if (proposeRef.current(id, next) === 'rejected') {
+          handle.setLngLat(latest.current.displayPolygon![i])
+          restore()
         }
-        latest.current.onSectionsChange(
-          latest.current.sections.map((s) => (s.id === id ? { ...s, polygon: m.polygon } : s))
-        )
       })
       return handle
     })
-    handlesRef.current = { id, markers }
+
+    poly.forEach((_, k) => {
+      const el = document.createElement('div')
+      el.style.cssText =
+        'width:9px;height:9px;border-radius:50%;background:#0ea5e9;border:1px solid #fff;opacity:.85;cursor:copy'
+      el.addEventListener('click', (e) => e.stopPropagation())
+      el.addEventListener('dblclick', (e) => e.stopPropagation())
+      const mid = new maplibregl.Marker({ element: el, draggable: true })
+        .setLngLat(midpoint(poly[k], poly[(k + 1) % poly.length]))
+        .addTo(map)
+      const inserted = () => {
+        const { lng, lat } = mid.getLngLat()
+        const base = latest.current.displayPolygon
+        return base ? insertVertex(base, k, [lng, lat]) : null
+      }
+      mid.on('drag', () => {
+        const next = inserted()
+        if (next) live(next)
+      })
+      mid.on('dragend', () => {
+        const next = inserted()
+        if (next && proposeRef.current(id, next) === 'rejected') restore()
+      })
+      mids.push(mid)
+    })
+    handlesRef.current = { id, markers, mids }
   }, [editingId, editingPolygon, ready, flash])
+
+  const applyPending = () => {
+    if (!pending || !pendingPlan?.ok) return
+    const { id, polygon } = pending
+    const plan = pendingPlan
+    setPending(null)
+    onSectionsChange(sections.map((s) => (s.id === id ? { ...s, polygon } : s)))
+    if (plan.exhibits !== exhibits) onExhibitsChange(plan.exhibits)
+    if (plan.amenities !== amenities) onAmenitiesChange(plan.amenities)
+    flash(`Regrouped ${id}: ${plan.moves.length} moved`)
+  }
 
   const startDrawing = () => {
     setNewForm(null)
     setEditingId(null)
+    setPending(null)
     setRenaming(null)
     setDrawing([])
   }
@@ -602,6 +735,7 @@ export default function AdminMap({
         if (e.key === 'Escape') setDrawing(null)
       } else if (e.key === 'Escape') {
         setEditingId(null)
+        setPending(null)
         setNewForm(null)
         latest.current.select(null)
         latest.current.selectAmenity(null)
@@ -649,7 +783,10 @@ export default function AdminMap({
       if (renamed.some((e, i) => e !== exhibits[i])) onExhibitsChange(renamed)
       const relabeled = renameAmenitiesSection(amenities, renaming.id, id)
       if (relabeled.some((a, i) => a !== amenities[i])) onAmenitiesChange(relabeled)
-      if (editingId === renaming.id) setEditingId(id)
+      if (editingId === renaming.id) {
+        setEditingId(id)
+        setPending(null)
+      }
     }
     setRenaming(null)
   }
@@ -659,7 +796,10 @@ export default function AdminMap({
       return flash(`Section ${id} still has exhibits; move them first`)
     if (amenities.some((a) => a.section === id))
       return flash(`Section ${id} still has amenities; move them first`)
-    if (editingId === id) setEditingId(null)
+    if (editingId === id) {
+      setEditingId(null)
+      setPending(null)
+    }
     onSectionsChange(sections.filter((s) => s.id !== id))
   }
 
@@ -680,7 +820,7 @@ export default function AdminMap({
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
-      <div className="absolute left-3 top-3 z-10 w-72 rounded-lg bg-slate-900/90 p-3 text-sm text-white shadow-lg">
+      <div className="absolute left-3 top-3 z-10 w-80 rounded-lg bg-slate-900/90 p-3 text-sm text-white shadow-lg">
         <div className="flex gap-2">
           <button
             className={`${btn} px-3 py-1 text-sm`}
@@ -693,15 +833,65 @@ export default function AdminMap({
               Cancel
             </button>
           )}
+          <button
+            className={`${btn} ml-auto px-3 py-1 text-sm`}
+            aria-pressed={pinsLocked}
+            onClick={() => setPinsLocked((v) => !v)}
+            title="Lock pins so they can't be dragged"
+          >
+            {pinsLocked ? '🔒 Pins locked' : '🔓 Pins unlocked'}
+          </button>
         </div>
         <p className="mt-2 min-h-4 text-xs text-amber-300">
           {hint ||
             (isDrawing
               ? `Click to add points (${drawing.length}). Enter = finish, Esc = cancel`
               : editingId
-                ? `Reshaping ${editingId}: drag the white handles. Esc = stop`
+                ? `${editMode === 'regroup' ? 'Regrouping' : 'Reshaping'} ${editingId}: drag corners, drag a small dot to add one, double-click a corner to remove. Esc = stop`
                 : 'Click inside a section to add an exhibit; drag a pin to move it')}
         </p>
+        {pending && pendingPlan && (
+          <div className="mt-2 rounded bg-slate-800 p-2">
+            {pendingPlan.ok ? (
+              <>
+                <p className="font-bold">
+                  Regroup {pending.id}: {pendingPlan.moves.length} move
+                  {pendingPlan.moves.length === 1 ? '' : 's'}
+                </p>
+                <ul className="mt-1 max-h-40 space-y-0.5 overflow-y-auto text-xs">
+                  {pendingPlan.moves.map((m) => (
+                    <li key={`${m.kind}-${m.id}`}>
+                      <span className="font-mono">
+                        {m.from} → {m.to}
+                      </span>{' '}
+                      <span className="text-slate-400">
+                        {m.kind === 'amenity' ? 'amenity ' : ''}
+                        {m.name}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-xs text-amber-300">
+                Can&apos;t apply: would leave {pendingPlan.stranded.join(', ')} outside every
+                section
+              </p>
+            )}
+            <div className="mt-2 flex gap-2">
+              <button
+                className={`${btn} px-3 py-1 text-sm`}
+                disabled={!pendingPlan.ok}
+                onClick={applyPending}
+              >
+                Apply
+              </button>
+              <button className={`${btn} px-3 py-1 text-sm`} onClick={() => setPending(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
         <ul className="mt-2 space-y-1">
           {sections.map((s, i) => (
             <li key={s.id} className="rounded bg-slate-800 px-2 py-1">
@@ -724,16 +914,22 @@ export default function AdminMap({
                 >
                   Rename
                 </button>
-                <button
-                  className={`${btn} ${editingId === s.id ? 'bg-sky-700' : ''}`}
-                  disabled={isDrawing}
-                  onClick={() => {
-                    setNewForm(null)
-                    setEditingId(editingId === s.id ? null : s.id)
-                  }}
-                >
-                  Reshape
-                </button>
+                {(['reshape', 'regroup'] as const).map((m) => (
+                  <button
+                    key={m}
+                    className={`${btn} capitalize ${editingId === s.id && editMode === m ? 'bg-sky-700' : ''}`}
+                    disabled={isDrawing}
+                    onClick={() => {
+                      setNewForm(null)
+                      setPending(null)
+                      if (editingId === s.id && editMode === m) return setEditingId(null)
+                      setEditMode(m)
+                      setEditingId(s.id)
+                    }}
+                  >
+                    {m}
+                  </button>
+                ))}
                 <button className={btn} disabled={isDrawing} onClick={() => deleteSection(s.id)}>
                   ✕
                 </button>
