@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CachedExhibit, TourSpot } from '@/lib/types'
 import {
+  angularDistance,
   isFreshTourSpot,
   isTourSpotEntry,
   manifestToPanorama,
@@ -197,5 +198,35 @@ describe('tourSpotHref / isTourSpotEntry', () => {
     expect(isTourSpotEntry(spot, 'n 1', null, null)).toBe(false)
     expect(isTourSpotEntry(spot, 'other', '123.5', null)).toBe(false)
     expect(isTourSpotEntry(null, 'n 1', '123.5', null)).toBe(false)
+  })
+})
+
+describe('angularDistance', () => {
+  it('is 0 for equal points', () => {
+    expect(angularDistance({ yaw: 1.2, pitch: 0.3 }, { yaw: 1.2, pitch: 0.3 })).toBe(0)
+  })
+
+  it('is π/2 for 90° apart on the equator', () => {
+    expect(angularDistance({ yaw: 0, pitch: 0 }, { yaw: Math.PI / 2, pitch: 0 })).toBeCloseTo(
+      Math.PI / 2
+    )
+  })
+
+  it('wraps across yaw 0 / 2π', () => {
+    const d = angularDistance({ yaw: 0.1, pitch: 0 }, { yaw: 2 * Math.PI - 0.1, pitch: 0 })
+    expect(d).toBeCloseTo(0.2)
+  })
+
+  it('measures pitch differences', () => {
+    expect(angularDistance({ yaw: 0, pitch: 0 }, { yaw: 0, pitch: Math.PI / 2 })).toBeCloseTo(
+      Math.PI / 2
+    )
+  })
+
+  it('clamps float error instead of returning NaN', () => {
+    // this pitch makes the acos argument 1.0000000000000002; unclamped acos → NaN
+    const p = { yaw: 0.7, pitch: 0.00369 }
+    expect(angularDistance(p, { ...p })).toBe(0)
+    expect(angularDistance({ yaw: 0, pitch: 0 }, { yaw: Math.PI, pitch: 0 })).toBeCloseTo(Math.PI)
   })
 })

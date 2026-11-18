@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import maplibregl from 'maplibre-gl'
@@ -15,6 +15,9 @@ import { isFreshTourSpot, tourSpotHref } from '@/lib/tour'
 import { classifyGeoError, lerpPosition, type LatLng } from '@/lib/gps'
 import { nearestWithin, pinPixelHeight } from '@/lib/nearby'
 import { AmenityTypeIcon } from '@/components/icons'
+import FocusBubble from '@/components/map/FocusBubble'
+import { FOCUS_RADIUS_PX, FOCUS_SETTLE_MS, pickFocus } from '@/lib/focus-pick'
+import { thumbUrl } from '@/lib/exhibit-photos'
 import { track } from '@vercel/analytics'
 import type { CachedAmenity, ExhibitStatus, MapExhibit, TourSpot } from '@/lib/types'
 
@@ -26,6 +29,7 @@ interface ParkMapProps {
   flyToTarget?: string | null
   onMapTap?: () => void
   navigationPath?: [number, number][] | null
+  focusEnabled: boolean
 }
 
 export const ORTHO_BOUNDS: [number, number, number, number] = [
@@ -150,6 +154,20 @@ export function calcPeekChips(
   }
 
   return chips
+}
+
+// Distance of every exhibit from the container centre, in CSS px (not canvas device px).
+export function calcFocusCandidates(
+  map: maplibregl.Map,
+  exhibits: MapExhibit[]
+): { id: string; distance: number }[] {
+  const container = map.getContainer()
+  const cx = container.clientWidth / 2
+  const cy = container.clientHeight / 2
+  return exhibits.map((exhibit) => {
+    const { x, y } = map.project([exhibit.gps_lng, exhibit.gps_lat])
+    return { id: exhibit.id, distance: Math.hypot(x - cx, y - cy) }
+  })
 }
 
 const EDGE_ROTATION: Record<PeekChip['edge'], number> = {
@@ -309,6 +327,7 @@ export default function ParkMap({
   flyToTarget,
   onMapTap,
   navigationPath,
+  focusEnabled,
 }: ParkMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const exhibitsRef = useRef<MapExhibit[]>([])
@@ -320,6 +339,9 @@ export default function ParkMap({
   const onPinTapRef = useRef(onPinTap)
   const onAmenityTapRef = useRef(onAmenityTap)
   const onMapTapRef = useRef(onMapTap)
+  const focusEnabledRef = useRef(focusEnabled)
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const focusMarkerRef = useRef<maplibregl.Marker | null>(null)
   // Keep refs current so stale-closure handlers always call the latest callbacks
   // eslint-disable-next-line react-hooks/refs
   flyToTargetRef.current = flyToTarget
@@ -329,6 +351,8 @@ export default function ParkMap({
   onAmenityTapRef.current = onAmenityTap
   // eslint-disable-next-line react-hooks/refs
   onMapTapRef.current = onMapTap
+  // eslint-disable-next-line react-hooks/refs
+  focusEnabledRef.current = focusEnabled
   const [peekChips, setPeekChips] = useState<PeekChip[]>([])
   const [mapReady, setMapReady] = useState(false)
   const [amenityChips, setAmenityChips] = useState<
@@ -338,8 +362,36 @@ export default function ParkMap({
   const tourSpot = useStore((s) => s.tourSpot)
   const router = useRouter()
   const [spotEl, setSpotEl] = useState<HTMLDivElement | null>(null)
+  const [focusEl, setFocusEl] = useState<HTMLDivElement | null>(null)
+  const [focus, setFocus] = useState<{
+    exhibit: MapExhibit | null
+    visible: boolean
+    popKey: number
+  }>({ exhibit: null, visible: false, popKey: 0 })
+  const visitedExhibits = useStore((s) => s.visitedExhibits)
   const activeAmenityId = useMapStore((s) => s.activeAmenityId)
   const setMapDebug = useDebugStore((s) => s.setMapDebug)
+
+  // Keeps the exhibit mounted so the fade-out plays.
+  const hideFocus = useCallback(() => {
+    if (focusTimerRef.current) clearTimeout(focusTimerRef.current)
+    focusTimerRef.current = null
+    setFocus((f) => (f.visible ? { ...f, visible: false } : f))
+  }, [])
+
+  const pickAndShowFocus = useCallback(() => {
+    const map = mapRef.current
+    const marker = focusMarkerRef.current
+    // A moving camera re-picks on its moveend.
+    if (!map || !marker || !focusEnabledRef.current || map.isMoving()) return
+    const id = pickFocus(calcFocusCandidates(map, exhibitsRef.current), FOCUS_RADIUS_PX)
+    const exhibit = id && exhibitsRef.current.find((ex) => ex.id === id)
+    if (!exhibit) return hideFocus()
+    marker
+      .setLngLat([exhibit.gps_lng, exhibit.gps_lat])
+      .setOffset([0, -(pinPixelHeight(map.getZoom(), exhibit.gps_lat) / 2 + 8)])
+    setFocus((f) => ({ exhibit, visible: true, popKey: f.popKey + 1 }))
+  }, [hideFocus])
 
   useEffect(() => {
     let cancelled = false
@@ -673,6 +725,11 @@ export default function ParkMap({
         const exhibit = exhibitsRef.current.find((ex) => ex.id === feature.properties?.id)
         if (exhibit) {
           track('map_marker_click', { exhibit: exhibit.name, id: exhibit.id })
+          track('pin_tap', {
+            exhibitId: exhibit.id,
+            surface: 'map',
+            visited: useStore.getState().visitedExhibits.includes(exhibit.id),
+          })
           onPinTapRef.current(exhibit)
         }
       })
@@ -720,6 +777,8 @@ export default function ParkMap({
         }
       }
 
+      map.on('movestart', hideFocus)
+
       // Initial peek chip calculation — moveend won't fire on first load
       setPeekChips(calcPeekChips(map, exhibitsRef.current, visitedExhibits))
 
@@ -728,6 +787,8 @@ export default function ParkMap({
         setPeekChips(calcPeekChips(map, exhibitsRef.current, visited))
         const c = map.getCenter()
         useStore.getState().setMapViewport({ center: [c.lng, c.lat], zoom: map.getZoom() })
+        if (focusTimerRef.current) clearTimeout(focusTimerRef.current)
+        focusTimerRef.current = setTimeout(pickAndShowFocus, FOCUS_SETTLE_MS)
       })
 
       setMapReady(true)
@@ -785,6 +846,36 @@ export default function ParkMap({
       setSpotEl(null)
     }
   }, [mapReady, spotKey])
+
+  // Focus bubble: one persistent DOM marker, content portalled in like the 360° pin.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!mapReady || !map) return
+    const el = document.createElement('div')
+    // Hidden, the empty box must not hit-test; FocusBubble's root sets pointer-events:auto while visible.
+    el.style.pointerEvents = 'none'
+    // The map's own click handler (onMapTap) would close the sheet / clear the route.
+    el.addEventListener('click', (e) => e.stopPropagation())
+    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat(STARTING_CENTER)
+      .addTo(map)
+    el.removeAttribute('aria-label') // addTo sets a generic "Map marker" label
+    focusMarkerRef.current = marker
+    setFocusEl(el)
+    return () => {
+      if (focusTimerRef.current) clearTimeout(focusTimerRef.current)
+      marker.remove()
+      focusMarkerRef.current = null
+      setFocusEl(null)
+    }
+  }, [mapReady])
+
+  // Mode change: hide while suppressed; no moveend fires when browsing returns, so re-pick now.
+  useEffect(() => {
+    if (!mapReady || !focusEl) return
+    if (focusEnabled) pickAndShowFocus()
+    else hideFocus() // eslint-disable-line react-hooks/set-state-in-effect
+  }, [mapReady, focusEl, focusEnabled, pickAndShowFocus, hideFocus])
 
   useEffect(() => {
     const map = mapRef.current
@@ -910,6 +1001,34 @@ export default function ParkMap({
             onDismiss={() => useStore.getState().clearTourSpot()}
           />,
           spotEl
+        )}
+      {focusEl &&
+        focus.exhibit &&
+        createPortal(
+          <FocusBubble
+            displayId={focus.exhibit.displayId}
+            name={focus.exhibit.name}
+            thumb={thumbUrl(focus.exhibit)}
+            state={
+              focus.exhibit.status === 'coming_soon'
+                ? 'coming_soon'
+                : visitedExhibits.includes(focus.exhibit.id)
+                  ? 'visited'
+                  : 'unvisited'
+            }
+            popKey={focus.popKey}
+            visible={focus.visible}
+            onTap={() => {
+              const exhibit = focus.exhibit!
+              track('peek_tap', {
+                exhibitId: exhibit.id,
+                surface: 'map',
+                visited: visitedExhibits.includes(exhibit.id),
+              })
+              onPinTapRef.current(exhibit)
+            }}
+          />,
+          focusEl
         )}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {peekChips.map((chip) => (

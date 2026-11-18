@@ -1,13 +1,20 @@
 'use client'
 
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
+import { track } from '@vercel/analytics'
 import { Viewer } from '@photo-sphere-viewer/core'
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
 import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin'
 import type { EquirectangularMultiTilesPanorama } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import { fetchManifest } from '@/lib/tour-data'
+import { thumbUrl } from '@/lib/exhibit-photos'
+import { FOCUS_RADIUS_DEG, FOCUS_SETTLE_MS, pickFocus } from '@/lib/focus-pick'
+import FocusBubble from '@/components/map/FocusBubble'
 import {
+  angularDistance,
+  degToRad,
   manifestToPanorama,
   nodeLinks,
   nodeMarkers,
@@ -20,6 +27,11 @@ import type { CachedExhibit } from '@/lib/types'
 const PIN_SIZE = 32
 // Same colours as the map's exhibit pins (components/map/marker-layer.ts).
 const PIN_COLORS = { unvisited: '#dda15e', visited: '#588157' }
+const FOCUS_ID = '__focus__'
+// The bubble's tail ends this far above the pin's centre: half the pin plus a gap, so the pin stays tappable.
+const FOCUS_LIFT = PIN_SIZE / 2 + 8
+// FocusBubble card (164 wide, 100 image + 50 text), the half of its tail that hangs below, and FOCUS_LIFT of padding.
+const FOCUS_SIZE = { width: 164, height: 156 + FOCUS_LIFT }
 
 function pinMarker(pin: TourPin) {
   const el = document.createElement('div')
@@ -31,6 +43,16 @@ function pinMarker(pin: TourPin) {
     element: el,
     size: { width: PIN_SIZE, height: PIN_SIZE },
     anchor: 'center center',
+  }
+}
+
+function focusMarker(pin: TourPin, element: HTMLElement) {
+  return {
+    id: FOCUS_ID,
+    position: pin.position,
+    element,
+    size: FOCUS_SIZE,
+    anchor: 'bottom center',
   }
 }
 
@@ -49,6 +71,10 @@ interface Props {
   onNodeChange: (node: TourNode) => void
   /** an exhibit pin was tapped */
   onPinSelect: (exhibitId: string) => void
+  /** false while a sheet is open: the focus bubble hides */
+  focusEnabled: boolean
+  /** the focus bubble was tapped */
+  onPeekTap: (exhibitId: string) => void
   /** the panorama was tapped, not a pin */
   onPanoClick: () => void
   /** a tapped arrow's node failed to load; the viewer stays on the current node */
@@ -67,6 +93,8 @@ export default function TourViewer({
   visitedIds,
   onNodeChange,
   onPinSelect,
+  focusEnabled,
+  onPeekTap,
   onPanoClick,
   onNodeError,
   getYawRef,
@@ -75,6 +103,27 @@ export default function TourViewer({
   // Pins follow the latest dataset/visited set without re-creating the viewer.
   const pinSourceRef = useRef({ exhibits, visitedIds })
   const syncPinsRef = useRef<(() => void) | null>(null)
+  // Focus bubble: a PSV marker whose element is a portal host; the exhibit id drives the card.
+  const [focusHost] = useState(() => {
+    const el = document.createElement('div')
+    // .psv-marker is pointer-events:auto; only the visible card should take taps.
+    el.style.pointerEvents = 'none'
+    el.style.boxSizing = 'border-box'
+    el.style.paddingBottom = `${FOCUS_LIFT}px`
+    return el
+  })
+  const [focus, setFocus] = useState<{
+    exhibitId: string | null
+    visible: boolean
+    popKey: number
+  }>({
+    exhibitId: null,
+    visible: false,
+    popKey: 0,
+  })
+  const focusEnabledRef = useRef(focusEnabled)
+  const refocusRef = useRef<(() => void) | null>(null)
+  const hideFocusRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     pinSourceRef.current = { exhibits, visitedIds }
@@ -82,7 +131,15 @@ export default function TourViewer({
   }, [exhibits, visitedIds])
 
   useEffect(() => {
+    focusEnabledRef.current = focusEnabled
+    if (focusEnabled) refocusRef.current?.()
+    else hideFocusRef.current?.()
+  }, [focusEnabled])
+
+  useEffect(() => {
     if (!containerRef.current) return
+    // The viewer is rebuilt: the old marker host is detached, so drop any stale card.
+    setFocus({ exhibitId: null, visible: false, popKey: 0 })
     // Tapping an arrow runs setCurrentNode with no catch, so a failed getNode surfaces as an
     // unhandled rejection (after PSV shows its blocking error overlay). Turn that into a toast.
     // Also swallow the rejection PSV's start-node load throws if the viewer is destroyed in the same
@@ -144,18 +201,72 @@ export default function TourViewer({
     // Pins are set on each node-changed (the plugin clears markers on every node switch) rather
     // than via getNode's `markers`, because server mode caches nodes and visited state goes stale.
     let currentId: string | null = null
+    // The pin nearest the view centre (inside FOCUS_RADIUS_DEG) gets the bubble once the camera settles.
+    let focusedId: string | null = null
+    let focusTimer: ReturnType<typeof setTimeout> | undefined
+    const hideFocus = () => setFocus((f) => (f.visible ? { ...f, visible: false } : f))
     syncPinsRef.current = () => {
       if (!currentId) return
       const src = pinSourceRef.current
       markers.setMarkers(nodeMarkers(currentId, src.exhibits, src.visitedIds).map(pinMarker))
+      // setMarkers also dropped the focus marker: hide its card and re-pick on the next settle.
+      hideFocus()
+      clearTimeout(focusTimer)
+      focusTimer = setTimeout(() => refocusRef.current?.(), FOCUS_SETTLE_MS)
     }
+    const refocus = () => {
+      if (!currentId || !focusEnabledRef.current) return
+      const pos = viewer.getPosition()
+      const pins = nodeMarkers(
+        currentId,
+        pinSourceRef.current.exhibits,
+        pinSourceRef.current.visitedIds
+      )
+      const id = pickFocus(
+        pins.map((p) => ({ id: p.exhibitId, distance: angularDistance(pos, p.position) })),
+        degToRad(FOCUS_RADIUS_DEG)
+      )
+      const pin = pins.find((p) => p.exhibitId === id)
+      if (!pin) return
+      const config = focusMarker(pin, focusHost)
+      if (markers.getMarkers().some((m) => m.id === FOCUS_ID)) markers.removeMarker(FOCUS_ID)
+      markers.addMarker(config)
+      focusedId = pin.exhibitId
+      setFocus((f) => ({ exhibitId: pin.exhibitId, visible: true, popKey: f.popKey + 1 }))
+    }
+    refocusRef.current = refocus
+    hideFocusRef.current = () => {
+      clearTimeout(focusTimer)
+      hideFocus()
+    }
+    // position-updated fires for drag, inertia and animation alike: a debounce is the settle signal.
+    viewer.addEventListener('position-updated', () => {
+      hideFocus()
+      clearTimeout(focusTimer)
+      focusTimer = setTimeout(refocus, FOCUS_SETTLE_MS)
+    })
     tour.addEventListener('node-changed', ({ node: n }) => {
       currentId = n.id
+      clearTimeout(focusTimer)
+      focusedId = null
+      setFocus({ exhibitId: null, visible: false, popKey: 0 })
+      // Sets the new node's pins and starts the settle timer, so the entry bubble needs no rotate.
       syncPinsRef.current?.()
       const current = graph.nodes.find((x) => x.id === n.id)
       if (current) onNodeChange(current)
     })
-    markers.addEventListener('select-marker', ({ marker }) => onPinSelect(marker.id))
+    markers.addEventListener('select-marker', ({ marker }) => {
+      const exhibitId = marker.id === FOCUS_ID ? focusedId : marker.id
+      if (!exhibitId) return
+      const visited = pinSourceRef.current.visitedIds.includes(exhibitId)
+      if (marker.id === FOCUS_ID) {
+        track('peek_tap', { exhibitId, surface: 'tour', visited })
+        onPeekTap(exhibitId)
+      } else {
+        track('pin_tap', { exhibitId, surface: 'tour', visited })
+        onPinSelect(exhibitId)
+      }
+    })
     viewer.addEventListener('click', ({ data }) => {
       if (data.marker || data.target?.closest?.('.psv-marker')) return
       onPanoClick()
@@ -163,11 +274,46 @@ export default function TourViewer({
     return () => {
       destroyed = true
       syncPinsRef.current = null
+      refocusRef.current = null
+      hideFocusRef.current = null
+      clearTimeout(focusTimer)
       getYawRef.current = null
       viewer.destroy()
       setTimeout(() => window.removeEventListener('unhandledrejection', onRejection, true), 100)
     }
-  }, [graph, node, panorama, yaw, onNodeChange, onPinSelect, onPanoClick, onNodeError, getYawRef])
+  }, [
+    graph,
+    node,
+    panorama,
+    yaw,
+    focusHost,
+    onNodeChange,
+    onPinSelect,
+    onPeekTap,
+    onPanoClick,
+    onNodeError,
+    getYawRef,
+  ])
 
-  return <div ref={containerRef} className="h-full w-full" />
+  const focused = focus.exhibitId ? exhibits.find((e) => e.id === focus.exhibitId) : undefined
+
+  return (
+    <>
+      <div ref={containerRef} className="h-full w-full" />
+      {focused &&
+        createPortal(
+          <FocusBubble
+            displayId={focused.displayId}
+            name={focused.name}
+            thumb={thumbUrl(focused)}
+            state={visitedIds.includes(focused.id) ? 'visited' : 'unvisited'}
+            // The tap arrives through PSV's select-marker, not this button.
+            onTap={() => {}}
+            popKey={focus.popKey}
+            visible={focus.visible}
+          />,
+          focusHost
+        )}
+    </>
+  )
 }
