@@ -251,6 +251,8 @@ function Tour() {
           visitedIds={visitedIds}
           onNodeChange={onNodeChange}
           onPinSelect={onPinSelect}
+          focusEnabled={!sheetExhibit}
+          onPeekTap={onPinSelect}
           onPanoClick={onPanoClick}
           onNodeError={onNodeError}
           getYawRef={getYawRef}
