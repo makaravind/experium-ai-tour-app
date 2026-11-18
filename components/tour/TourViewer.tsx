@@ -28,8 +28,10 @@ const PIN_SIZE = 32
 // Same colours as the map's exhibit pins (components/map/marker-layer.ts).
 const PIN_COLORS = { unvisited: '#dda15e', visited: '#588157' }
 const FOCUS_ID = '__focus__'
-// FocusBubble card (164 wide, 100 image + 50 text) plus the half of its tail that hangs below.
-const FOCUS_SIZE = { width: 164, height: 156 }
+// The bubble's tail ends this far above the pin's centre: half the pin plus a gap, so the pin stays tappable.
+const FOCUS_LIFT = PIN_SIZE / 2 + 8
+// FocusBubble card (164 wide, 100 image + 50 text), the half of its tail that hangs below, and FOCUS_LIFT of padding.
+const FOCUS_SIZE = { width: 164, height: 156 + FOCUS_LIFT }
 
 function pinMarker(pin: TourPin) {
   const el = document.createElement('div')
@@ -106,6 +108,8 @@ export default function TourViewer({
     const el = document.createElement('div')
     // .psv-marker is pointer-events:auto; only the visible card should take taps.
     el.style.pointerEvents = 'none'
+    el.style.boxSizing = 'border-box'
+    el.style.paddingBottom = `${FOCUS_LIFT}px`
     return el
   })
   const [focus, setFocus] = useState<{
