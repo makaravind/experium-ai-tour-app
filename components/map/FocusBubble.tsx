@@ -6,7 +6,8 @@ export type FocusBubbleState = 'unvisited' | 'visited' | 'coming_soon'
 const STATE: Record<FocusBubbleState, { color: string; tag: string }> = {
   unvisited: { color: 'var(--color-ex-orange)', tag: 'Not visited' },
   visited: { color: 'var(--color-ex-forest)', tag: '✓ Visited' },
-  coming_soon: { color: 'var(--color-ex-coming-soon)', tag: 'Coming soon' },
+  // Pin grey from TINTS in marker-layer.ts, not the --color-ex-coming-soon token (brown).
+  coming_soon: { color: '#8f8f8f', tag: 'Coming soon' },
 }
 
 const TAIL = 12
