@@ -124,6 +124,17 @@ export interface TourPin {
   visited: boolean
 }
 
+/** Great-circle distance in radians between two yaw/pitch points. */
+export function angularDistance(
+  a: { yaw: number; pitch: number },
+  b: { yaw: number; pitch: number }
+): number {
+  const cos =
+    Math.sin(a.pitch) * Math.sin(b.pitch) +
+    Math.cos(a.pitch) * Math.cos(b.pitch) * Math.cos(a.yaw - b.yaw)
+  return Math.acos(Math.min(1, Math.max(-1, cos)))
+}
+
 /** Pins for the exhibits linked to `nodeId`; exhibits without an authored heading/pitch are skipped. */
 export function nodeMarkers(
   nodeId: string,
