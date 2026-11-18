@@ -134,6 +134,8 @@ export default function TourViewer({
 
   useEffect(() => {
     if (!containerRef.current) return
+    // The viewer is rebuilt: the old marker host is detached, so drop any stale card.
+    setFocus({ exhibitId: null, visible: false, popKey: 0 })
     // Tapping an arrow runs setCurrentNode with no catch, so a failed getNode surfaces as an
     // unhandled rejection (after PSV shows its blocking error overlay). Turn that into a toast.
     // Also swallow the rejection PSV's start-node load throws if the viewer is destroyed in the same
@@ -195,15 +197,19 @@ export default function TourViewer({
     // Pins are set on each node-changed (the plugin clears markers on every node switch) rather
     // than via getNode's `markers`, because server mode caches nodes and visited state goes stale.
     let currentId: string | null = null
-    syncPinsRef.current = () => {
-      if (!currentId) return
-      const src = pinSourceRef.current
-      markers.setMarkers(nodeMarkers(currentId, src.exhibits, src.visitedIds).map(pinMarker))
-    }
     // The pin nearest the view centre (inside FOCUS_RADIUS_DEG) gets the bubble once the camera settles.
     let focusedId: string | null = null
     let focusTimer: ReturnType<typeof setTimeout> | undefined
     const hideFocus = () => setFocus((f) => (f.visible ? { ...f, visible: false } : f))
+    syncPinsRef.current = () => {
+      if (!currentId) return
+      const src = pinSourceRef.current
+      markers.setMarkers(nodeMarkers(currentId, src.exhibits, src.visitedIds).map(pinMarker))
+      // setMarkers also dropped the focus marker: hide its card and re-pick on the next settle.
+      hideFocus()
+      clearTimeout(focusTimer)
+      focusTimer = setTimeout(() => refocusRef.current?.(), FOCUS_SETTLE_MS)
+    }
     const refocus = () => {
       if (!currentId || !focusEnabledRef.current) return
       const pos = viewer.getPosition()
@@ -219,8 +225,8 @@ export default function TourViewer({
       const pin = pins.find((p) => p.exhibitId === id)
       if (!pin) return
       const config = focusMarker(pin, focusHost)
-      if (markers.getMarkers().some((m) => m.id === FOCUS_ID)) markers.updateMarker(config)
-      else markers.addMarker(config)
+      if (markers.getMarkers().some((m) => m.id === FOCUS_ID)) markers.removeMarker(FOCUS_ID)
+      markers.addMarker(config)
       focusedId = pin.exhibitId
       setFocus((f) => ({ exhibitId: pin.exhibitId, visible: true, popKey: f.popKey + 1 }))
     }
@@ -240,6 +246,7 @@ export default function TourViewer({
       clearTimeout(focusTimer)
       focusedId = null
       setFocus({ exhibitId: null, visible: false, popKey: 0 })
+      // Sets the new node's pins and starts the settle timer, so the entry bubble needs no rotate.
       syncPinsRef.current?.()
       const current = graph.nodes.find((x) => x.id === n.id)
       if (current) onNodeChange(current)

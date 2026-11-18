@@ -787,6 +787,7 @@ export default function ParkMap({
         setPeekChips(calcPeekChips(map, exhibitsRef.current, visited))
         const c = map.getCenter()
         useStore.getState().setMapViewport({ center: [c.lng, c.lat], zoom: map.getZoom() })
+        if (focusTimerRef.current) clearTimeout(focusTimerRef.current)
         focusTimerRef.current = setTimeout(pickAndShowFocus, FOCUS_SETTLE_MS)
       })
 
@@ -851,6 +852,8 @@ export default function ParkMap({
     const map = mapRef.current
     if (!mapReady || !map) return
     const el = document.createElement('div')
+    // Hidden, the empty box must not hit-test; FocusBubble's root sets pointer-events:auto while visible.
+    el.style.pointerEvents = 'none'
     // The map's own click handler (onMapTap) would close the sheet / clear the route.
     el.addEventListener('click', (e) => e.stopPropagation())
     const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
