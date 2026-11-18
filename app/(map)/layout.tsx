@@ -337,6 +337,9 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
 
   const showClose = !isExhibitPage && mapSelectedExhibit !== null
 
+  const focusEnabled =
+    !mapSelectedExhibit && !isExhibitPage && !activeAmenityId && !searchOpen && !navigationPathCoords
+
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ fontFamily: 'var(--font-body)' }}>
       {mapFailed ? (
@@ -351,6 +354,7 @@ export default function MapShell({ children }: { children: React.ReactNode }) {
           flyToTarget={flyToTarget}
           onMapTap={handleMapTap}
           navigationPath={navigationPathCoords}
+          focusEnabled={focusEnabled}
         />
       )}
 
