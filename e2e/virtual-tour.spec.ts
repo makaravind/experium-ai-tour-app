@@ -471,7 +471,9 @@ const navVisitor = (page: Page) =>
 // PSV renders arrows as CSS3D elements, one per outgoing edge; exhibit pins are marker elements
 const arrows = (page: Page) => page.locator('.psv-virtual-tour-link')
 const pins = (page: Page) => page.locator('.psv-marker')
-const sheetName = (page: Page) => page.getByText('Baobab Forest')
+// Excludes the focus bubble (PSV marker __focus__), which shows the same name whenever no sheet is open
+const sheetName = (page: Page) =>
+  page.getByText('Baobab Forest').and(page.locator(':not(#psv-marker-__focus__ *)'))
 const navigateButton = (page: Page) => page.getByRole('button', { name: 'Navigate' })
 const spotPin = (page: Page) => page.getByRole('button', { name: /^360° tour spot/ })
 const savedSpot = (page: Page) =>
