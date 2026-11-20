@@ -2,6 +2,7 @@
 
 import { Component, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
+import { track } from '@vercel/analytics'
 
 export type PipState =
   'idle' | 'speaking' | 'thinking' | 'celebrating' | 'surprised' | 'sad' | 'sleeping'
@@ -48,18 +49,31 @@ const PipCanvas = dynamic<PipCanvasProps>(
 )
 
 /** wobnimo's Mascot throws without WebGL2, so probe first; no animation under reduced motion. */
+type StaticReason = 'reduced_motion' | 'no_webgl2' | 'canvas_failed'
+
 let canAnimate: boolean | undefined
+let staticReason: StaticReason | null = null
 function getCanAnimate(): boolean {
   if (canAnimate === undefined) {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       canAnimate = false
+      staticReason = 'reduced_motion'
     } else {
       const gl = document.createElement('canvas').getContext('webgl2')
       canAnimate = gl !== null
+      if (!canAnimate) staticReason = 'no_webgl2'
       gl?.getExtension('WEBGL_lose_context')?.loseContext()
     }
   }
   return canAnimate
+}
+
+// Once per page load, not per Pip instance: how many visitors never see a live Pip, and why.
+let staticTracked = false
+function trackStatic(reason: StaticReason) {
+  if (staticTracked) return
+  staticTracked = true
+  track('pip_static', { reason })
 }
 
 const subscribe = () => () => {}
@@ -72,6 +86,7 @@ class CanvasBoundary extends Component<{ children: ReactNode }, { failed: boolea
   }
   componentDidCatch(error: unknown) {
     console.warn('PipMascot canvas failed, showing poster', error)
+    trackStatic('canvas_failed')
   }
   render() {
     return this.state.failed ? null : this.props.children
@@ -92,6 +107,10 @@ export default function PipMascot({ state, size, className, interactive = false 
     setPrevState(state)
     setAsleep(false)
   }
+
+  useEffect(() => {
+    if (!getCanAnimate() && staticReason) trackStatic(staticReason)
+  }, [])
 
   useEffect(() => {
     if (!live || state !== 'idle') return
