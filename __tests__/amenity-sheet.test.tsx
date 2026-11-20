@@ -6,8 +6,21 @@ import AmenitySheet from '@/components/amenity/AmenitySheet'
 import type { CachedAmenity } from '@/lib/types'
 
 vi.mock('@/components/common/BottomSheet', () => ({
-  default: ({ children }: { children: (s: object) => ReactNode }) =>
-    children({ expanded: false, collapse: vi.fn(), expand: vi.fn() }),
+  default: ({ children, perch }: { children: (s: object) => ReactNode; perch?: ReactNode }) =>
+    createElement(
+      'div',
+      null,
+      createElement('div', { 'data-testid': 'perch' }, perch),
+      children({ expanded: false, collapse: vi.fn(), expand: vi.fn() })
+    ),
+}))
+vi.mock('@/components/common/PipMascot', () => ({
+  default: ({ state, interactive }: { state: string; interactive?: boolean }) =>
+    createElement('div', {
+      'data-testid': 'pip',
+      'data-state': state,
+      'data-interactive': String(!!interactive),
+    }),
 }))
 vi.mock('@/components/common/SheetSummary', () => ({
   default: ({ badge }: { badge?: ReactNode }) => createElement('div', null, badge),
@@ -42,5 +55,14 @@ describe('AmenitySheet badge', () => {
   it.each([undefined, null, ''])('omits section segment when section is %j', (section) => {
     renderSheet(make({ section }))
     expect(screen.getByText('Washroom')).toBeTruthy()
+  })
+})
+
+describe('AmenitySheet perch', () => {
+  it('passes an idle interactive Pip as the BottomSheet perch', () => {
+    renderSheet(make())
+    const pip = screen.getByTestId('perch').querySelector('[data-testid="pip"]')!
+    expect(pip.getAttribute('data-state')).toBe('idle')
+    expect(pip.getAttribute('data-interactive')).toBe('true')
   })
 })

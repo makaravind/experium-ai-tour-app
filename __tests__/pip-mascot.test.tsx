@@ -1,12 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { createElement, type ComponentType } from 'react'
+import { SLEEP_AFTER_MS } from '@/components/common/PipMascot'
 
 const mascotProps = vi.fn()
 let mascotShouldThrow = false
 
 vi.mock('wobnimo/react', () => ({
-  Mascot: (props: { state: string; onReady?: () => void }) => {
+  Mascot: (props: {
+    state: string
+    onReady?: () => void
+    onPoke?: () => void
+    interactive?: boolean
+    maxPixelRatio?: number
+  }) => {
     mascotProps(props)
     if (mascotShouldThrow) throw new Error('webgl context lost')
     return createElement('div', { 'data-testid': 'mascot', 'data-state': props.state })
@@ -18,6 +25,7 @@ type PipProps = {
   state: string
   size: number | { width: number; height: number }
   className?: string
+  interactive?: boolean
 }
 
 // PipMascot caches its WebGL/reduced-motion probe at module level, so re-import per case.
@@ -112,5 +120,136 @@ describe('PipMascot', () => {
     rerender(createElement(PipMascot, { state: 'idle', size: { width: 48, height: 56 } }))
     expect(wrapper.style.width).toBe('48px')
     expect(wrapper.style.height).toBe('56px')
+  })
+})
+
+describe('PipMascot interactive', () => {
+  it('forwards interactive=false by default and maxPixelRatio 3', async () => {
+    const PipMascot = await loadPip({ webgl2: true })
+    const { findByTestId } = render(createElement(PipMascot, { state: 'idle', size: 48 }))
+    await findByTestId('mascot')
+    expect(mascotProps.mock.lastCall![0]).toMatchObject({ interactive: false, maxPixelRatio: 3 })
+  })
+
+  it('forwards interactive=true when set', async () => {
+    const PipMascot = await loadPip({ webgl2: true })
+    const { findByTestId } = render(
+      createElement(PipMascot, { state: 'idle', size: 48, interactive: true })
+    )
+    await findByTestId('mascot')
+    expect(mascotProps.mock.lastCall![0].interactive).toBe(true)
+  })
+
+  it.each([
+    [false, false],
+    [true, true],
+  ])(
+    'interactive=%j: canvas wrapper pointer-events-auto is %j, root stays none',
+    async (interactive, auto) => {
+      const PipMascot = await loadPip({ webgl2: true })
+      const { container, findByTestId } = render(
+        createElement(PipMascot, { state: 'idle', size: 48, interactive })
+      )
+      const mascot = await findByTestId('mascot')
+      const root = container.firstElementChild as HTMLElement
+      expect(root.classList.contains('pointer-events-none')).toBe(true)
+      expect(mascot.parentElement!.classList.contains('pointer-events-auto')).toBe(auto)
+    }
+  )
+})
+
+describe('PipMascot sleep', () => {
+  // RTL's findBy* hangs under fake timers, so wait for the canvas with vi.waitFor instead.
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const lastState = () => mascotProps.mock.lastCall![0].state as string
+  const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms))
+
+  async function renderLive(state: string) {
+    const PipMascot = await loadPip({ webgl2: true })
+    const utils = render(createElement(PipMascot, { state, size: 48 }))
+    await vi.waitFor(() => expect(mascotProps).toHaveBeenCalled())
+    // vi.waitFor advances the fake clock while polling; a poke re-arms the timer from t=0.
+    act(() => mascotProps.mock.lastCall![0].onPoke())
+    return { ...utils, PipMascot }
+  }
+
+  it('falls asleep after SLEEP_AFTER_MS of idle', async () => {
+    await renderLive('idle')
+    await advance(SLEEP_AFTER_MS - 1)
+    expect(lastState()).toBe('idle')
+    await advance(1)
+    expect(lastState()).toBe('sleeping')
+  })
+
+  it('onPoke wakes it and restarts the timer', async () => {
+    await renderLive('idle')
+    await advance(SLEEP_AFTER_MS)
+    expect(lastState()).toBe('sleeping')
+
+    act(() => mascotProps.mock.lastCall![0].onPoke())
+    expect(lastState()).toBe('idle')
+
+    await advance(SLEEP_AFTER_MS - 1)
+    expect(lastState()).toBe('idle')
+    await advance(1)
+    expect(lastState()).toBe('sleeping')
+  })
+
+  it('a poke before sleeping postpones it by a full interval', async () => {
+    await renderLive('idle')
+    await advance(SLEEP_AFTER_MS - 1000)
+    act(() => mascotProps.mock.lastCall![0].onPoke())
+    await advance(SLEEP_AFTER_MS - 1)
+    expect(lastState()).toBe('idle')
+    await advance(1)
+    expect(lastState()).toBe('sleeping')
+  })
+
+  it('a requested-state change wakes it and restarts the timer', async () => {
+    const { rerender, PipMascot } = await renderLive('idle')
+    await advance(SLEEP_AFTER_MS)
+    expect(lastState()).toBe('sleeping')
+
+    rerender(createElement(PipMascot, { state: 'surprised', size: 48 }))
+    expect(lastState()).toBe('surprised')
+    rerender(createElement(PipMascot, { state: 'idle', size: 48 }))
+    expect(lastState()).toBe('idle')
+
+    await advance(SLEEP_AFTER_MS - 1)
+    expect(lastState()).toBe('idle')
+    await advance(1)
+    expect(lastState()).toBe('sleeping')
+  })
+
+  it.each(['speaking', 'celebrating', 'thinking', 'sad', 'surprised'])(
+    'never sleeps while %s',
+    async (state) => {
+      await renderLive(state)
+      await advance(SLEEP_AFTER_MS * 3)
+      expect(lastState()).toBe(state)
+      expect(mascotProps.mock.calls.every(([p]) => p.state === state)).toBe(true)
+    }
+  )
+
+  it.each([
+    ['WebGL2 is unavailable', { webgl2: false }],
+    ['under reduced motion', { webgl2: true, reducedMotion: true }],
+  ])('sets no sleep timer and renders no canvas when %s', async (_name, opts) => {
+    const PipMascot = await loadPip(opts)
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+    const { queryByTestId, container } = render(
+      createElement(PipMascot, { state: 'idle', size: 48, interactive: true })
+    )
+    await advance(SLEEP_AFTER_MS * 2)
+    expect(queryByTestId('mascot')).toBeNull()
+    expect(mascotProps).not.toHaveBeenCalled()
+    expect(container.querySelector('img')).not.toBeNull()
+    expect(setTimeoutSpy.mock.calls.some(([, ms]) => ms === SLEEP_AFTER_MS)).toBe(false)
   })
 })
