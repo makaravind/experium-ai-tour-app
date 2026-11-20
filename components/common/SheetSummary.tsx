@@ -88,7 +88,7 @@ export default function SheetSummary({
         </AnimatePresence>
         {/* Outside the gallery (it clips); both Pips stay mounted so a toggle never re-shows the poster. */}
         <div
-          className={`absolute right-0 top-full z-10 -translate-y-[44px] transition-[opacity,visibility] duration-150 ${expanded ? '' : 'opacity-0 invisible'}`}
+          className={`absolute right-0 top-full z-10 -translate-y-[44px] transition-[opacity,visibility] ${expanded ? 'duration-150' : 'opacity-0 invisible duration-0'}`}
         >
           <PipMascot
             state={mascotState ?? 'idle'}
