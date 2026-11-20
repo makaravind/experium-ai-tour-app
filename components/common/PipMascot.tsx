@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useSyncExternalStore } from 'react'
+import { Component, useState, useSyncExternalStore, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 
 export type PipState = 'idle' | 'speaking' | 'thinking' | 'celebrating'
@@ -55,6 +55,20 @@ function getCanAnimate(): boolean {
 
 const subscribe = () => () => {}
 
+/** Canvas can throw after the probe (context loss, shader failure, failed chunk import); keep the poster instead of blanking the route. */
+class CanvasBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  componentDidCatch(error: unknown) {
+    console.warn('PipMascot canvas failed, showing poster', error)
+  }
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
+}
+
 /** A passed className replaces the default `relative`, so it must include its own position class. */
 export default function PipMascot({ state, size, className }: PipMascotProps) {
   const { width, height } = typeof size === 'number' ? { width: size, height: size } : size
@@ -75,12 +89,14 @@ export default function PipMascot({ state, size, className }: PipMascotProps) {
           aria-hidden="true"
           width={width}
           height={height}
-          className="absolute inset-0 w-full h-full pointer-events-none select-none"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
         />
       )}
       {live && (
         <div className="absolute inset-0">
-          <PipCanvas state={state} onReady={() => setReady(true)} />
+          <CanvasBoundary>
+            <PipCanvas state={state} onReady={() => setReady(true)} />
+          </CanvasBoundary>
         </div>
       )}
     </div>
