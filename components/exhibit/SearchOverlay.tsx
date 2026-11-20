@@ -152,7 +152,11 @@ export default function SearchOverlay({
             animate={{ opacity: 1 }}
             transition={{ duration: 0.15, ease: EASE }}
           >
-            {!amenityMode && <TrailCard />}
+            {!amenityMode && (
+              <div className="pt-11">
+                <TrailCard />
+              </div>
+            )}
 
             <div
               className="mt-4 mb-2 text-xs font-extrabold uppercase text-ex-muted"
