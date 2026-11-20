@@ -216,14 +216,13 @@ export default function TrailCard() {
         >
           <InfoIcon size={17} strokeWidth={2} />
         </button>
-        <div className="flex items-center gap-2 pr-8">
-          <div className="font-display font-bold text-base leading-tight flex-1">{lead}</div>
-          <PipMascot
-            state={pipState}
-            size={{ width: 48, height: 56 }}
-            className="relative flex-none"
-          />
-        </div>
+        <PipMascot
+          state={pipState}
+          size={{ width: 104, height: 104 }}
+          className="absolute right-[44px] top-[-44px]"
+          interactive
+        />
+        <div className="font-display font-bold text-base leading-tight pr-[132px]">{lead}</div>
         <div className="flex items-center mt-5 mb-2" role="group" aria-label={ariaLabel}>
           {nodes.map((node, i) => (
             <div className="flex items-center flex-1 last:flex-none" key={i}>
