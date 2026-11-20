@@ -4,7 +4,10 @@ import { createElement, type ComponentType } from 'react'
 import { SLEEP_AFTER_MS } from '@/components/common/PipMascot'
 
 const mascotProps = vi.fn()
+const { trackMock } = vi.hoisted(() => ({ trackMock: vi.fn() }))
 let mascotShouldThrow = false
+
+vi.mock('@vercel/analytics', () => ({ track: trackMock }))
 
 vi.mock('wobnimo/react', () => ({
   Mascot: (props: {
@@ -42,6 +45,7 @@ async function loadPip(opts: { webgl2: boolean; reducedMotion?: boolean }) {
 
 beforeEach(() => {
   mascotProps.mockClear()
+  trackMock.mockClear()
   mascotShouldThrow = false
 })
 afterEach(() => {
@@ -251,5 +255,42 @@ describe('PipMascot sleep', () => {
     expect(mascotProps).not.toHaveBeenCalled()
     expect(container.querySelector('img')).not.toBeNull()
     expect(setTimeoutSpy.mock.calls.some(([, ms]) => ms === SLEEP_AFTER_MS)).toBe(false)
+  })
+})
+
+describe('PipMascot pip_static analytics', () => {
+  // The sleep block above enables fake timers, after which RTL's findBy*/waitFor hang; use vi.waitFor.
+  it.each([
+    ['reduced_motion', { webgl2: true, reducedMotion: true }],
+    ['no_webgl2', { webgl2: false }],
+  ] as const)('tracks %s once per page load, not per instance', async (reason, opts) => {
+    const PipMascot = await loadPip(opts)
+    render(
+      createElement('div', null, [
+        createElement(PipMascot, { key: 'a', state: 'idle', size: 48 }),
+        createElement(PipMascot, { key: 'b', state: 'idle', size: 48 }),
+      ])
+    )
+    expect(trackMock).toHaveBeenCalledTimes(1)
+    expect(trackMock).toHaveBeenCalledWith('pip_static', { reason })
+  })
+
+  it('does not track when the live canvas is available', async () => {
+    const PipMascot = await loadPip({ webgl2: true })
+    render(createElement(PipMascot, { state: 'idle', size: 48 }))
+    await vi.waitFor(() => expect(mascotProps).toHaveBeenCalled())
+    expect(trackMock).not.toHaveBeenCalled()
+  })
+
+  it('tracks canvas_failed when the canvas throws after the probe passes', async () => {
+    mascotShouldThrow = true
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const PipMascot = await loadPip({ webgl2: true })
+    render(createElement(PipMascot, { state: 'idle', size: 48 }))
+    await vi.waitFor(() =>
+      expect(trackMock).toHaveBeenCalledWith('pip_static', { reason: 'canvas_failed' })
+    )
+    expect(trackMock).toHaveBeenCalledTimes(1)
   })
 })

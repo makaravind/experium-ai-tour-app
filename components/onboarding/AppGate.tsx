@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import PipMotionHint from '@/components/common/PipMotionHint'
 import InfoModal from '@/components/onboarding/InfoModal'
 import IntroScreen from '@/components/onboarding/IntroScreen'
 import LoadingScreen from '@/components/onboarding/LoadingScreen'
@@ -515,6 +516,7 @@ export default function AppGate({ children }: { children: ReactNode }) {
   return (
     <>
       {content}
+      {phase === 'clear' && introDone && <PipMotionHint />}
       <AnimatePresence>
         {!introDone && (
           <motion.div
