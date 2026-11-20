@@ -28,6 +28,7 @@ export default function BottomSheet({
   onCollapse,
   onReady,
   peekFooter,
+  perch,
   ref,
   children,
 }: {
@@ -39,6 +40,8 @@ export default function BottomSheet({
   onReady?: () => void
   /** Teaser rendered in the bottom clearance while peeking; tapping it expands. */
   peekFooter?: ReactNode
+  /** Perched on the sheet's top-right edge, outside the scroller so it isn't clipped. Hidden while expanded. */
+  perch?: ReactNode
   ref?: Ref<BottomSheetHandle>
   children: (sheet: { expanded: boolean; collapse: () => void; expand: () => void }) => ReactNode
 }) {
@@ -135,8 +138,7 @@ export default function BottomSheet({
     <>
       {onClose && itemId && <div className="fixed inset-0 z-40" onClick={handleClose} />}
       <motion.div
-        ref={sheetRef}
-        className="fixed left-0 right-0 bottom-0 rounded-t-3xl overflow-y-auto overflow-x-clip bg-ex-paper"
+        className="fixed left-0 right-0 bottom-0 rounded-t-3xl"
         style={{
           boxShadow: 'var(--ex-shadow-sheet)',
           zIndex: 50,
@@ -166,29 +168,42 @@ export default function BottomSheet({
           else collapse(flick)
         }}
       >
-        <div ref={contentRef}>
-          <button
-            onPointerDown={(e) => dragControls.start(e)}
-            onClick={() => (expanded ? collapse() : expand())}
-            className="w-full pt-2.5 pb-4 flex justify-center"
-            style={{ background: 'none', border: 'none', touchAction: 'none', cursor: 'grab' }}
-            aria-label={expanded ? 'Collapse details' : 'Expand to full view'}
-            aria-expanded={expanded}
-          >
-            <span className="rounded-full bg-ex-border" style={{ width: 36, height: 4 }} />
-          </button>
+        <div
+          ref={sheetRef}
+          className="h-full rounded-t-3xl overflow-y-auto overflow-x-clip bg-ex-paper"
+        >
+          <div ref={contentRef}>
+            <button
+              onPointerDown={(e) => dragControls.start(e)}
+              onClick={() => (expanded ? collapse() : expand())}
+              className="w-full pt-2.5 pb-4 flex justify-center"
+              style={{ background: 'none', border: 'none', touchAction: 'none', cursor: 'grab' }}
+              aria-label={expanded ? 'Collapse details' : 'Expand to full view'}
+              aria-expanded={expanded}
+            >
+              <span className="rounded-full bg-ex-border" style={{ width: 36, height: 4 }} />
+            </button>
 
-          {/* eslint-disable-next-line react-hooks/refs -- collapse only touches refs when called from handlers */}
-          {children({ expanded, collapse: () => collapse(), expand: () => expand() })}
+            {/* eslint-disable-next-line react-hooks/refs -- collapse only touches refs when called from handlers */}
+            {children({ expanded, collapse: () => collapse(), expand: () => expand() })}
 
-          <div style={{ height: TAB_BAR_CLEARANCE }} className="relative overflow-hidden">
-            {!expanded && peekFooter && (
-              <div className="h-full cursor-pointer" onClick={() => expand()}>
-                {peekFooter}
-              </div>
-            )}
+            <div style={{ height: TAB_BAR_CLEARANCE }} className="relative overflow-hidden">
+              {!expanded && peekFooter && (
+                <div className="h-full cursor-pointer" onClick={() => expand()}>
+                  {peekFooter}
+                </div>
+              )}
+            </div>
           </div>
         </div>
+        {perch && (
+          <div
+            className="pointer-events-none absolute right-4 top-0 z-10 transition-[opacity,visibility] duration-150"
+            style={{ opacity: expanded ? 0 : 1, visibility: expanded ? 'hidden' : 'visible' }}
+          >
+            {perch}
+          </div>
+        )}
       </motion.div>
     </>
   )
