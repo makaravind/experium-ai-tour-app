@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Gallery, { type Palette } from '@/components/exhibit/Gallery'
 import type { GallerySlide } from '@/lib/exhibit-photos'
 import { CloseIcon } from '@/components/icons'
+import PipMascot from '@/components/common/PipMascot'
 
 export default function SheetSummary({
   expanded,
@@ -20,6 +21,7 @@ export default function SheetSummary({
   palette,
   tourPreviewUrl,
   onTourEnter,
+  mascotState,
 }: {
   expanded: boolean
   thumb: ReactNode
@@ -34,6 +36,7 @@ export default function SheetSummary({
   palette?: Palette
   tourPreviewUrl?: string | null
   onTourEnter?: () => void
+  mascotState?: 'idle' | 'speaking'
 }) {
   return (
     <div className={expanded ? 'flex flex-col gap-3' : 'flex flex-row gap-3 items-center pr-9'}>
@@ -84,14 +87,10 @@ export default function SheetSummary({
       </div>
 
       <div className="relative flex-1 min-w-0 pr-16">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/mascot.webp"
-          alt=""
-          aria-hidden="true"
-          width={62}
-          height={72}
-          className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none select-none"
+        <PipMascot
+          state={mascotState ?? 'idle'}
+          size={{ width: 62, height: 72 }}
+          className="absolute right-0 top-1/2 -translate-y-1/2"
         />
         <div className="flex items-center gap-2 flex-wrap">
           <span

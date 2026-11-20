@@ -386,6 +386,7 @@ export default function PreviewSheet({
                 onExpand={expand}
                 slides={slides}
                 onTourEnter={enterTour}
+                mascotState={isPlaying ? 'speaking' : 'idle'}
                 thumb={
                   <div className="relative w-14 h-14">
                     <div
