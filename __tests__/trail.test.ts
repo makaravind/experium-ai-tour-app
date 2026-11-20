@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { getCurrentSegment, getCrossedMilestone, TRAIL_MILESTONES } from '@/lib/trail'
+import {
+  getCurrentSegment,
+  getCrossedMilestone,
+  shouldCelebrate,
+  TRAIL_MILESTONES,
+} from '@/lib/trail'
 import { CAMPAIGNS } from '@/lib/campaigns'
 
 describe('TRAIL_MILESTONES', () => {
@@ -79,5 +84,13 @@ describe('getCrossedMilestone', () => {
 
   it('is null when new total is not a milestone (49 to 51)', () => {
     expect(getCrossedMilestone(49, 51)).toBe(null)
+  })
+})
+
+describe('shouldCelebrate', () => {
+  it('celebrates only when total rose above the last celebrated total', () => {
+    expect(shouldCelebrate(3, 2)).toBe(true)
+    expect(shouldCelebrate(2, 2)).toBe(false)
+    expect(shouldCelebrate(0, 0)).toBe(false)
   })
 })

@@ -27,3 +27,8 @@ export function getCrossedMilestone(prevTotal: number, newTotal: number): number
   if (newTotal <= prevTotal) return null
   return TRAIL_MILESTONES.find((m) => m === newTotal) ?? null
 }
+
+/** Whether TrailCard should celebrate: the discovered total rose since it last celebrated. */
+export function shouldCelebrate(total: number, lastCelebratedTotal: number): boolean {
+  return total > lastCelebratedTotal
+}

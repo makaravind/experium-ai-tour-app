@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckIcon, CloseIcon, InfoIcon } from '@/components/icons'
 import { useStore, selectTotalDiscovered } from '@/lib/store'
-import { TRAIL_MILESTONES, getCurrentSegment } from '@/lib/trail'
+import PipMascot, { type PipState } from '@/components/common/PipMascot'
+import { TRAIL_MILESTONES, getCurrentSegment, shouldCelebrate } from '@/lib/trail'
 
 const NODE_BASE = 'w-[26px] h-[26px] rounded-full flex-none grid place-items-center'
 
@@ -131,8 +132,22 @@ function TrailInfoModal({ onClose }: { onClose: () => void }) {
 export default function TrailCard() {
   const totalDiscovered = useStore(selectTotalDiscovered)
   const segment = getCurrentSegment(totalDiscovered)
+  const lastCelebratedTotal = useStore((s) => s.lastCelebratedTotal)
+  const setLastCelebratedTotal = useStore((s) => s.setLastCelebratedTotal)
   const router = useRouter()
   const [infoOpen, setInfoOpen] = useState(false)
+  // Decided once at mount (lazy init) so it survives strict-mode double-mount; the effect then
+  // re-arms the idle reset that the first cleanup cleared and stores the total (idempotent).
+  const [celebrate] = useState(() => shouldCelebrate(totalDiscovered, lastCelebratedTotal))
+  const [pipState, setPipState] = useState<PipState>(celebrate ? 'celebrating' : 'idle')
+
+  useEffect(() => {
+    if (!celebrate) return
+    setLastCelebratedTotal(totalDiscovered)
+    const timer = setTimeout(() => setPipState('idle'), 3000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const isFresh = totalDiscovered === 0
   const isComplete = segment.isComplete
@@ -203,14 +218,10 @@ export default function TrailCard() {
         </button>
         <div className="flex items-center gap-2 pr-8">
           <div className="font-display font-bold text-base leading-tight flex-1">{lead}</div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/mascot.webp"
-            alt=""
-            aria-hidden="true"
-            width={48}
-            height={56}
-            className="flex-none pointer-events-none select-none"
+          <PipMascot
+            state={pipState}
+            size={{ width: 48, height: 56 }}
+            className="relative flex-none"
           />
         </div>
         <div className="flex items-center mt-5 mb-2" role="group" aria-label={ariaLabel}>
