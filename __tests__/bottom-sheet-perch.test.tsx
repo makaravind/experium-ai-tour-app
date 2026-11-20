@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { createElement } from 'react'
 import BottomSheet from '@/components/common/BottomSheet'
 
 beforeEach(() => {
@@ -18,17 +17,11 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderSheet(itemId: string | null, perch?: boolean) {
+function renderSheet(itemId: string | null, withPerch = true) {
   return render(
-    createElement(
-      BottomSheet,
-      {
-        itemId,
-        perch:
-          perch === false ? undefined : createElement('div', { 'data-testid': 'perch' }, 'pip'),
-      },
-      ({ expanded }) => createElement('p', { 'data-testid': 'child' }, expanded ? 'full' : 'peek')
-    )
+    <BottomSheet itemId={itemId} perch={withPerch ? <div data-testid="perch">pip</div> : undefined}>
+      {({ expanded }) => <p data-testid="child">{expanded ? 'full' : 'peek'}</p>}
+    </BottomSheet>
   )
 }
 
