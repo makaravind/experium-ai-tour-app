@@ -55,6 +55,7 @@ function getCanAnimate(): boolean {
 
 const subscribe = () => () => {}
 
+/** A passed className replaces the default `relative`, so it must include its own position class. */
 export default function PipMascot({ state, size, className }: PipMascotProps) {
   const { width, height } = typeof size === 'number' ? { width: size, height: size } : size
   const live = useSyncExternalStore(subscribe, getCanAnimate, () => false)
@@ -63,7 +64,7 @@ export default function PipMascot({ state, size, className }: PipMascotProps) {
   return (
     <div
       aria-hidden="true"
-      className={`relative pointer-events-none select-none ${className ?? ''}`}
+      className={`pointer-events-none select-none ${className ?? 'relative'}`}
       style={{ width, height }}
     >
       {!ready && (
