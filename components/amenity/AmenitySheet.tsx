@@ -42,6 +42,7 @@ export default function AmenitySheet({
       {({ expanded, collapse, expand }) => (
         <div className="px-4">
           <SheetSummary
+            hasItem={!!amenity}
             expanded={expanded}
             onExpand={expand}
             thumb={
