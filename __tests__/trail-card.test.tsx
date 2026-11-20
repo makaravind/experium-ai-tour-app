@@ -8,9 +8,25 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 const pipStates: string[] = []
 vi.mock('@/components/common/PipMascot', () => ({
-  default: ({ state }: { state: string }) => {
+  default: ({
+    state,
+    size,
+    className,
+    interactive,
+  }: {
+    state: string
+    size: { width: number; height: number }
+    className?: string
+    interactive?: boolean
+  }) => {
     pipStates.push(state)
-    return createElement('div', { 'data-testid': 'pip', 'data-state': state })
+    return createElement('div', {
+      'data-testid': 'pip',
+      'data-state': state,
+      'data-size': `${size.width}x${size.height}`,
+      'data-interactive': String(!!interactive),
+      className,
+    })
   },
 }))
 
@@ -72,5 +88,18 @@ describe('TrailCard Pip celebrate', () => {
     expect(useStore.getState().lastCelebratedTotal).toBe(3)
     act(() => vi.advanceTimersByTime(3000))
     expect(state(container)).toBe('idle')
+  })
+})
+
+describe('TrailCard Pip perch', () => {
+  it('renders an interactive 104px Pip perched above the card, left of the info button', () => {
+    seed(3, 3)
+    const { container } = render(createElement(TrailCard))
+    const pip = container.querySelector('[data-testid="pip"]')!
+    expect(pip.getAttribute('data-size')).toBe('104x104')
+    expect(pip.getAttribute('data-interactive')).toBe('true')
+    expect(pip.classList.contains('absolute')).toBe(true)
+    expect(pip.classList.contains('right-[44px]')).toBe(true)
+    expect(pip.classList.contains('top-[-44px]')).toBe(true)
   })
 })

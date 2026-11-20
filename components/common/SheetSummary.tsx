@@ -5,9 +5,12 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Gallery, { type Palette } from '@/components/exhibit/Gallery'
 import type { GallerySlide } from '@/lib/exhibit-photos'
 import { CloseIcon } from '@/components/icons'
-import PipMascot from '@/components/common/PipMascot'
+import PipMascot, { type PipState } from '@/components/common/PipMascot'
+
+const EXPANDED_PIP_SIZE = 110
 
 export default function SheetSummary({
+  hasItem,
   expanded,
   thumb,
   name,
@@ -23,6 +26,8 @@ export default function SheetSummary({
   onTourEnter,
   mascotState,
 }: {
+  /** False while the sheet is parked: the expanded Pip isn't mounted, so no idle WebGL canvas. */
+  hasItem: boolean
   expanded: boolean
   thumb: ReactNode
   name?: string
@@ -36,11 +41,11 @@ export default function SheetSummary({
   palette?: Palette
   tourPreviewUrl?: string | null
   onTourEnter?: () => void
-  mascotState?: 'idle' | 'speaking'
+  mascotState?: PipState
 }) {
   return (
     <div className={expanded ? 'flex flex-col gap-3' : 'flex flex-row gap-3 items-center pr-9'}>
-      <div className={expanded ? 'w-full' : ''}>
+      <div className={expanded ? 'relative w-full' : 'relative'}>
         <AnimatePresence mode="popLayout" initial={false}>
           {expanded ? (
             <motion.div
@@ -84,14 +89,22 @@ export default function SheetSummary({
             </motion.div>
           )}
         </AnimatePresence>
+        {/* Outside the gallery (it clips); both Pips stay mounted so a toggle never re-shows the poster. */}
+        {hasItem && (
+          <div
+            className={`absolute right-0 top-full z-10 -translate-y-[44px] transition-[opacity,visibility] ${expanded ? 'duration-150' : 'opacity-0 invisible duration-0'}`}
+          >
+            <PipMascot
+              state={mascotState ?? 'idle'}
+              size={EXPANDED_PIP_SIZE}
+              className="relative"
+              interactive
+            />
+          </div>
+        )}
       </div>
 
-      <div className="relative flex-1 min-w-0 pr-16">
-        <PipMascot
-          state={mascotState ?? 'idle'}
-          size={{ width: 62, height: 72 }}
-          className="absolute right-0 top-1/2 -translate-y-1/2"
-        />
+      <div className={`flex-1 min-w-0 ${expanded ? 'pr-24' : ''}`}>
         <div className="flex items-center gap-2 flex-wrap">
           <span
             className="text-lg font-bold leading-tight text-ex-ink"

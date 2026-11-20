@@ -1,6 +1,7 @@
 'use client'
 
 import BottomSheet from '@/components/common/BottomSheet'
+import SheetPerchPip from '@/components/common/SheetPerchPip'
 import SheetSummary from '@/components/common/SheetSummary'
 import { AmenityTypeIcon, CompassIcon } from '@/components/icons'
 import type { Palette } from '@/components/exhibit/Gallery'
@@ -33,10 +34,15 @@ export default function AmenitySheet({
       : null
 
   return (
-    <BottomSheet itemId={amenity?.id ?? null} onClose={onClose}>
+    <BottomSheet
+      itemId={amenity?.id ?? null}
+      onClose={onClose}
+      perch={<SheetPerchPip state="idle" />}
+    >
       {({ expanded, collapse, expand }) => (
         <div className="px-4">
           <SheetSummary
+            hasItem={!!amenity}
             expanded={expanded}
             onExpand={expand}
             thumb={

@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import BottomSheet, { type BottomSheetHandle } from '@/components/common/BottomSheet'
 import LanguageSelector from '@/components/common/LanguageSelector'
+import SheetPerchPip from '@/components/common/SheetPerchPip'
 import SheetSummary from '@/components/common/SheetSummary'
 import { CompassIcon, LeafOutlineIcon, PauseIcon, PlayIcon, StarIcon } from '@/components/icons'
 import { track } from '@vercel/analytics'
 import { galleryPhotos, thumbUrl } from '@/lib/exhibit-photos'
 import { AUDIO_CACHE_NAME } from '@/lib/precache'
+import { useMascotReaction } from '@/lib/use-mascot-reaction'
 import { useStore } from '@/lib/store'
 import { tourHref } from '@/lib/tour'
 import { LANGUAGES, formatTime, getAvailableLangs, parseFacts } from '@/lib/utils'
@@ -21,6 +23,9 @@ const RING_C = 2 * Math.PI * RING_R
 const MORPH_DELAY = 280
 const START_TIMEOUT = 8000
 const TOAST_MS = 3000
+const SURPRISED_MS = 1200
+const CELEBRATE_MS = 2000
+const SAD_MS = 3000
 
 type FallbackReason = 'error' | 'timeout' | 'missing'
 
@@ -87,6 +92,8 @@ export default function PreviewSheet({
   const autoPlayFiredRef = useRef<string | null>(null)
   const listenRef = useRef<() => void>(() => {})
 
+  const [reaction, react] = useMascotReaction()
+
   const [showPopper, setShowPopper] = useState(false)
 
   useEffect(() => {
@@ -117,6 +124,16 @@ export default function PreviewSheet({
       cancelled = true
     }
   }, [currentSrc])
+
+  const exhibitId = exhibit?.id ?? null
+  useEffect(() => {
+    if (exhibitId) react('surprised', SURPRISED_MS)
+  }, [exhibitId, react])
+
+  const needsInternet = hasAudio && audioCached === false && !online
+  useEffect(() => {
+    if (needsInternet) react('sad', SAD_MS)
+  }, [needsInternet, react])
 
   const clearIntent = () => {
     playIntent.current = false
@@ -169,6 +186,7 @@ export default function PreviewSheet({
       to && to !== from ? (audio.find((a) => a.language === to)?.audio_url ?? null) : null
     console.log('[audio] fallback', { from, to: toUrl ? to : null, reason })
     track('audio_language_fallback', { from, to: toUrl ? to : null, reason })
+    react('sad', SAD_MS)
     const fromName = langName(from)
     if (startTimer.current) clearTimeout(startTimer.current)
     startTimer.current = null
@@ -283,6 +301,7 @@ export default function PreviewSheet({
   }
   const thumb = thumbUrl(photoSource)
   const slides = galleryPhotos(photoSource)
+  const pipState = isPlaying ? 'speaking' : (reaction ?? 'idle')
   const enterTour = () => {
     const href = exhibit && tourHref(exhibit)
     if (href) router.push(href)
@@ -292,6 +311,7 @@ export default function PreviewSheet({
     <>
       <BottomSheet
         ref={sheetRef}
+        perch={<SheetPerchPip state={pipState} />}
         itemId={exhibit?.id ?? null}
         onClose={onClose}
         onSwipeClose={onSwipeClose}
@@ -348,6 +368,7 @@ export default function PreviewSheet({
               }}
               onEnded={() => {
                 sheetRef.current?.collapse()
+                react('celebrating', CELEBRATE_MS)
                 onAudioEnded?.()
               }}
               onPlay={() => setIsPlaying(true)}
@@ -370,7 +391,7 @@ export default function PreviewSheet({
               }}
             />
 
-            {hasAudio && audioCached === false && !online && (
+            {needsInternet && (
               <div
                 role="status"
                 className="w-full px-4 py-2 text-sm font-semibold text-center bg-yellow-300 text-black"
@@ -381,12 +402,13 @@ export default function PreviewSheet({
 
             <div className="px-4">
               <SheetSummary
+                hasItem={!!exhibit}
                 expanded={expanded}
                 displayId={exhibit?.displayId}
                 onExpand={expand}
                 slides={slides}
                 onTourEnter={enterTour}
-                mascotState={isPlaying ? 'speaking' : 'idle'}
+                mascotState={pipState}
                 thumb={
                   <div className="relative w-14 h-14">
                     <div
