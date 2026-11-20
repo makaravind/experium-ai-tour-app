@@ -94,6 +94,10 @@ interface Store {
   // default-campaign total TrailCard last celebrated, so a new discovery celebrates once
   lastCelebratedTotal: number
   setLastCelebratedTotal: (n: number) => void
+
+  // the one-time "Pip is resting (Reduce Motion is on)" hint has been dismissed
+  pipMotionHintSeen: boolean
+  setPipMotionHintSeen: (v: boolean) => void
 }
 
 export const useStore = create<Store>()(
@@ -194,6 +198,9 @@ export const useStore = create<Store>()(
 
       lastCelebratedTotal: 0,
       setLastCelebratedTotal: (lastCelebratedTotal) => set({ lastCelebratedTotal }),
+
+      pipMotionHintSeen: false,
+      setPipMotionHintSeen: (pipMotionHintSeen) => set({ pipMotionHintSeen }),
     }),
     {
       name: 'experium-store',
@@ -266,6 +273,7 @@ export const useStore = create<Store>()(
         acknowledgedCapped: s.acknowledgedCapped,
         insightsUnlocked: s.insightsUnlocked,
         lastCelebratedTotal: s.lastCelebratedTotal,
+        pipMotionHintSeen: s.pipMotionHintSeen,
       }),
     }
   )

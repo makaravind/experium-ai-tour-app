@@ -15,6 +15,7 @@ beforeEach(() => {
     discoveredByCampaign: {},
     scanQueue: [],
     lastCelebratedTotal: 0,
+    pipMotionHintSeen: false,
   })
 })
 
@@ -253,6 +254,17 @@ describe('lastCelebratedTotal', () => {
     expect(persisted().lastCelebratedTotal).toBe(0)
     useStore.getState().setLastCelebratedTotal(2)
     expect(persisted().lastCelebratedTotal).toBe(2)
+  })
+})
+
+describe('pipMotionHintSeen', () => {
+  it('defaults to false and persists once set', () => {
+    const persisted = () =>
+      useStore.persist.getOptions().partialize!(useStore.getState()) as Record<string, unknown>
+    expect(useStore.getState().pipMotionHintSeen).toBe(false)
+    expect(persisted().pipMotionHintSeen).toBe(false)
+    useStore.getState().setPipMotionHintSeen(true)
+    expect(persisted().pipMotionHintSeen).toBe(true)
   })
 })
 
