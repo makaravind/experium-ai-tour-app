@@ -1,19 +1,26 @@
 'use client'
 
-import { Component, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Component, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 
-export type PipState = 'idle' | 'speaking' | 'thinking' | 'celebrating'
+export type PipState =
+  'idle' | 'speaking' | 'thinking' | 'celebrating' | 'surprised' | 'sad' | 'sleeping'
+
+/** wobnimo has no auto-sleep; an idle Pip nods off after this long without a poke or state change. */
+export const SLEEP_AFTER_MS = 20_000
 
 interface PipMascotProps {
   state: PipState
   size: number | { width: number; height: number }
   className?: string
+  interactive?: boolean
 }
 
 interface PipCanvasProps {
   state: PipState
+  interactive: boolean
   onReady: () => void
+  onPoke: () => void
 }
 
 // Kept outside dynamic(): Next rewrites import() inside its loader to a require-style resolve,
@@ -23,13 +30,15 @@ const loadWobnimo = () => Promise.all([import('wobnimo/react'), import('wobnimo/
 const PipCanvas = dynamic<PipCanvasProps>(
   async () => {
     const [{ Mascot }, { pip }] = await loadWobnimo()
-    return function PipCanvas({ state, onReady }) {
+    return function PipCanvas({ state, interactive, onReady, onPoke }) {
       return (
         <Mascot
           character={pip}
           state={state}
           onReady={onReady}
-          interactive={false}
+          interactive={interactive}
+          onPoke={onPoke}
+          maxPixelRatio={3}
           style={{ width: '100%', height: '100%' }}
         />
       )
@@ -70,10 +79,30 @@ class CanvasBoundary extends Component<{ children: ReactNode }, { failed: boolea
 }
 
 /** A passed className replaces the default `relative`, so it must include its own position class. */
-export default function PipMascot({ state, size, className }: PipMascotProps) {
+export default function PipMascot({ state, size, className, interactive = false }: PipMascotProps) {
   const { width, height } = typeof size === 'number' ? { width: size, height: size } : size
   const live = useSyncExternalStore(subscribe, getCanAnimate, () => false)
   const [ready, setReady] = useState(false)
+  const [asleep, setAsleep] = useState(false)
+  const [pokes, setPokes] = useState(0)
+  const [prevState, setPrevState] = useState(state)
+
+  // Any change of the requested state wakes Pip.
+  if (prevState !== state) {
+    setPrevState(state)
+    setAsleep(false)
+  }
+
+  useEffect(() => {
+    if (!live || state !== 'idle') return
+    const timer = setTimeout(() => setAsleep(true), SLEEP_AFTER_MS)
+    return () => clearTimeout(timer)
+  }, [live, state, pokes])
+
+  const handlePoke = () => {
+    setAsleep(false)
+    setPokes((n) => n + 1)
+  }
 
   return (
     <div
@@ -93,9 +122,14 @@ export default function PipMascot({ state, size, className }: PipMascotProps) {
         />
       )}
       {live && (
-        <div className="absolute inset-0">
+        <div className={`absolute inset-0 ${interactive ? 'pointer-events-auto' : ''}`}>
           <CanvasBoundary>
-            <PipCanvas state={state} onReady={() => setReady(true)} />
+            <PipCanvas
+              state={asleep && state === 'idle' ? 'sleeping' : state}
+              interactive={interactive}
+              onReady={() => setReady(true)}
+              onPoke={handlePoke}
+            />
           </CanvasBoundary>
         </div>
       )}
