@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import BottomSheet, { type BottomSheetHandle } from '@/components/common/BottomSheet'
 import LanguageSelector from '@/components/common/LanguageSelector'
+import SheetPerchPip from '@/components/common/SheetPerchPip'
 import SheetSummary from '@/components/common/SheetSummary'
 import { CompassIcon, LeafOutlineIcon, PauseIcon, PlayIcon, StarIcon } from '@/components/icons'
 import { track } from '@vercel/analytics'
@@ -283,6 +284,7 @@ export default function PreviewSheet({
   }
   const thumb = thumbUrl(photoSource)
   const slides = galleryPhotos(photoSource)
+  const pipState = isPlaying ? 'speaking' : 'idle'
   const enterTour = () => {
     const href = exhibit && tourHref(exhibit)
     if (href) router.push(href)
@@ -292,6 +294,7 @@ export default function PreviewSheet({
     <>
       <BottomSheet
         ref={sheetRef}
+        perch={<SheetPerchPip state={pipState} />}
         itemId={exhibit?.id ?? null}
         onClose={onClose}
         onSwipeClose={onSwipeClose}
@@ -386,7 +389,7 @@ export default function PreviewSheet({
                 onExpand={expand}
                 slides={slides}
                 onTourEnter={enterTour}
-                mascotState={isPlaying ? 'speaking' : 'idle'}
+                mascotState={pipState}
                 thumb={
                   <div className="relative w-14 h-14">
                     <div
