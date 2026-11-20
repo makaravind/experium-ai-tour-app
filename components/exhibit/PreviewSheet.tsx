@@ -402,6 +402,7 @@ export default function PreviewSheet({
 
             <div className="px-4">
               <SheetSummary
+                hasItem={!!exhibit}
                 expanded={expanded}
                 displayId={exhibit?.displayId}
                 onExpand={expand}

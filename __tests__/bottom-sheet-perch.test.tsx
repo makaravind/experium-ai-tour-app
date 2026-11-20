@@ -66,10 +66,45 @@ describe('BottomSheet perch', () => {
     expect(perchBox().style.visibility).toBe('visible')
   })
 
-  it('is hidden when itemId is null', () => {
-    renderSheet(null)
+  it('is not mounted when itemId is null, and mounts once an item is selected', () => {
+    const { rerender } = renderSheet(null)
+    expect(screen.queryByTestId('perch')).toBeNull()
+    rerender(
+      <BottomSheet itemId="x" perch={<div data-testid="perch">pip</div>}>
+        {() => null}
+      </BottomSheet>
+    )
+    expect(screen.getByTestId('perch')).toBeTruthy()
+  })
+
+  it('hides the perch as soon as a close starts, and restores it for the next item', () => {
+    const onClose = vi.fn()
+    const { container, rerender } = render(
+      <BottomSheet itemId="x" onClose={onClose} perch={<div data-testid="perch">pip</div>}>
+        {() => null}
+      </BottomSheet>
+    )
+    // tap-outside backdrop runs close()
+    fireEvent.click(container.querySelector('.inset-0') as HTMLElement)
     expect(perchBox().style.opacity).toBe('0')
     expect(perchBox().style.visibility).toBe('hidden')
+
+    rerender(
+      <BottomSheet itemId="y" onClose={onClose} perch={<div data-testid="perch">pip</div>}>
+        {() => null}
+      </BottomSheet>
+    )
+    expect(perchBox().style.opacity).toBe('1')
+    expect(perchBox().style.visibility).toBe('visible')
+  })
+
+  it('starts the sheet drag on pointer-down over the perch', () => {
+    const { container } = renderSheet('x')
+    const handle = screen.getByLabelText('Expand to full view')
+    // Same wiring as the handle: the perch container carries a pointer-down handler.
+    expect(handle.getAttribute('aria-expanded')).toBe('false')
+    expect(() => fireEvent.pointerDown(perchBox(), { pointerId: 1 })).not.toThrow()
+    expect(container.querySelector('.fixed.bottom-0')).not.toBeNull()
   })
 
   it('renders no perch container without a perch prop', () => {

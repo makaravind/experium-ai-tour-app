@@ -10,7 +10,7 @@ export default function SheetPerchPip({ state }: { state: PipState }) {
     <PipMascot
       state={state}
       size={PERCH_PIP_SIZE}
-      className="relative -translate-y-[70px]"
+      className="relative -translate-y-[70px] touch-none"
       interactive
     />
   )

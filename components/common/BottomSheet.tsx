@@ -40,7 +40,7 @@ export default function BottomSheet({
   onReady?: () => void
   /** Teaser rendered in the bottom clearance while peeking; tapping it expands. */
   peekFooter?: ReactNode
-  /** Perched on the sheet's top-right edge, outside the scroller so it isn't clipped. Hidden while expanded or with no item (the parked sheet's lifted perch would peek over the screen bottom). */
+  /** Perched on the sheet's top-right edge, outside the scroller so it isn't clipped. Hidden while expanded or closing, and not mounted with no item (the parked sheet's lifted perch would peek over the screen bottom). */
   perch?: ReactNode
   ref?: Ref<BottomSheetHandle>
   children: (sheet: { expanded: boolean; collapse: () => void; expand: () => void }) => ReactNode
@@ -48,6 +48,7 @@ export default function BottomSheet({
   const [expanded, setExpanded] = useState(false)
   const [peekH, setPeekH] = useState<number | undefined>(undefined)
   const [fullH, setFullH] = useState(900)
+  const [closing, setClosing] = useState(false)
   const yOffset = itemId && peekH !== undefined ? fullH - peekH : fullH
   const y = useMotionValue(fullH)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -103,6 +104,7 @@ export default function BottomSheet({
     } else if (itemId !== prevItemId.current || y.get() > fullH - peekH - 5) {
       onCollapse?.()
       setExpanded(false)
+      setClosing(false)
       animate(y, fullH - peekH, SHEET_SPRING)
     }
     prevItemId.current = itemId
@@ -130,6 +132,7 @@ export default function BottomSheet({
   const close = (done?: () => void) => {
     onCollapse?.()
     setExpanded(false)
+    setClosing(true)
     animate(y, fullH, { ...SHEET_SPRING, onComplete: () => done?.() })
   }
   const handleClose = () => close(onClose)
@@ -196,13 +199,15 @@ export default function BottomSheet({
             </div>
           </div>
         </div>
-        {perch && (
+        {perch && itemId && (
+          // Overlaps the handle row, so drags starting on Pip must start the sheet drag themselves.
           <div
             className="pointer-events-none absolute right-4 top-0 z-10 transition-[opacity,visibility] duration-150"
             style={{
-              opacity: expanded || !itemId ? 0 : 1,
-              visibility: expanded || !itemId ? 'hidden' : 'visible',
+              opacity: expanded || closing ? 0 : 1,
+              visibility: expanded || closing ? 'hidden' : 'visible',
             }}
+            onPointerDown={(e) => dragControls.start(e)}
           >
             {perch}
           </div>

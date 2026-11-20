@@ -10,6 +10,7 @@ import PipMascot, { type PipState } from '@/components/common/PipMascot'
 const EXPANDED_PIP_SIZE = 110
 
 export default function SheetSummary({
+  hasItem,
   expanded,
   thumb,
   name,
@@ -25,6 +26,8 @@ export default function SheetSummary({
   onTourEnter,
   mascotState,
 }: {
+  /** False while the sheet is parked: the expanded Pip isn't mounted, so no idle WebGL canvas. */
+  hasItem: boolean
   expanded: boolean
   thumb: ReactNode
   name?: string
@@ -87,16 +90,18 @@ export default function SheetSummary({
           )}
         </AnimatePresence>
         {/* Outside the gallery (it clips); both Pips stay mounted so a toggle never re-shows the poster. */}
-        <div
-          className={`absolute right-0 top-full z-10 -translate-y-[44px] transition-[opacity,visibility] ${expanded ? 'duration-150' : 'opacity-0 invisible duration-0'}`}
-        >
-          <PipMascot
-            state={mascotState ?? 'idle'}
-            size={EXPANDED_PIP_SIZE}
-            className="relative"
-            interactive
-          />
-        </div>
+        {hasItem && (
+          <div
+            className={`absolute right-0 top-full z-10 -translate-y-[44px] transition-[opacity,visibility] ${expanded ? 'duration-150' : 'opacity-0 invisible duration-0'}`}
+          >
+            <PipMascot
+              state={mascotState ?? 'idle'}
+              size={EXPANDED_PIP_SIZE}
+              className="relative"
+              interactive
+            />
+          </div>
+        )}
       </div>
 
       <div className={`flex-1 min-w-0 ${expanded ? 'pr-24' : ''}`}>

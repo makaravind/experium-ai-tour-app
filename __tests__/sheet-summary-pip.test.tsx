@@ -18,9 +18,10 @@ vi.mock('@/components/exhibit/Gallery', () => ({ default: () => createElement('d
 
 afterEach(cleanup)
 
-const summary = (props: { expanded: boolean; mascotState?: 'speaking' }) =>
+const summary = (props: { expanded: boolean; mascotState?: 'speaking'; hasItem?: boolean }) =>
   render(
     createElement(SheetSummary, {
+      hasItem: true,
       ...props,
       thumb: createElement('div'),
       name: 'Rex',
@@ -38,6 +39,11 @@ describe('SheetSummary expanded Pip', () => {
     expect(pipBox().classList.contains('invisible')).toBe(true)
   })
 
+  it('is not mounted when no item is selected (parked sheet)', () => {
+    summary({ expanded: false, hasItem: false })
+    expect(screen.queryByTestId('pip')).toBeNull()
+  })
+
   it('is visible when expanded', () => {
     summary({ expanded: true })
     expect(pipBox().classList.contains('opacity-0')).toBe(false)
@@ -49,6 +55,7 @@ describe('SheetSummary expanded Pip', () => {
     const before = pip()
     rerender(
       createElement(SheetSummary, {
+        hasItem: true,
         expanded: true,
         thumb: createElement('div'),
         name: 'Rex',
@@ -86,5 +93,6 @@ describe('SheetPerchPip', () => {
     expect(pip().getAttribute('data-size')).toBe('108')
     expect(pip().getAttribute('data-interactive')).toBe('true')
     expect(pip().className).toContain('-translate-y-[70px]')
+    expect(pip().className).toContain('touch-none')
   })
 })
