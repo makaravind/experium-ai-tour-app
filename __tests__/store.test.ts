@@ -14,6 +14,7 @@ beforeEach(() => {
     visitorId: null,
     discoveredByCampaign: {},
     scanQueue: [],
+    lastCelebratedTotal: 0,
   })
 })
 
@@ -230,6 +231,28 @@ describe('persist migration v1 -> v2', () => {
       unknown
     >
     expect(out.cachedAmenities).toEqual([{ id: 'a' }])
+  })
+})
+
+describe('lastCelebratedTotal', () => {
+  const migrate = (state: object, version: number) =>
+    useStore.persist.getOptions().migrate!(state, version) as unknown as Record<string, unknown>
+  const byCampaign = { default: { codes: ['a', 'b', 'c'], total: 3 } }
+
+  it('seeds from the current total on every pre-v11 version, including the early-return ones', () => {
+    for (const v of [9, 10]) {
+      expect(migrate({ discoveredByCampaign: byCampaign }, v).lastCelebratedTotal).toBe(3)
+    }
+    expect(migrate({ discoveredCodes: ['a'], totalDiscovered: 4 }, 8).lastCelebratedTotal).toBe(4)
+    expect(migrate({ language: 'hi' }, 0).lastCelebratedTotal).toBe(0)
+  })
+
+  it('persists and defaults to 0', () => {
+    const persisted = () =>
+      useStore.persist.getOptions().partialize!(useStore.getState()) as Record<string, unknown>
+    expect(persisted().lastCelebratedTotal).toBe(0)
+    useStore.getState().setLastCelebratedTotal(2)
+    expect(persisted().lastCelebratedTotal).toBe(2)
   })
 })
 

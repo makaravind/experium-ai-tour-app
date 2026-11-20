@@ -90,6 +90,10 @@ interface Store {
 
   insightsUnlocked: boolean
   setInsightsUnlocked: (v: boolean) => void
+
+  // default-campaign total TrailCard last celebrated, so a new discovery celebrates once
+  lastCelebratedTotal: number
+  setLastCelebratedTotal: (n: number) => void
 }
 
 export const useStore = create<Store>()(
@@ -187,10 +191,13 @@ export const useStore = create<Store>()(
 
       insightsUnlocked: false,
       setInsightsUnlocked: (insightsUnlocked) => set({ insightsUnlocked }),
+
+      lastCelebratedTotal: 0,
+      setLastCelebratedTotal: (lastCelebratedTotal) => set({ lastCelebratedTotal }),
     }),
     {
       name: 'experium-store',
-      version: 10,
+      version: 11,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<Store>
         // v9 keys discoveries by campaign: fold the old scalar shape into `default`
@@ -208,6 +215,10 @@ export const useStore = create<Store>()(
           const old = state as { insightsKey?: string | null }
           state.insightsUnlocked = !!old.insightsKey
           delete old.insightsKey
+        }
+        // v11 adds lastCelebratedTotal: seed it to the current total so existing visitors don't celebrate on first load
+        if (version < 11) {
+          state.lastCelebratedTotal = state.discoveredByCampaign?.[DEFAULT_CAMPAIGN_ID]?.total ?? 0
         }
         // v9 caches are still valid
         if (version === 9) return state as Store
@@ -254,6 +265,7 @@ export const useStore = create<Store>()(
         assetFailures: s.assetFailures,
         acknowledgedCapped: s.acknowledgedCapped,
         insightsUnlocked: s.insightsUnlocked,
+        lastCelebratedTotal: s.lastCelebratedTotal,
       }),
     }
   )
