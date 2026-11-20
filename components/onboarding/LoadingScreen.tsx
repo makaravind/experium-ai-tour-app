@@ -1,7 +1,7 @@
 'use client'
 
 import LanguageSelector from '@/components/common/LanguageSelector'
-import { LeafIcon } from '@/components/icons'
+import PipMascot from '@/components/common/PipMascot'
 import { LANGUAGES, type LanguageOption } from '@/lib/utils'
 
 export default function LoadingScreen({
@@ -67,17 +67,7 @@ export default function LoadingScreen({
         className="relative z-10 flex flex-col items-center w-full h-full px-7 pb-8"
         style={{ fontFamily: 'var(--font-body)' }}
       >
-        {/* Logo */}
-        <div
-          className="mt-16 w-28 h-28 rounded-3xl flex items-center justify-center text-white"
-          style={{
-            background:
-              'radial-gradient(120% 120% at 30% 20%, var(--color-ex-forest-light), var(--color-ex-forest-deep))',
-            boxShadow: 'var(--ex-shadow-soft)',
-          }}
-        >
-          <LeafIcon size={56} strokeWidth={1.6} />
-        </div>
+        <PipMascot state="thinking" size={112} className="relative mt-16" />
 
         <h1
           className="mt-5 text-2xl font-bold text-ex-ink"
