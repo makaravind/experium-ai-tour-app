@@ -3,10 +3,12 @@ import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { createElement, type ComponentType } from 'react'
 
 const mascotProps = vi.fn()
+let mascotShouldThrow = false
 
 vi.mock('wobnimo/react', () => ({
   Mascot: (props: { state: string; onReady?: () => void }) => {
     mascotProps(props)
+    if (mascotShouldThrow) throw new Error('webgl context lost')
     return createElement('div', { 'data-testid': 'mascot', 'data-state': props.state })
   },
 }))
@@ -30,7 +32,10 @@ async function loadPip(opts: { webgl2: boolean; reducedMotion?: boolean }) {
   return mod.default as ComponentType<PipProps>
 }
 
-beforeEach(() => mascotProps.mockClear())
+beforeEach(() => {
+  mascotProps.mockClear()
+  mascotShouldThrow = false
+})
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -79,6 +84,21 @@ describe('PipMascot', () => {
     expect(container.querySelector('img')).not.toBeNull()
     act(() => mascotProps.mock.lastCall![0].onReady())
     expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('keeps the poster when the canvas throws', async () => {
+    mascotShouldThrow = true
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const PipMascot = await loadPip({ webgl2: true })
+    const { container, queryByTestId } = render(
+      createElement(PipMascot, { state: 'idle', size: 48 })
+    )
+    await waitFor(() => expect(mascotProps).toHaveBeenCalled())
+    const img = container.querySelector('img')
+    expect(img?.getAttribute('src')).toBe('/pip.webp')
+    expect(img?.classList.contains('object-contain')).toBe(true)
+    expect(queryByTestId('mascot')).toBeNull()
   })
 
   it('is aria-hidden and reserves its size', async () => {
